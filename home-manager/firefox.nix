@@ -20,7 +20,7 @@
                     # Disable the builtin Password manager
                     "signon.rememberSignons" = false;
                     "signon.rememberSignons.visibilityToggle" = false;
-                    "trailhead.firstrun.didSeeAboutWelcome"  =  true
+                    "trailhead.firstrun.didSeeAboutWelcome"  =  true;
                 };
             };
         };
