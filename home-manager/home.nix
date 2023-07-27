@@ -28,6 +28,7 @@
     pkgs.deckmaster
     pkgs.yakuake
     pkgs.git
+    pkgs.git-crypt
     pkgs.obsidian
     pkgs.neochat
 

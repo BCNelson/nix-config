@@ -17,3 +17,6 @@ alias os :=update-os
 alias o :=update-os
 update-os:
     sudo nixos-rebuild switch --flake .#$HOSTNAME
+
+unlock:
+    gpg --decrypt local.key.asc | git-crypt unlock -
