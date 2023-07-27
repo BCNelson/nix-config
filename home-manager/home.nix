@@ -113,7 +113,10 @@
   home.sessionVariables = {
     EDITOR = "vim";
     VISUAL = "kwrite";
+    SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh";
+    SSH_AGENT_PID = "";
   };
+
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
