@@ -1,7 +1,9 @@
 { config, pkgs, ... }:
 
-{
+let
     sensitive = import ./sensitive.nix;
+in
+{
     environment.systemPackages = with pkgs; [
         tailscale
         jq
@@ -43,7 +45,7 @@
             -H "X-Click: $auth_url" \
             -H "X-Icon: https://tailscale.com/favicon.ico" \
             -d "There has been a Request to login to your tailscale network: $auth_url" \
-            https://ntfy.sh/$(${sensitive.ntfy_tailscale_topic}
+            https://ntfy.sh/${sensitive.ntfy_tailscale_topic}
         '';
     };
 
