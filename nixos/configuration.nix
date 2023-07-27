@@ -9,6 +9,7 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./tailscale.nix
+      ./roles/gaming.nix
     ];
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
