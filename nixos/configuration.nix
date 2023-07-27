@@ -8,6 +8,7 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./tailscale.nix
     ];
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -123,7 +124,7 @@
     options = "--delete-older-than 7d";
   };
 
-   system.activationScripts = {
+  system.activationScripts = {
     flathub = ''
       /run/current-system/sw/bin/flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     '';
