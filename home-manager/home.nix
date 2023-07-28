@@ -31,6 +31,7 @@
     pkgs.git-crypt
     pkgs.obsidian
     pkgs.neochat
+    pkgs.signal-desktop
 
     pkgs.just
 
