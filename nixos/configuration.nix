@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ inputs, outputs, config, pkgs, ... }:
 
 {
   imports =
@@ -12,7 +12,18 @@
       ./roles/gaming.nix
     ];
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings= { 
+    experimental-features = [ "nix-command" "flakes" ];
+    auto-optimise-store = true;
+  };
+  
+  nixpkgs = {
+    # You can add overlays here
+    overlays = [
+      outputs.overlays.unstable-packages
+      out
+    ];
+  };
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
