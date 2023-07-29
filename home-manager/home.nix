@@ -38,6 +38,8 @@
     pkgs.neochat
     pkgs.signal-desktop
     pkgs.discord
+
+    pkgs.newsflash
   ];
 
   programs = {
