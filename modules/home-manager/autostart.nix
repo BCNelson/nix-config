@@ -1,4 +1,4 @@
-{ config, options, lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
 
@@ -16,15 +16,20 @@ in {
           description = "List of packages to autostart";
         };
         desktopItems = lib.mkOption {
-          type = lib.types.listOf lib.types.desktopItem;
+          type = lib.types.listOf lib.types.attrs;
           default = [ ];
           description = "List of desktopItems to autostart";
+        };
+        packageSourced = lib.mkOption {
+          type = lib.types.listOf lib.types.attrs;
+          default = [ ];
+          description = "List of packages to autostart from source";
         };
     };
   };
 
   config = lib.mkIf cfg.enable {
-    home.files = lib.mkmerge
+    home.file = lib.mkMerge [
         (builtins.listToAttrs (map (pkg: {
           name = # ".config/autostart/" + pkg.pname + ".desktop";
             if pkg ? desktopItem then ".config/autostart/" + pkg.desktopItem.name else ".config/autostart/" + pkg.pname + ".desktop";
@@ -43,6 +48,13 @@ in {
         (builtins.listToAttrs (map (item: {
           name = ".config/autostart/" + item.name;
           value = item.text;
-        }) cfg.desktopItems));
+        }) cfg.desktopItems))
+        (builtins.listToAttrs (map (item: {
+          name = ".config/autostart/" + item.package.pname + ".desktop";
+          value = {
+            source = (item.package + "/" + item.path);
+          };
+        }) cfg.packageSourced))
+    ];
   };
 }

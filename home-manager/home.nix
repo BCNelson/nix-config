@@ -72,7 +72,13 @@
 
   services.freedesktop.autostart = {
     enable = true;
-    packages = [ pkgs.yakuake ];
+    # packages = [ pkgs.yakuake ];
+    packageSourced = [ 
+      {
+        package = pkgs.yakuake;
+        path = "share/applications/org.kde.yakuake.desktop";
+      }
+     ];
   };
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
