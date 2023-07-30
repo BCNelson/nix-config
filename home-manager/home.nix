@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, inputs, outputs, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -7,9 +7,11 @@
   home.homeDirectory = "/home/bcnelson";
 
   imports = [
+    outputs.homeManagerModules.autostart
     ./firefox.nix
     ./chrome.nix
     ./vscode.nix
+    ./deckmaster
   ];
 
   # This value determines the Home Manager release that your configuration is
@@ -22,31 +24,22 @@
   home.stateVersion = "23.05"; # Please read the comment before changing.
 
   home.packages = [
-    # # Adds the 'hello' command to your environment. It prints a friendly
-    # # "Hello, world!" when run.
-    # pkgs.hello
-    pkgs.deckmaster
     pkgs.yakuake
+
+    #Devtools
     pkgs.git
     pkgs.git-crypt
-    pkgs.obsidian
-    pkgs.neochat
-    pkgs.signal-desktop
-
     pkgs.just
 
-    # # It is sometimes useful to fine-tune packages, for example, by applying
-    # # overrides. You can do that directly here, just don't forget the
-    # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
-    # # fonts?
-    # (pkgs.nerdfonts.override { fonts = [ "FantasqueSansMono" ]; })
 
-    # # You can also create simple shell scripts directly inside your
-    # # configuration. For example, this adds a command 'my-hello' to your
-    # # environment:
-    # (pkgs.writeShellScriptBin "my-hello" ''
-    #   echo "Hello, ${config.home.username}!"
-    # '')
+    pkgs.obsidian
+
+    # Chat
+    pkgs.neochat
+    pkgs.signal-desktop
+    pkgs.discord
+
+    pkgs.newsflash
   ];
 
   programs = {
@@ -79,46 +72,36 @@
   xdg.systemDirs.data = [ "${config.home.homeDirectory}/.nix-profile/share/applications" ];
   programs.bash.enable = true;
 
+  services.freedesktop.autostart = {
+    enable = true;
+    # packages = [ pkgs.yakuake ];
+    packageSourced = [ 
+      {
+        package = pkgs.yakuake;
+        path = "share/applications/org.kde.yakuake.desktop";
+      }
+     ];
+  };
+
+  systemd.user.startServices = "sd-switch";
+
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
-    # # Building this configuration will create a copy of 'dotfiles/screenrc' in
-    # # the Nix store. Activating the configuration will then make '~/.screenrc' a
-    # # symlink to the Nix store copy.
-    # ".screenrc".source = dotfiles/screenrc;
-
     ".local/share/konsole/Fish.profile".text = ''
     [General]
     Command=~/.nix-profile/bin/fish
     Name=Fish
     Parent=FALLBACK/
     '';
-
-    # # You can also set the file content immediately.
-    # ".gradle/gradle.properties".text = ''
-    #   org.gradle.console=verbose
-    #   org.gradle.daemon.idletimeout=3600000
-    # '';
   };
 
-  # You can also manage environment variables but you will have to manually
-  # source
-  #
-  #  ~/.nix-profile/etc/profile.d/hm-session-vars.sh
-  #
-  # or
-  #
-  #  /etc/profiles/per-user/bcnelson/etc/profile.d/hm-session-vars.sh
-  #
-  # if you don't want to manage your shell through Home Manager.
   home.sessionVariables = {
     EDITOR = "vim";
     VISUAL = "kwrite";
     SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh";
     SSH_AGENT_PID = "";
   };
-
-
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 }
