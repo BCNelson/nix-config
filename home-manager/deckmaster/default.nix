@@ -2,7 +2,7 @@
 
 {
     home.packages = [
-        pkg.deckmaster
+        pkgs.deckmaster
     ];
 
     home.file."${config.xdg.configHome}/deckmaster" = {
@@ -13,7 +13,6 @@
     systemd.user = {
         paths = {
             deckmaster = {
-                enable = true;
                 Unit.Description = "Stream Deck Device Path";
                 Path = {
                     PathExists = "/dev/streamdeck";
@@ -24,14 +23,13 @@
         };
         services = {
             deckmaster = {
-                enable = true;
                 Unit.Description = "Deckmaster Service";
                 Service = {
-                    ExecStart= "${pkg.deckmaster}/bin/deckmaster --deck ${config.xdg.configHome}/deckmaster/main.deck";
+                    ExecStart= "${pkgs.deckmaster}/bin/deckmaster --deck ${config.xdg.configHome}/deckmaster/main.deck";
                     Restart = "on-failure";
                     ExecReload = "kill -HUP $MAINPID";
-                }
+                };
             };
         };
-    }
+    };
 }
