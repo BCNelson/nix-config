@@ -11,6 +11,7 @@
     ./firefox.nix
     ./chrome.nix
     ./vscode.nix
+    ./deckmaster
   ];
 
   # This value determines the Home Manager release that your configuration is
@@ -23,7 +24,6 @@
   home.stateVersion = "23.05"; # Please read the comment before changing.
 
   home.packages = [
-    pkgs.deckmaster
     pkgs.yakuake
 
     #Devtools

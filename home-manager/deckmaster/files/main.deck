@@ -1,0 +1,136 @@
+[[keys]]
+  index = 0
+  [keys.widget]
+    id = "top"
+    [keys.widget.config]
+      mode = "cpu"
+      fillColor = "#d497de"
+
+[[keys]]
+  index = 1
+  [keys.widget]
+    id = "top"
+    [keys.widget.config]
+      mode = "memory"
+
+[[keys]]
+  index = 2
+  [keys.widget]
+    id = "weather"
+    [keys.widget.config]
+      location = "lehi+ut"
+
+[[keys]]
+  index = 3
+  [keys.widget]
+    id = "time"
+    [keys.widget.config]
+      format = "%l;%d;%M"
+      font = "regular;bold;regular"
+  [keys.action]
+    exec = "xdg-open https://calendar.google.com/"
+
+[[keys]]
+  index = 4
+  [keys.widget]
+    id = "time"
+    [keys.widget.config]
+      format = "%H;%i;%s"
+      font = "bold;regular;thin"
+
+[[keys]]
+  index = 5
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/icons/aurora/Multimedia - Volume Down.png"
+  [keys.action]
+    keycode = "VolumeDown"
+  [keys.action_hold]
+    keycode = "Mute"
+
+[[keys]]
+  index = 6
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/icons/aurora/Multimedia - Volume Up.png"
+  [keys.action]
+    keycode = "VolumeUp"
+  [keys.action_hold]
+    [dbus]
+      object = "org.kde.plasmashel"
+      path = "/org/kde/osdService"
+      method = "volumeChanged"
+      value = "25"
+
+[[keys]]
+  index = 7
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      label = "Sleep"
+  [keys.action]
+    device = "sleep"
+
+[[keys]]
+  index = 8
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/go-previous.png"
+      label = "Dim"
+  [keys.action]
+    device = "brightness-10"
+
+[[keys]]
+  index = 9
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/go-next.png"
+      label = "Brighten"
+  [keys.action]
+    device = "brightness+10"
+
+[[keys]]
+  index = 10
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/go-more.png"
+      label = "More"
+  [keys.action]
+    deck = "emojis/main.deck"
+
+[[keys]]
+  index = 11
+  [keys.widget]
+    id = "recentWindow"
+    [keys.widget.config]
+      window = 1
+      showTitle = true
+
+[[keys]]
+  index = 12
+  [keys.widget]
+    id = "recentWindow"
+    [keys.widget.config]
+      window = 3
+      showTitle = true
+
+[[keys]]
+  index = 13
+  [keys.widget]
+    id = "recentWindow"
+    [keys.widget.config]
+      window = 4
+      showTitle = true
+
+[[keys]]
+  index = 14
+  [keys.widget]
+    id = "recentWindow"
+    [keys.widget.config]
+      window = 5
+      showTitle = true
