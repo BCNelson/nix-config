@@ -3,7 +3,7 @@
 {
     programs.vscode = {
       enable = true;
-      package = pkgs.vscode.fhs;
+      package = pkgs.vscode;
       userSettings = {
         "terminal.integrated.defaultProfile.linux" = "fish";
         "workbench.colorTheme" = "Default Dark Modern";
