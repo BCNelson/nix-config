@@ -18,7 +18,7 @@
                     PathExists = "/dev/streamdeck";
                     Unit = "deckmaster.service";
                 };
-                Install.WantedBy = [ "multi-user.target" ];
+                Install.WantedBy = [ "default.target" ];
             };
         };
         services = {
