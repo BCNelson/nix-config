@@ -3,6 +3,7 @@
 {
     home.packages = [
         pkgs.deckmaster
+        pkgs.wl-clipboard
     ];
 
     home.file."${config.xdg.configHome}/deckmaster" = {
