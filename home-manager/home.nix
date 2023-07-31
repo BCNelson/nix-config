@@ -40,6 +40,8 @@
     pkgs.discord
 
     pkgs.newsflash
+
+    pkgs.jellyfin-media-player
   ];
 
   programs = {
