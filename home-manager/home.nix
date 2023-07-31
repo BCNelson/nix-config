@@ -83,6 +83,11 @@
      ];
   };
 
+  services.kdeconnect = {
+    enable = true;
+    indicator = true;
+  };
+
   systemd.user.startServices = "sd-switch";
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage

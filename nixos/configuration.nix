@@ -29,6 +29,15 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   networking.hostName = "sierra-2"; # Define your hostname.
+  networking.firewall = { 
+    enable = true;
+    allowedTCPPortRanges = [ 
+      { from = 1714; to = 1764; } # KDE Connect
+    ];  
+    allowedUDPPortRanges = [ 
+      { from = 1714; to = 1764; } # KDE Connect
+    ];  
+  };  
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
