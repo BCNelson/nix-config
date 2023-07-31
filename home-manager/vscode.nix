@@ -9,6 +9,7 @@
         "workbench.colorTheme" = "Default Dark Modern";
         "editor.inlineSuggest.enabled" = true;
         "github.copilot.enable" = ''{"*": true,}'';
+        "update.mode" = "none";
       };
     };
 
