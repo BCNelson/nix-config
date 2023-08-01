@@ -6,6 +6,7 @@
       ./hardware-configuration.nix
       ../roles/desktop.nix
       ../roles/gaming.nix
+      ../roles/docker.nix
     ];
 
   networking.hostName = "sierra-2"; # Define your hostname.
