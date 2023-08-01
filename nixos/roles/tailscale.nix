@@ -1,12 +1,12 @@
 { config, pkgs, ... }:
 
 let
-    sensitive = import ./sensitive.nix;
+    sensitive = import ../sensitive.nix;
 in
 {
     environment.systemPackages = with pkgs; [
         tailscale
-        jq
+        jq # Needed for parsing tailscale status in the setup script
     ];
     services.tailscale.enable = true;
     systemd.services.tailscale-autoconnect = {
