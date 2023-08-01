@@ -9,6 +9,7 @@
     home.file."${config.xdg.configHome}/deckmaster" = {
         source = ./files;
         recursive = true;
+        onChange = "systemctl --user restart deckmaster.service";
     };
 
     systemd.user = {

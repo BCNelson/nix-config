@@ -128,9 +128,11 @@
       showTitle = true
 
 [[keys]]
-  index = 14
+  index = 9
   [keys.widget]
-    id = "recentWindow"
+    id = "button"
     [keys.widget.config]
-      window = 5
-      showTitle = true
+      icon = "assets/pathfinder.png"
+      label = "Pathfinder"
+  [keys.action]
+    device = "brightness+10"

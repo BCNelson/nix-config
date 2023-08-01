@@ -1,0 +1,9 @@
+[[keys]]
+  index = 14
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/go-previous.png"
+      label = "Home"
+  [keys.action]
+    deck = "../main.deck"
