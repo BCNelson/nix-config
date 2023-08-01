@@ -20,3 +20,16 @@ update-os:
 
 unlock:
     gpg --decrypt local.key.asc | git-crypt unlock -
+
+test-deckmaster:
+    #!/usr/bin/env bash
+    cleanup() {
+        systemctl --user start deckmaster.path
+        trap - SIGINT SIGTERM # clear the trap
+        kill -- -$$ # Sends SIGTERM to child/sub processes
+    }
+    systemctl --user stop deckmaster.path
+    systemctl --user stop deckmaster.service
+    deckmaster -deck ./home-manager/deckmaster/files/main.deck
+    
+    trap cleanup EXIT

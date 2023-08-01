@@ -128,11 +128,12 @@
       showTitle = true
 
 [[keys]]
-  index = 9
+  index = 14
   [keys.widget]
     id = "button"
     [keys.widget.config]
       icon = "assets/pathfinder.png"
       label = "Pathfinder"
-  [keys.action]
-    device = "brightness+10"
+[keys.action]
+    deck = "pathfinder/main.deck"
+
