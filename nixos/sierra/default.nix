@@ -19,6 +19,8 @@
     allowedUDPPortRanges = [
       { from = 1714; to = 1764; } # KDE Connect
     ];
+    allowedTCPPorts = [ 22000 ]; # Syncthing
+    allowedUDPPorts = [ 22000 21027 ];# Syncthing
   };
 
   services.udev = {
