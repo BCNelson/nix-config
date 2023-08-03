@@ -102,6 +102,9 @@
     Command=~/.nix-profile/bin/fish
     Name=Fish
     Parent=FALLBACK/
+
+    [Scrolling]
+    HistoryMode=2
     '';
   };
 
