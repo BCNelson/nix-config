@@ -76,11 +76,14 @@
 
   services.freedesktop.autostart = {
     enable = true;
-    # packages = [ pkgs.yakuake ];
-    packageSourced = [ 
+    packageSourced = [
       {
         package = pkgs.yakuake;
         path = "share/applications/org.kde.yakuake.desktop";
+      }
+      {
+        package = pkgs.neochat;
+        path = "share/applications/org.kde.neochat.desktop";
       }
      ];
   };
@@ -111,7 +114,7 @@
   home.sessionVariables = {
     EDITOR = "vim";
     VISUAL = "kwrite";
-    SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh";
+    SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh"; # Todo remove this when it should not be needed but it is.
     SSH_AGENT_PID = "";
   };
   # Let Home Manager install and manage itself.
