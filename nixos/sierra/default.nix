@@ -4,7 +4,9 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ../roles/desktop.nix
+      ../roles/desktop/common.nix
+      ../roles/desktop/kde.nix
+      ../roles/desktop/hyperland.nix
       ../roles/gaming.nix
       ../roles/docker.nix
     ];
