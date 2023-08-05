@@ -27,6 +27,7 @@
             deckmaster = {
                 Unit.Description = "Deckmaster Service";
                 Service = {
+                    ExecStartPre= "${pkgs.coreutils}/bin/sleep 5";
                     ExecStart= "${pkgs.deckmaster}/bin/deckmaster --deck ${config.xdg.configHome}/deckmaster/main.deck";
                     Restart = "on-failure";
                     ExecReload = "kill -HUP $MAINPID";
