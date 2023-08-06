@@ -9,6 +9,7 @@
       ../roles/desktop/hyperland.nix
       ../roles/gaming.nix
       ../roles/docker.nix
+      ../roles/tailscale.nix
     ];
 
   networking.hostName = "sierra-2"; # Define your hostname.
