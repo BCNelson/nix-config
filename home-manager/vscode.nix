@@ -3,7 +3,7 @@
 {
     programs.vscode = {
       enable = true;
-      package = pkgs.vscode; #pkgs.vscode.fhs Breaks ssh agent issue #2
+      package = pkgs.unstable.vscode; #pkgs.vscode.fhs Breaks ssh agent issue #2
       userSettings = {
         "terminal.integrated.defaultProfile.linux" = "fish";
         "workbench.colorTheme" = "Default Dark Modern";

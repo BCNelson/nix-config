@@ -6,6 +6,12 @@
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";
 
+  nixpkgs = {
+    overlays = [
+      outputs.overlays.unstable-packages
+    ];
+  };
+
   imports = [
     outputs.homeManagerModules.autostart
     ./firefox.nix
@@ -32,12 +38,12 @@
     pkgs.just
 
 
-    pkgs.obsidian
+    pkgs.unstable.obsidian
 
     # Chat
     pkgs.neochat
-    pkgs.signal-desktop
-    pkgs.discord
+    pkgs.unstable.signal-desktop
+    pkgs.unstable.discord
 
     pkgs.newsflash
 
