@@ -1,8 +1,9 @@
-{ inputs, outputs, config, pkgs, ... }:
+{ ... }:
 
 {
   imports =
-    [ # Include the results of the hardware scan.
+    [
+      # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ../_mixins/roles/desktop/common.nix
       ../_mixins/roles/desktop/kde.nix
@@ -23,6 +24,6 @@
       { from = 1714; to = 1764; } # KDE Connect
     ];
     allowedTCPPorts = [ 22000 ]; # Syncthing
-    allowedUDPPorts = [ 22000 21027 ];# Syncthing
+    allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
 }

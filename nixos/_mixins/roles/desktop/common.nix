@@ -1,6 +1,6 @@
-{ pkgs, ... }:
+_:
 {
-    # Enable the X11 windowing system.
+  # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
   services.xserver.displayManager.sddm = {

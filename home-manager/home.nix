@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, outputs, ... }:
+{ config, pkgs, outputs, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -59,11 +59,11 @@
       plugins = [
         {
           name = "done";
-          src = pkgs.fishPlugins.done.src;
+          inherit (pkgs.fishPlugins.done) src;
         }
         {
           name = "z";
-          src = pkgs.fishPlugins.z.src;
+          inherit (pkgs.fishPlugins.z) src;
         }
       ];
     };
@@ -74,9 +74,9 @@
     };
   };
 
-  xdg.enable=true;
-  xdg.mime.enable=true;
-  targets.genericLinux.enable=true;
+  xdg.enable = true;
+  xdg.mime.enable = true;
+  targets.genericLinux.enable = true;
   xdg.systemDirs.data = [ "${config.home.homeDirectory}/.nix-profile/share/applications" ];
   programs.bash.enable = true;
 
@@ -91,7 +91,7 @@
         package = pkgs.neochat;
         path = "share/applications/org.kde.neochat.desktop";
       }
-     ];
+    ];
   };
 
   services.kdeconnect = {
@@ -107,13 +107,13 @@
   # plain files is through 'home.file'.
   home.file = {
     ".local/share/konsole/Fish.profile".text = ''
-    [General]
-    Command=~/.nix-profile/bin/fish
-    Name=Fish
-    Parent=FALLBACK/
+      [General]
+      Command=~/.nix-profile/bin/fish
+      Name=Fish
+      Parent=FALLBACK/
 
-    [Scrolling]
-    HistoryMode=2
+      [Scrolling]
+      HistoryMode=2
     '';
   };
 

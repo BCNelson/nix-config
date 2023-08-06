@@ -30,7 +30,7 @@
     # nix-colors.url = "github:misterio77/nix-colors";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, home-manager,  ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, home-manager, ... }@inputs:
     let
       inherit (self) outputs;
       forAllSystems = nixpkgs.lib.genAttrs [
@@ -77,7 +77,7 @@
             {
               nixpkgs = {
                 overlays = [ inputs.nur.overlay ];
-                config.allowUnfreePredicate = (pkg: true);
+                config.allowUnfreePredicate = _pkg: true;
               };
             }
           ];

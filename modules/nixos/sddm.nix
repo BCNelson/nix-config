@@ -103,7 +103,8 @@ in
         description = lib.mdDoc ''
           Whether to enable sddm as the display manager.
         '';
-      };.
+      };
+      .
 
       package = mkOption {
         type = types.package;

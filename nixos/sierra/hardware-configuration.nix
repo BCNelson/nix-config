@@ -5,7 +5,8 @@
 
 {
   imports =
-    [ (modulesPath + "/installer/scan/not-detected.nix")
+    [
+      (modulesPath + "/installer/scan/not-detected.nix")
       inputs.nixos-hardware.nixosModules.common-cpu-intel
       inputs.nixos-hardware.nixosModules.common-pc-ssd
       inputs.nixos-hardware.nixosModules.common-gpu-amd
@@ -18,12 +19,14 @@
   boot.extraModulePackages = [ ];
 
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/d24db523-9501-4a17-85d2-702bac638367";
+    {
+      device = "/dev/disk/by-uuid/d24db523-9501-4a17-85d2-702bac638367";
       fsType = "ext4";
     };
 
   fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/2FAA-50DE";
+    {
+      device = "/dev/disk/by-uuid/2FAA-50DE";
       fsType = "vfat";
     };
 
