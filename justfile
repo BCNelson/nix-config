@@ -21,6 +21,10 @@ update-os:
 unlock:
     gpg --decrypt local.key.asc | git-crypt unlock -
 
+alias fmt :=format
+format:
+    nix fmt
+
 test-deckmaster:
     #!/usr/bin/env bash
     cleanup() {
