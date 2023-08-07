@@ -73,7 +73,6 @@
           modules = [
             # > Our main home-manager configuration file <
             ./home-manager/home.nix
-            inputs.nur.nixosModules.nur
             {
               nixpkgs = {
                 overlays = [ inputs.nur.overlay ];
