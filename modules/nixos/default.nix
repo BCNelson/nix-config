@@ -3,5 +3,4 @@
 
 {
   # List your module files here
-  sddm = import ./sddm.nix;
 }
