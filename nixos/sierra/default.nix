@@ -8,7 +8,7 @@
       ../_mixins/roles/desktop/common.nix
       ../_mixins/roles/desktop/kde.nix
       # ../_mixins/roles/desktop/hyperland.nix
-      ../_mixins/roles/gaming.nix
+      ../_mixins/roles/desktop/gaming.nix
       ../_mixins/roles/docker.nix
       ../_mixins/roles/tailscale.nix
     ];
