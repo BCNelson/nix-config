@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 let
-  sensitive = import ../sensitive.nix;
+  sensitive = import ../../sensitive.nix;
 in
 {
   environment.systemPackages = with pkgs; [
@@ -48,5 +48,4 @@ in
           https://ntfy.sh/${sensitive.ntfy_tailscale_topic}
     '';
   };
-
 }
