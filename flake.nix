@@ -60,34 +60,15 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "sierra-2" = nixpkgs.lib.nixosSystem {
-          specialArgs = { inherit inputs outputs; };
-          modules = [
-            # > Our main nixos configuration file <
-            ./nixos/common.nix
-            ./nixos/sierra
-          ];
-        };
+        "sierra-2" = libx.mkNixOS { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde";};
+        "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
+        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
       };
 
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
         "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
-        # "bcnelson@sierra-2" = home-manager.lib.homeManagerConfiguration {
-        #   pkgs = nixpkgs.legacyPackages.x86_64-linux; # Home-manager requires 'pkgs' instance
-        #   extraSpecialArgs = { inherit inputs outputs; };
-        #   modules = [
-        #     # > Our main home-manager configuration file <
-        #     ./home-manager/home.nix
-        #     {
-        #       nixpkgs = {
-        #         overlays = [ inputs.nur.overlay ];
-        #         config.allowUnfreePredicate = _pkg: true;
-        #       };
-        #     }
-        #   ];
-        # };
       };
 
       formatter = libx.forAllSystems (system:

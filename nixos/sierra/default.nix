@@ -1,4 +1,4 @@
-{ ... }:
+{ hostname, ... }:
 
 {
   imports =
@@ -12,8 +12,6 @@
       ../_mixins/roles/docker.nix
       ../_mixins/roles/tailscale.nix
     ];
-
-  networking.hostName = "sierra-2"; # Define your hostname.
   networking.firewall = {
     enable = true;
     allowedTCPPortRanges = [

@@ -37,3 +37,6 @@ test-deckmaster:
     deckmaster -deck ./home-manager/deckmaster/files/main.deck
     
     trap cleanup EXIT
+
+isoDesktop:
+    nix build .#nixosConfigurations.iso_desktio.config.system.build.isoImage -o ./result.iso
