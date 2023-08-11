@@ -2,6 +2,6 @@
 
 {
   imports = [
-    ./_mixins/programs/deckmaster
+    ../_mixins/programs/deckmaster
   ];
 }

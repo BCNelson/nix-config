@@ -1,13 +1,18 @@
-{ outputs, hostname, desktop, ... }:
+{ inputs, outputs, hostname, desktop, lib, pkgs, ... }:
 
 let
     # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
-    hostnamePrefix = builtins.substring 0 (builtins.indexOf "-" hostname);
+    hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
   imports = []
     ++ lib.optional (builtins.isPath ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix ;
+
+   nixpkgs = {
+      overlays = [ inputs.nur.overlay ];
+      config.allowUnfreePredicate = _pkg: true;
+    };
   
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";

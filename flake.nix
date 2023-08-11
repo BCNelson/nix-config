@@ -18,9 +18,6 @@
 
     nixos-hardware.url = "github:nixos/nixos-hardware";
 
-    # TODO: Add any other flake you might need
-    # hardware.url = "github:nixos/nixos-hardware";
-
     # Add the Nix User Repository (NUR)
     nur.url = "github:nix-community/NUR";
     nur.inputs.nixpkgs.follows = "nixpkgs";
@@ -76,7 +73,7 @@
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
-        "bcnelson@sierra-2" = lix.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; }
+        "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
         # "bcnelson@sierra-2" = home-manager.lib.homeManagerConfiguration {
         #   pkgs = nixpkgs.legacyPackages.x86_64-linux; # Home-manager requires 'pkgs' instance
         #   extraSpecialArgs = { inherit inputs outputs; };

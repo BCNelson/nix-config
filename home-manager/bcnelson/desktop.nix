@@ -14,9 +14,9 @@
 
   imports = [
     outputs.homeManagerModules.autostart
-    ./_mixins/programs/firefox.nix
-    ./_mixins/programs/chrome.nix
-    ./_mixins/programs/vscode.nix
+    ../_mixins/programs/firefox.nix
+    ../_mixins/programs/chrome.nix
+    ../_mixins/programs/vscode.nix
   ];
 
   home.packages = [
