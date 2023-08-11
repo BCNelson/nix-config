@@ -1,4 +1,4 @@
-{ config, pkgs, outputs, ... }:
+{ config, pkgs, outputs, stateVersion, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -14,28 +14,16 @@
 
   imports = [
     outputs.homeManagerModules.autostart
-    ./firefox.nix
-    ./chrome.nix
-    ./vscode.nix
-    ./deckmaster
+    ./_mixins/programs/firefox.nix
+    ./_mixins/programs/chrome.nix
+    ./_mixins/programs/vscode.nix
   ];
-
-  # This value determines the Home Manager release that your configuration is
-  # compatible with. This helps avoid breakage when a new Home Manager release
-  # introduces backwards incompatible changes.
-  #
-  # You should not change this value, even if you update Home Manager. If you do
-  # want to update the value, then make sure to first check the Home Manager
-  # release notes.
-  home.stateVersion = "23.05"; # Please read the comment before changing.
 
   home.packages = [
     pkgs.yakuake
 
-    #Devtools
-    pkgs.git
-    pkgs.git-crypt
-    pkgs.just
+    pkgs.quickemu
+    pkgs.quickgui
 
 
     pkgs.unstable.obsidian
@@ -49,30 +37,6 @@
 
     pkgs.jellyfin-media-player
   ];
-
-  programs = {
-    fish = {
-      enable = true;
-      interactiveShellInit = ''
-        set fish_greeting # Disable greeting
-      '';
-      plugins = [
-        {
-          name = "done";
-          inherit (pkgs.fishPlugins.done) src;
-        }
-        {
-          name = "z";
-          inherit (pkgs.fishPlugins.z) src;
-        }
-      ];
-    };
-    git = {
-      enable = true;
-      userName = "Bradley Nelson";
-      userEmail = "bradely@nel.family";
-    };
-  };
 
   xdg.enable = true;
   xdg.mime.enable = true;
@@ -118,11 +82,6 @@
   };
 
   home.sessionVariables = {
-    EDITOR = "vim";
     VISUAL = "kwrite";
-    SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh"; # Todo remove this when it should not be needed but it is.
-    SSH_AGENT_PID = "";
   };
-  # Let Home Manager install and manage itself.
-  programs.home-manager.enable = true;
 }
