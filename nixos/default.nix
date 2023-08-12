@@ -6,11 +6,12 @@
 
 let
     # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
-    hostnamePrefix = builtins.substring 0 (builtins.indexOf "-" hostname);
+    hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ ./common.nix ] ++ lib.optional (builtins.isPath ./${hostnamePrefix}) ./${hostnamePrefix}
-  ++ lib.optional (builtins.isPath ./hosts/${hostname}) ./hosts/${hostname};
+  imports = [ ./common.nix ] ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
+  ++ lib.optional (builtins.pathExists ./hosts/${hostname}) ./hosts/${hostname};
   networking.hostName = hostname;
   system.stateVersion = stateVersion;
+  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux"; #Orverride if nessary
 }

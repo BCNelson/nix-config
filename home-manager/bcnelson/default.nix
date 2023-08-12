@@ -6,7 +6,7 @@ let
 in
 {
   imports = []
-    ++ lib.optional (builtins.isPath ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
+    ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix ;
 
    nixpkgs = {
@@ -41,6 +41,13 @@ in
       userEmail = "bradely@nel.family";
     };
   };
+
+  home.packages = [
+    #Devtools
+    pkgs.git
+    pkgs.git-crypt
+    pkgs.just
+  ];
 
   home.sessionVariables = {
     EDITOR = "vim";

@@ -25,18 +25,9 @@ alias fmt :=format
 format:
     nix fmt
 
-test-deckmaster:
-    #!/usr/bin/env bash
-    cleanup() {
-        systemctl --user start deckmaster.path
-        trap - SIGINT SIGTERM # clear the trap
-        kill -- -$$ # Sends SIGTERM to child/sub processes
-    }
-    systemctl --user stop deckmaster.path
-    systemctl --user stop deckmaster.service
-    deckmaster -deck ./home-manager/deckmaster/files/main.deck
-    
-    trap cleanup EXIT
+alias t :=test
+test recipe='list':
+    @just -f ./tests/justfile {{recipe}}
 
 isoDesktop:
-    nix build .#nixosConfigurations.iso_desktio.config.system.build.isoImage -o ./result.iso
+    nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage
