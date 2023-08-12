@@ -1,5 +1,6 @@
 #!/usr/bin/env -S just --justfile
 
+[private]
 default:
   @just --list --justfile {{justfile()}} --list-heading $'Avalible Commands\n'
 
@@ -26,8 +27,6 @@ format:
     nix fmt
 
 alias t :=test
-test recipe='list':
-    @just -f ./tests/justfile {{recipe}}
-
-isoDesktop:
-    nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage
+[no-exit-message]
+@test *recipe='list':
+    just -f ./test/justfile {{recipe}}

@@ -1,0 +1,48 @@
+#!/usr/bin/env -S just --justfile
+set fallback
+default:
+  @just --list --justfile {{justfile()}} --list-heading $'Avalible Testing Commands\n'
+
+list: default
+
+deckmaster:
+    #!/usr/bin/env bash
+    cleanup() {
+        systemctl --user start deckmaster.path
+        trap - SIGINT SIGTERM # clear the trap
+        kill -- -$$ # Sends SIGTERM to child/sub processes
+    }
+    systemctl --user stop deckmaster.path
+    systemctl --user stop deckmaster.service
+    deckmaster -deck ./home-manager/deckmaster/files/main.deck
+    
+    trap cleanup EXIT
+
+[no-exit-message] 
+iso recipe='desktop':
+    #!/usr/bin/env -S just --justfile
+    [private]
+    default: {{recipe}}
+    [private]
+    list:
+        @just --list --justfile {{{{justfile()}} --list-heading $'Avalible Testing Commands\n'
+
+    [no-cd]
+    desktop:
+        #!/usr/bin/env bash
+        set -euxo pipefail
+        nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{justfile_directory()}}/../result
+        ISO=$(head -n1 {{justfile_directory()}}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
+        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/desktop/desktop.iso
+        pushd {{justfile_directory()}}/qemu/desktop
+        quickemu --vm ../nixDesktop.conf
+
+    [no-cd]
+    console:
+        #!/usr/bin/env bash
+        set -euxo pipefail
+        nix build .#nixosConfigurations.iso_console.config.system.build.isoImage -o {{justfile_directory()}}/../result
+        ISO=$(head -n1 {{justfile_directory()}}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
+        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/console/console.iso
+        pushd {{justfile_directory()}}/qemu/console
+        quickemu --vm ../nixConsole.conf
