@@ -2,19 +2,25 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ outputs, config, pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    auto-optimise-store = true;
-  };
+  nix = {
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 7d";
+    };
+    settings = {
+      auto-optimise-store = true;
+      experimental-features = [ "nix-command" "flakes" ];
 
-  nixpkgs = {
-    # You can add overlays here
-    overlays = [
-      outputs.overlays.unstable-packages
-    ];
+      # Avoid unwanted garbage collection when using nix-direnv
+      keep-outputs = true;
+      keep-derivations = true;
+
+      warn-dirty = false;
+    };
   };
 
   # Bootloader.
@@ -25,7 +31,7 @@
   networking.networkmanager.enable = true;
 
   # Set your time zone.
-  time.timeZone = "America/Denver";
+  time.timeZone = lib.mkDefault "America/Denver";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
@@ -44,37 +50,14 @@
 
   security.rtkit.enable = true;
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.bcnelson = {
-    # TODO: make this more generic
-    isNormalUser = true;
-    description = "Bradley Nelson";
-    extraGroups = [ "networkmanager" "wheel" "plugdev" "docker" ];
-    packages = with pkgs; [
-      # Console Apps here
-    ];
-  };
-
-  # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
-
   programs.dconf.enable = true;
 
   environment.systemPackages = with pkgs; [
     vim
   ];
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
   programs.gnupg.agent = {
     enable = true;
     enableSSHSupport = true;
-  };
-
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 7d";
   };
 }
