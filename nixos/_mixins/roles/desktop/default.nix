@@ -1,5 +1,5 @@
-{ desktop, lib, pkgs, desktop, ... }: {
-    imports = [] ++ lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
+{ desktop, lib, ... }: {
+  imports = [ ] ++ lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
   # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
@@ -13,7 +13,7 @@
 
   # Enable sound with pipewire.
   sound.enable = true;
-  hardware.pulseaudio.enable = false; #TODO: See if this is needed
+  hardware.pulseaudio.enable = lib.mkForce false;
   services.pipewire = {
     enable = true;
     alsa.enable = true;
