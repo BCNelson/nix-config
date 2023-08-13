@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ outputs, config, pkgs, stateVersion, desktop, ... }:
+{ outputs, config, pkgs, ... }:
 
 {
   nix.settings = {
@@ -45,7 +45,8 @@
   security.rtkit.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.bcnelson = { # TODO: make this more generic
+  users.users.bcnelson = {
+    # TODO: make this more generic
     isNormalUser = true;
     description = "Bradley Nelson";
     extraGroups = [ "networkmanager" "wheel" "plugdev" "docker" ];

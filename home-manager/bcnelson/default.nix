@@ -1,19 +1,19 @@
-{ inputs, outputs, hostname, desktop, lib, pkgs, ... }:
+{ inputs, hostname, desktop, lib, pkgs, ... }:
 
 let
-    # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
-    hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
+  # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
+  hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = []
+  imports = [ ]
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
-    ++ lib.optional (builtins.isString desktop) ./desktop.nix ;
+    ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
-   nixpkgs = {
-      overlays = [ inputs.nur.overlay ];
-      config.allowUnfreePredicate = _pkg: true;
-    };
-  
+  nixpkgs = {
+    overlays = [ inputs.nur.overlay ];
+    config.allowUnfreePredicate = _pkg: true;
+  };
+
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";
 

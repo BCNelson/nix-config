@@ -27,7 +27,7 @@
     # nix-colors.url = "github:misterio77/nix-colors";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, home-manager, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -60,7 +60,7 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "sierra-2" = libx.mkNixOS { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde";};
+        "sierra-2" = libx.mkNixOS { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
         "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
       };
