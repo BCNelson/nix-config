@@ -1,5 +1,5 @@
-_:
-{
+{ desktop, lib, pkgs, desktop, ... }: {
+    imports = [] ++ lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
   # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
@@ -7,9 +7,6 @@ _:
     enable = true;
     autoNumlock = true;
   };
-
-  services.flatpak.enable = true;
-  services.xserver.displayManager.defaultSession = "plasmawayland";
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -23,12 +20,6 @@ _:
     alsa.support32Bit = true;
     pulse.enable = true;
     jack.enable = true;
-  };
-
-  system.activationScripts = {
-    flathub = ''
-      /run/current-system/sw/bin/flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    '';
   };
 
   # Configure keymap in X11

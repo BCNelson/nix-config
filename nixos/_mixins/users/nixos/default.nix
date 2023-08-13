@@ -85,7 +85,6 @@ in
     ];
     homeMode = "0755";
     packages = [ pkgs.home-manager ];
-    shell = pkgs.fish;
   };
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;

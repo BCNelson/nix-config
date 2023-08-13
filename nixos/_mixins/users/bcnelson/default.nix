@@ -1,4 +1,4 @@
-{ }
+{ pkgs, ... }:
 {
   users.users.bcnelson = {
     # TODO: make this more generic
