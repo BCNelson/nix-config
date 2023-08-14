@@ -34,12 +34,6 @@ let
       exit 1
     fi
 
-    # Check if the machine we're provisioning expects a keyfile to unlock a disk.
-    # If it does, generate a new key, and write to a known location.
-    if grep -q "data.keyfile" "nixos/$TARGET_HOST/disks.nix"; then
-      echo -n "$(head -c32 /dev/random | base64)" > /tmp/data.keyfile
-    fi
-
     echo "WARNING! The disks in $TARGET_HOST are about to get wiped"
     echo "         NixOS will be re-installed"
     echo "         This is a destructive operation"
@@ -56,13 +50,6 @@ let
       pushd "/mnt/home/$TARGET_USER/nix-config"
       git remote set-url origin git@github.com:bcnelson/nix-config.git
       popd
-
-      # If there is a keyfile for a data disk, put copy it to the root partition and
-      # ensure the permissions are set appropriately.
-      if [[ -f "/tmp/data.keyfile" ]]; then
-        sudo cp /tmp/data.keyfile /mnt/etc/data.keyfile
-        sudo chmod 0400 /mnt/etc/data.keyfile
-      fi
     fi
   '';
 in
