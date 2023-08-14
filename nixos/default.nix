@@ -10,7 +10,7 @@ let
 in
 {
   imports = [ ./common.nix ]
-    ++ lib.optional common ./common.nix # Common configuration but ones that can be turned off
+    # ++ lib.optional common ./common.nix # Common configuration but ones that can be turned off
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
     ++ lib.optional (builtins.pathExists ./hosts/${hostname}) ./hosts/${hostname}
     ++ lib.optional (builtins.pathExists ./_mixins/users/${username}) ./_mixins/users/${username}
