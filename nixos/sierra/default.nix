@@ -5,11 +5,12 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ../_mixins/roles/desktop/common.nix
+      ../_mixins/roles/desktop
       # ../_mixins/roles/desktop/hyperland.nix
       ../_mixins/roles/gaming.nix
       ../_mixins/roles/docker.nix
       ../_mixins/roles/tailscale.nix
+      ../_mixins/roles/flatpak.nix
     ];
   networking.firewall = {
     enable = true;
