@@ -27,6 +27,7 @@
 
 
     pkgs.unstable.obsidian
+    pkgs.unstable.anytype
 
     # Chat
     pkgs.neochat
