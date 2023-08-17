@@ -1,3 +1,4 @@
 result
 test/qemu/console
 test/qemu/desktop
+.direnv

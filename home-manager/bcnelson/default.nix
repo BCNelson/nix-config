@@ -22,6 +22,7 @@ in
       enable = true;
       interactiveShellInit = ''
         set fish_greeting # Disable greeting
+        direnv hook fish | source
       '';
       plugins = [
         {
@@ -47,6 +48,7 @@ in
     pkgs.git
     pkgs.git-crypt
     pkgs.just
+    pkgs.direnv
   ];
 
   home.sessionVariables = {
