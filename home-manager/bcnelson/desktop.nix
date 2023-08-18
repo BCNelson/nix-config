@@ -25,6 +25,8 @@
     pkgs.quickemu
     pkgs.quickgui
 
+    pkgs.helvum
+
 
     pkgs.unstable.obsidian
     pkgs.unstable.anytype
