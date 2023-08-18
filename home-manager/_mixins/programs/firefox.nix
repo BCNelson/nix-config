@@ -12,6 +12,7 @@
           darkreader
           wallabagger
           enhancer-for-youtube
+          pay-by-privacy-com
         ];
         search = {
           default = "Google";
