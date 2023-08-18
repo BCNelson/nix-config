@@ -29,6 +29,8 @@
     pkgs.unstable.obsidian
     pkgs.unstable.anytype
 
+    pkgs.libsForQt5.filelight
+
     # Chat
     pkgs.neochat
     pkgs.unstable.signal-desktop

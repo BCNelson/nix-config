@@ -11,6 +11,7 @@
           bitwarden
           darkreader
           wallabagger
+          enhancer-for-youtube
         ];
         search = {
           default = "Google";
