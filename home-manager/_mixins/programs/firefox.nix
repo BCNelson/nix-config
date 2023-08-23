@@ -26,6 +26,7 @@
           "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
           "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
           "browser.newtabpage.activity-stream.topSitesRows" = 3;
+          "extensions.formautofill.creditCards.enabled" = false;
         };
       };
     };
