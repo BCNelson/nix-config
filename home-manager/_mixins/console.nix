@@ -1,8 +1,5 @@
 { config, lib, pkgs, ... }: {
   home = {
-    file = {
-      "${config.xdg.configHome}/neofetch/config.conf".text = builtins.readFile ./neofetch.conf;
-    };
     # A Modern Unix experience
     # https://jvns.ca/blog/2022/04/12/a-list-of-new-ish--command-line-tools/
     packages = with pkgs; [
@@ -103,7 +100,6 @@
     direnv = {
       enable = true;
       enableBashIntegration = true;
-      enableFishIntegration = true;
       nix-direnv = {
         enable = true;
       };
@@ -138,6 +134,7 @@
           name = "z";
           inherit (pkgs.fishPlugins.z) src;
         }
+      ];
     };
     # gh = {
     #   enable = true;
