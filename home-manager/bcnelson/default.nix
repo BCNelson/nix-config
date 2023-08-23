@@ -5,7 +5,7 @@ let
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ ]
+  imports = [ ../_mixins/console.nix ]
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
@@ -18,23 +18,6 @@ in
   home.homeDirectory = "/home/bcnelson";
 
   programs = {
-    fish = {
-      enable = true;
-      interactiveShellInit = ''
-        set fish_greeting # Disable greeting
-        direnv hook fish | source
-      '';
-      plugins = [
-        {
-          name = "done";
-          inherit (pkgs.fishPlugins.done) src;
-        }
-        {
-          name = "z";
-          inherit (pkgs.fishPlugins.z) src;
-        }
-      ];
-    };
     bash.enable = true;
     git = {
       enable = true;
@@ -48,12 +31,9 @@ in
     pkgs.git
     pkgs.git-crypt
     pkgs.just
-    pkgs.direnv
   ];
 
   home.sessionVariables = {
     EDITOR = "vim";
-    # SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh"; # Todo remove this when it should not be needed but it is.
-    # SSH_AGENT_PID = "";
   };
 }
