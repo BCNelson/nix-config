@@ -27,6 +27,7 @@
 
     pkgs.helvum
 
+    pkgs.gitkraken
 
     pkgs.unstable.obsidian
     pkgs.unstable.anytype
