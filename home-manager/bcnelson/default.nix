@@ -53,7 +53,7 @@ in
 
   home.sessionVariables = {
     EDITOR = "vim";
-    SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh"; # Todo remove this when it should not be needed but it is.
-    SSH_AGENT_PID = "";
+    # SSH_AUTH_SOCK = "/run/user/1000/gnupg/S.gpg-agent.ssh"; # Todo remove this when it should not be needed but it is.
+    # SSH_AGENT_PID = "";
   };
 }
