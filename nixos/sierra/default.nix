@@ -11,6 +11,7 @@
       ../_mixins/roles/docker.nix
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/flatpak.nix
+      ../_mixins/roles/fonts.nix
     ];
   networking.firewall = {
     enable = true;
