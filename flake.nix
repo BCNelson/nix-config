@@ -22,6 +22,9 @@
     nur.url = "github:nix-community/NUR";
     nur.inputs.nixpkgs.follows = "nixpkgs";
 
+    nix-darwin.url = "github:LnL7/nix-darwin/master";
+    nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+
     # Shameless plug: looking for a way to nixify your themes and make
     # everything match nicely? Try nix-colors!
     # nix-colors.url = "github:misterio77/nix-colors";
@@ -88,7 +91,7 @@
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
       devShells = libx.forAllSystems (system:
         let pkgs = nixpkgs.legacyPackages.${system};
-        in import ./shell.nix { inherit pkgs; }
+        in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs) lib; }
       );
     };
 }
