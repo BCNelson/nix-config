@@ -14,7 +14,6 @@
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
     nix-formatter-pack.url = "github:Gerschtli/nix-formatter-pack";
-    nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-hardware.url = "github:nixos/nixos-hardware";
 
