@@ -1,7 +1,7 @@
 {disk, ...}: {
   disko.devices = {
     disk = {
-      vdb = {
+      main = {
         device = disk;
         type = "disk";
         content = {

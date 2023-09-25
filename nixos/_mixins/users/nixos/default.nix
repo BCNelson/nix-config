@@ -8,6 +8,7 @@ let
 
     TARGET_HOST="''${1:-}"
     TARGET_USER="''${2:-bcnelson}"
+    TARGET_DISK="''${3:-}"
 
     if [ "$(id -u)" -eq 0 ]; then
       echo "ERROR! $(basename "$0") should be run as a regular user"
@@ -18,6 +19,7 @@ let
       git clone https://github.com/bcnelson/nix-config.git "$HOME/nix-config"
     fi
 
+    echo "Changeing directory to $HOME/nix-config"
     pushd "$HOME/nix-config"
 
     if [[ -z "$TARGET_HOST" ]]; then
@@ -34,6 +36,13 @@ let
       exit 1
     fi
 
+    if [[ -z "$TARGET_DISK" ]]; then
+      echo "ERROR! $(basename "$0") requires a disk as the third argument"
+      echo "       The following disks are available"
+      lsblk -d -o name,tran | grep -E "ata|nvme" | cut -d' ' -f1
+      exit 1
+    fi
+
     echo "WARNING! The disks in $TARGET_HOST are about to get wiped"
     echo "         NixOS will be re-installed"
     echo "         This is a destructive operation"
@@ -43,13 +52,45 @@ let
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       sudo true
 
+      # Check if the target host has a disks.nix file.
+      disk_nix=""
+      if [ -f "nixos/$TARGET_HOST/disks.nix" ]; then
+        # If so, use it to formate the disks.
+        echo "Using nixos/$TARGET_HOST/disks.nix"
+        disk_nix="nixos/$TARGET_HOST/disks.nix"
+      else
+        # Otherwise, use the default disks.nix.
+        echo "Using disko/default.nix"
+        disk_nix="disko/default.nix"
+      fi
+
+      sudo nix run github:nix-community/disko \
+        --extra-experimental-features "nix-command flakes" \
+        --no-write-lock-file \
+        -- \
+        --mode zap_create_mount \
+        "$disk_nix" \
+        --arg disk "\"$TARGET_DISK\""
+
+      sudo nixos-generate-config --dir nixos/$TARGET_HOST --root /mnt
+
+      rm -f /mnt/nixos/$TARGET_HOST/configuration.nix
+
+      git add -A
+
       sudo nixos-install --no-root-password --flake ".#$TARGET_HOST"
 
       # Rsync nix-config to the target install and set the remote origin to SSH.
-      rsync -a --delete "$HOME/Zero/" "/mnt/home/$TARGET_USER/Zero/"
+      echo "Rsyncing $HOME to /mnt/home/$TARGET_USER"
+      rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
       pushd "/mnt/home/$TARGET_USER/nix-config"
       git remote set-url origin git@github.com:bcnelson/nix-config.git
       popd
+
+      # Set the users password to expire on first login.
+      # There is a missing feature in sddm that prevents login if the password is expired.
+      # the user will need to login via the console and change their password.
+      nixos-enter -c "passwd --expire $TARGET_USER"
     fi
   '';
 in
@@ -71,7 +112,7 @@ in
       "podman"
     ];
     homeMode = "0755";
-    packages = [ pkgs.home-manager ];
+    packages = [ pkgs.home-manager pkgs.libsForQt5.kate ];
   };
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;
