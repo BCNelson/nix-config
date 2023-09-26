@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  sensitive = import ../../sensitive.nix;
+  sensitive = import ../../../sensitive.nix;
 in
 {
   users.users.bcnelson = {
