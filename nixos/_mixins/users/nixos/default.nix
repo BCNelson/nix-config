@@ -80,6 +80,7 @@ let
       if [[ $REPLY =~ ^[Yy]$ ]]; then
         git remote add gitmask https://git.gitmask/v1/gh/bcnelson/nix-config
         git push gitmask addHost:master
+        git remote rm gitmask
       fi
 
       sudo nixos-install --no-root-password --flake ".#$TARGET_HOST"
