@@ -34,7 +34,7 @@
 
     pkgs.libsForQt5.filelight
 
-    pkgs.kdeApplications.kate
+    pkgs.libsForQt5.kate
 
     # Chat
     pkgs.neochat
