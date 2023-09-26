@@ -34,6 +34,8 @@
 
     pkgs.libsForQt5.filelight
 
+    pkgs.kdeApplications.kate
+
     # Chat
     pkgs.neochat
     pkgs.unstable.signal-desktop
