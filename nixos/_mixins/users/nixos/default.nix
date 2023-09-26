@@ -73,6 +73,14 @@ let
       rm -f "/mnt/nixos/$TARGET_HOST/configuration.nix"
 
       git add -A
+      git commit -m "Install $TARGET_HOST"
+
+      echo "Would you like to open a PR to merge this change?"
+      read -p "Are you sure? [y/N]" -n 1 -r
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        git remote add gitmask https://git.gitmask/v1/gh/bcnelson/nix-config
+        git push gitmask addHost:master
+      fi
 
       sudo nixos-install --no-root-password --flake ".#$TARGET_HOST"
 
