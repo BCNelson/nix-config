@@ -1,11 +1,10 @@
 { config, desktop, lib, pkgs, username, ... }:
 let
   ifExists = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
-  install-system = pkgs.writeScriptBin "install-system" ''
-    #!${pkgs.stdenv.shell}
-
-    #set -euo pipefail
-
+  install-system = pkgs.writeShellApplication {
+    name = "install-system";
+    runtimeInputs = with pkgs; [ git gnupg git-crypt ];
+    text = ''
     TARGET_HOST="''${1:-}"
     TARGET_USER="''${2:-bcnelson}"
     TARGET_DISK="''${3:-}"
@@ -22,24 +21,21 @@ let
     echo "Changeing directory to $HOME/nix-config"
     pushd "$HOME/nix-config"
 
+    echo "Decrypting Repository"
+    gpg --decrypt local.key.asc | git-crypt unlock -
+
     if [[ -z "$TARGET_HOST" ]]; then
       echo "ERROR! $(basename "$0") requires a hostname as the first argument"
-      echo "       The following hosts are available"
-      ls -1 nixos/*/boot.nix | cut -d'/' -f2 | grep -v iso
       exit 1
     fi
 
     if [[ -z "$TARGET_USER" ]]; then
       echo "ERROR! $(basename "$0") requires a username as the second argument"
-      echo "       The following users are available"
-      ls -1 nixos/_mixins/users/ | grep -v -E "nixos|root"
       exit 1
     fi
 
     if [[ -z "$TARGET_DISK" ]]; then
       echo "ERROR! $(basename "$0") requires a disk as the third argument"
-      echo "       The following disks are available"
-      lsblk -d -o name,tran | grep -E "ata|nvme" | cut -d' ' -f1
       exit 1
     fi
 
@@ -72,9 +68,9 @@ let
         "$disk_nix" \
         --arg disk "\"$TARGET_DISK\""
 
-      sudo nixos-generate-config --dir nixos/$TARGET_HOST --root /mnt
+      sudo nixos-generate-config --dir "nixos/$TARGET_HOST" --root /mnt
 
-      rm -f /mnt/nixos/$TARGET_HOST/configuration.nix
+      rm -f "/mnt/nixos/$TARGET_HOST/configuration.nix"
 
       git add -A
 
@@ -90,9 +86,10 @@ let
       # Set the users password to expire on first login.
       # There is a missing feature in sddm that prevents login if the password is expired.
       # the user will need to login via the console and change their password.
-      nixos-enter -c "passwd --expire $TARGET_USER"
+      sudo nixos-enter -c "passwd --expire $TARGET_USER"
     fi
   '';
+  };
 in
 {
   # Only include desktop components if one is supplied.
