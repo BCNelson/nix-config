@@ -68,6 +68,7 @@
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
         "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
+        "bcnelson@romeo-2" = libx.mkHome { hostname = "romeo-2"; username = "bcnelson"; };
       };
 
       formatter = libx.forAllSystems (system:
