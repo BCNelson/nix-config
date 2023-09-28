@@ -29,6 +29,7 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
+  networking.wireless.enable = lib.mkForce false;
 
   # Set your time zone.
   time.timeZone = lib.mkDefault "America/Denver";

@@ -26,6 +26,13 @@ alias fmt :=format
 format:
     nix fmt
 
+iso:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{justfile_directory()}}/../result
+    ISO=$(head -n1 {{justfile_directory()}}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
+    sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/desktop/desktop.iso
+
 alias t :=test
 [no-exit-message]
 @test *recipe='list':

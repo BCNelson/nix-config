@@ -33,7 +33,7 @@ iso recipe='desktop':
         set -euxo pipefail
         nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{justfile_directory()}}/../result
         ISO=$(head -n1 {{justfile_directory()}}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
-        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/desktop/desktop.iso
+        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/desktop/Nix_Installer_Desktop.iso
         pushd {{justfile_directory()}}/qemu/desktop
         quickemu --vm ../nixDesktop.conf
 
@@ -43,6 +43,6 @@ iso recipe='desktop':
         set -euxo pipefail
         nix build .#nixosConfigurations.iso_console.config.system.build.isoImage -o {{justfile_directory()}}/../result
         ISO=$(head -n1 {{justfile_directory()}}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
-        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/console/console.iso
+        sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/console/Nix_Installer_Console.iso
         pushd {{justfile_directory()}}/qemu/console
         quickemu --vm ../nixConsole.conf

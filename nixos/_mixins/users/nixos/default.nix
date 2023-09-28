@@ -29,6 +29,8 @@ let
       exit 1
     fi
 
+    TAGET_HOST_PREFIX=$(echo "$TARGET_HOST" | cut -d'-' -f1)
+
     if [[ -z "$TARGET_USER" ]]; then
       echo "ERROR! $(basename "$0") requires a username as the second argument"
       exit 1
@@ -39,7 +41,7 @@ let
       exit 1
     fi
 
-    echo "WARNING! The disks in $TARGET_HOST are about to get wiped"
+    echo "WARNING! The disks in $TAGET_HOST_PREFIX are about to get wiped"
     echo "         NixOS will be re-installed"
     echo "         This is a destructive operation"
     echo
@@ -50,10 +52,10 @@ let
 
       # Check if the target host has a disks.nix file.
       disk_nix=""
-      if [ -f "nixos/$TARGET_HOST/disks.nix" ]; then
+      if [ -f "nixos/$TAGET_HOST_PREFIX/disks.nix" ]; then
         # If so, use it to formate the disks.
-        echo "Using nixos/$TARGET_HOST/disks.nix"
-        disk_nix="nixos/$TARGET_HOST/disks.nix"
+        echo "Using nixos/$TAGET_HOST_PREFIX/disks.nix"
+        disk_nix="nixos/$TAGET_HOST_PREFIX/disks.nix"
       else
         # Otherwise, use the default disks.nix.
         echo "Using disko/default.nix"
@@ -68,12 +70,18 @@ let
         "$disk_nix" \
         --arg disk "\"$TARGET_DISK\""
 
-      sudo nixos-generate-config --dir "nixos/$TARGET_HOST" --root /mnt
+      sudo nixos-generate-config --dir "nixos/$TAGET_HOST_PREFIX" --root /mnt
 
-      rm -f "/mnt/nixos/$TARGET_HOST/configuration.nix"
+      rm -f "/mnt/nixos/$TAGET_HOST_PREFIX/configuration.nix"
 
       git add -A
-      git commit -m "Install $TARGET_HOST"
+      git config user.email "admin@nel.family"
+      git config user.name "Automated Installer"
+      git commit -m "Install $TAGET_HOST_PREFIX"
+
+      # remove user config
+      git config --unset user.email
+      git config --unset user.name
 
       echo "Would you like to open a PR to merge this change?"
       read -p "Are you sure? [y/N]" -n 1 -r
