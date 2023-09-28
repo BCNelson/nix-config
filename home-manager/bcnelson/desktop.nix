@@ -6,12 +6,6 @@
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";
 
-  nixpkgs = {
-    overlays = [
-      outputs.overlays.unstable-packages
-    ];
-  };
-
   imports = [
     outputs.homeManagerModules.autostart
     ../_mixins/programs/firefox.nix

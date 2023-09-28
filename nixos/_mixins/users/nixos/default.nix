@@ -97,7 +97,6 @@ let
       echo "Rsyncing $HOME to /mnt/home/$TARGET_USER"
       rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
       pushd "/mnt/home/$TARGET_USER/nix-config"
-      git remote set-url origin git@github.com:bcnelson/nix-config.git
       popd
 
       # Set the users password to expire on first login.

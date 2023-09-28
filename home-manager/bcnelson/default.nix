@@ -1,4 +1,4 @@
-{ inputs, hostname, desktop, lib, pkgs, ... }:
+{ inputs, outputs, hostname, desktop, lib, pkgs, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -10,7 +10,10 @@ in
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
   nixpkgs = {
-    overlays = [ inputs.nur.overlay ];
+    overlays = [ 
+      inputs.nur.overlay
+      outputs.overlays.unstable-packages
+    ];
     config.allowUnfreePredicate = _pkg: true;
   };
 
