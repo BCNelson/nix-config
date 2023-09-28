@@ -20,7 +20,36 @@ update-os:
     sudo nixos-rebuild switch --flake .#$HOSTNAME
 
 unlock:
-    gpg --decrypt local.key.asc | git-crypt unlock -
+    #!/usr/bin/env bash
+    # set -euxo pipefail
+    git config --local --get filter.git-crypt.smudge > /dev/null
+    # check if the lat command was successful
+    if [ $? -ne 0 ]; then
+        # check if there are changes that need to be stashed
+        if [ -n "$(git status --porcelain)" ]; then
+            echo "Stashing"
+            git stash push -k
+            STASHED=true
+        fi
+
+        echo "Unlocking"
+        gpg --decrypt local.key.asc | git-crypt unlock -
+
+        # check if there were changes that were stashed
+        if [ "$STASHED" = true ]; then
+            echo "Popping stash"
+            git stash pop
+        fi
+    else
+        echo "Already unlocked"
+    fi 
+
+sync: unlock
+    #!/usr/bin/env bash
+    export GH_TOKEN=$(nix eval --file ./nixos/sensitive.nix gh_token | tail -c +2 | head -c -2)
+    git stash --all
+    gh repo sync
+    git stash pop
 
 alias fmt :=format
 format:
