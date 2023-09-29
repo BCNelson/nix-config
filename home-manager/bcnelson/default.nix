@@ -24,11 +24,10 @@ in
     bash = {
       enable = true;
       bashrcExtra = ''
-        # Start fish if we're in an SSH session and have not already started fish
-        if [ -z "$STARTEDFISH" ] && [ -n "$SSH_TTY" ];
+        # Start tmux if we're in an SSH session and have not already started fish
+        if [ -n "$TMUX" ]; && [ -n "$SSH_TTY" ];
         then
-            export STARTEDFISH=1;
-            exec fish;
+            exec tmux attach -t ssh;
             exit;
         fi
       '';
@@ -37,6 +36,17 @@ in
       enable = true;
       userName = "Bradley Nelson";
       userEmail = "bradely@nel.family";
+      extraConfig = {
+        push = {
+          default = "matching";
+        };
+        pull = {
+          rebase = true;
+        };
+        init = {
+          defaultBranch = "main";
+        };
+      };
     };
   };
 
