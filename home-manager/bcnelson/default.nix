@@ -29,6 +29,8 @@ in
         then
             exec tmux attach -t ssh;
             exit;
+        else
+          
         fi
       '';
     };
