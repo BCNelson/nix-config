@@ -23,16 +23,6 @@ in
   programs = {
     bash = {
       enable = true;
-      bashrcExtra = ''
-        # Start tmux if we're in an SSH session and have not already started fish
-        if [ -n "$TMUX" ] && [ -n "$SSH_TTY" ];
-        then
-            exec tmux attach -t ssh;
-            exit;
-        else
-          
-        fi
-      '';
     };
     git = {
       enable = true;
