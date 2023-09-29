@@ -32,7 +32,8 @@ in
       fi
 
       # otherwise authenticate with tailscale
-      ${tailscale}/bin/tailscale up &
+      # TODO: make the ssh key configurable
+      ${tailscale}/bin/tailscale up --ssh &
       tail_pid=$!
       sleep 2
       auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r .AuthURL)"
