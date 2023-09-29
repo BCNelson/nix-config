@@ -21,7 +21,18 @@ in
   home.homeDirectory = "/home/bcnelson";
 
   programs = {
-    bash.enable = true;
+    bash = {
+      enable = true;
+      bashrcExtra = ''
+        # Start fish if we're in an SSH session and have not already started fish
+        if [ -z "$STARTEDFISH" ] && [ -n "$SSH_TTY" ];
+        then
+            export STARTEDFISH=1;
+            exec fish;
+            exit;
+        fi
+      '';
+    };
     git = {
       enable = true;
       userName = "Bradley Nelson";
