@@ -55,6 +55,8 @@
 
   environment.systemPackages = with pkgs; [
     vim
+    git
+    git-crypt
   ];
 
   programs.gnupg.agent = {
