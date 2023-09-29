@@ -8,7 +8,10 @@ in
     tailscale
     jq # Needed for parsing tailscale status in the setup script
   ];
-  services.tailscale.enable = true;
+  services.tailscale= {
+    enable = true;
+    package = pkgs.unstable.tailscale;
+  };
   systemd.services.tailscale-autoconnect = {
     description = "Automatic connection to Tailscale";
 

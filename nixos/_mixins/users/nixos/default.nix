@@ -85,7 +85,7 @@ let
 
         sudo nixos-install --no-root-password --flake ".#$TARGET_HOST"
 
-        # Rsync nix-config to the target install and set the remote origin to SSH.
+        # Rsync nix-config to the target install
         echo "Rsyncing $HOME to /mnt/home/$TARGET_USER"
         rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
         pushd "/mnt/home/$TARGET_USER/nix-config"
