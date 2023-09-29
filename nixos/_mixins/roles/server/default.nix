@@ -1,7 +1,7 @@
 { pkgs, ... }:
 {
     imports = [
-        ../dokcer.nix
+        ../docker.nix
     ];
 
     environment.systemPackages = [
