@@ -47,8 +47,7 @@ unlock:
 pull: unlock
     #!/usr/bin/env bash
     export GH_TOKEN=$(nix eval --file ./nixos/sensitive.nix gh_token | tail -c +2 | head -c -2)
-    git config credential.helper '!f() { sleep 1; echo "username=bcnelson"; echo "password=${GH_TOKEN}"; }; f'
-    git pull --rebase
+    git -c credential.helper='!f() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GH_TOKEN}"; }; f' pull --rebase
 
 push: unlock
     #!/usr/bin/env bash

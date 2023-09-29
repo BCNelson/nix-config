@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ outputs, hostname, username, desktop, lib, stateVersion, common ? true, ... }:
+{ outputs, hostname, username, desktop, lib, stateVersion, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)

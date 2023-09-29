@@ -10,7 +10,7 @@ in
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
   nixpkgs = {
-    overlays = [ 
+    overlays = [
       inputs.nur.overlay
       outputs.overlays.unstable-packages
     ];

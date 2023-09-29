@@ -8,7 +8,7 @@
       ../_mixins/roles/tailscale.nix
     ];
 
-    environment.systemPackages = [
-      pkgs.zfs
-    ];
+  environment.systemPackages = [
+    pkgs.zfs
+  ];
 }
