@@ -5,5 +5,5 @@ _:
         newSession = true;
         mouse = true;
         shell = "fish";
-    }
+    };
 }
