@@ -1,9 +1,9 @@
-_:
+{pkgs, ...}:
 {
     programs.tmux = {
         enable = true;
         newSession = true;
         mouse = true;
-        shell = "fish";
+        shell = "${pkgs.fish}/bin/fish";
     };
 }
