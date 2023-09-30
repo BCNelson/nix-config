@@ -44,7 +44,7 @@
       cp -r $src/* $out
       mkdir -p $out/bin
       echo "${startScript}" | sed "s+%outDir%+$out+" > $out/bin/dockerStack-${name}
-      echo "${builtin.toJSON dockerComposeDefinition}" > $out/docker-compose.yml
+      echo "${builtins.toJSON dockerComposeDefinition}" > $out/docker-compose.yml
     '';
   };
 
