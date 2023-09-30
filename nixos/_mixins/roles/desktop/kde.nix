@@ -8,4 +8,6 @@
     elisa
     oxygen
   ];
+
+  programs.partition-manager.enable = true;
 }
