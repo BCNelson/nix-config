@@ -1,5 +1,18 @@
-{ pkgs, ... }:
-
+{ pkgs, libx, ... }:
+let
+  testDocker = libx.createDockerComposeStackPackage {
+    name = "test-docker";
+    src = ./config/test;
+    dockerComposeDefinition = {
+      version = "3.8";
+      services = {
+        hello_world = {
+          image = "hello-world";
+        };
+      };
+    };
+  };
+in
 {
   imports =
     [
@@ -12,5 +25,6 @@
 
   environment.systemPackages = [
     pkgs.zfs
+    testDocker
   ];
 }
