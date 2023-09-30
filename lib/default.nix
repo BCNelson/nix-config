@@ -27,6 +27,6 @@ in {
     "x86_64-darwin"
   ];
 
-  createDockerComposeStackPackage = pkg.callPackage ./dockerComposeStack.nix;
+  createDockerComposeStackPackage = pkgs.callPackage ./dockerComposeStack.nix;
 
 }
