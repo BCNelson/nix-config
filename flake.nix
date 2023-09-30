@@ -42,7 +42,7 @@
         "aarch64-darwin"
         "x86_64-darwin"
       ];
-      libx = import ./lib { inherit inputs outputs stateVersion; };
+      libx = import ./lib { inherit inputs outputs stateVersion; pkgs = nixpkgs; };
     in
     rec {
       # Your custom packages and modifications, exported as overlays
