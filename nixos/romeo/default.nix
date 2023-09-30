@@ -7,6 +7,7 @@
       ./hardware-configuration.nix
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
+      ../_mixins/roles/server/zfs.nix
     ];
 
   environment.systemPackages = [
