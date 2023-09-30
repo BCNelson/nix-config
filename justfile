@@ -55,7 +55,7 @@ push: unlock
     export GH_TOKEN=$(nix eval --file ./nixos/sensitive.nix gh_token | tail -c +2 | head -c -2)
     git -c credential.helper='!f() { sleep 1; echo "username=${GIT_USER}"; echo "password=${GH_TOKEN}"; }; f' push
 
-sync: pull home os
+sync: pull update-home update-os
 
 
 alias fmt :=format
