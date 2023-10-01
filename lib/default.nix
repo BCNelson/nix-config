@@ -28,6 +28,7 @@
     name,
     src,
     dockerComposeDefinition,
+    platform ? "x86_64-linux"
   }:
   let
      startScript = ''
