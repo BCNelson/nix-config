@@ -35,18 +35,22 @@
       #!/usr/bin/env bash
       set -euo pipefail
       pushd %outDir%
-      docker-compose "$@"
+      echo "Command: docker-compose ''$@"
+      docker compose -f %outDir%/docker-compose.yml ''$@
     '';
     pkgs = inputs.nixpkgs.legacyPackages.${platform};
   in pkgs.stdenv.mkDerivation {
     name = "${name}-docker-stack";
+    runLocal = true;
     src = src;
     buildInputs = [ pkgs.docker-compose pkgs.docker];
     installPhase = ''
-      cp -r $src/* $out
-      mkdir -p $out/bin
-      echo "${startScript}" | sed "s+%outDir%+$out+" > $out/bin/dockerStack-${name}
-      echo "${builtins.toJSON dockerComposeDefinition}" > $out/docker-compose.yml
+      echo "Copying files from $src to $out"
+      mkdir -p "$out/bin/"
+      cp -r $src/. $out/
+      echo '${startScript}' | sed "s+%outDir%+$out+" > $out/bin/dockerStack-${name}
+      chmod +x $out/bin/dockerStack-${name}
+      echo '${builtins.toJSON dockerComposeDefinition}' > $out/docker-compose.yml
     '';
   };
 

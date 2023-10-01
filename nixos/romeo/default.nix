@@ -1,7 +1,7 @@
 { pkgs, libx, ... }:
 let
   testDocker = libx.createDockerComposeStackPackage {
-    name = "test-docker";
+    name = "test";
     src = ./config/test;
     dockerComposeDefinition = {
       version = "3.8";
