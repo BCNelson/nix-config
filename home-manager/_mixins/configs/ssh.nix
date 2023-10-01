@@ -5,9 +5,6 @@ _:
     enable = true;
     matchBlocks = {
       # "*.b.nel.family" = {
-      #   extraOptions = {
-      #     "RemoteCommand" = "fish";
-      #   };
       # };
     };
   };
