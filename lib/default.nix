@@ -1,4 +1,4 @@
-{ inputs, outputs, stateVersion, pkgs, ... }: {
+{ inputs, outputs, stateVersion, ... }: {
   # Helper function for generating home-manager configs
   mkHome = { hostname, username, desktop ? null, platform ? "x86_64-linux" }: inputs.home-manager.lib.homeManagerConfiguration {
     pkgs = inputs.nixpkgs.legacyPackages.${platform};
@@ -36,6 +36,7 @@
       pushd %outDir%
       docker-compose "$@"
     '';
+    pkgs = inputs.nixpkgs.legacyPackages.${platform};
   in pkgs.stdenv.mkDerivation {
     name = "${name}-docker-stack";
     src = src;
