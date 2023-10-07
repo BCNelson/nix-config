@@ -61,6 +61,7 @@
     vim
     git
     git-crypt
+    pciutils
   ];
 
   programs.tmux.enable = true;
