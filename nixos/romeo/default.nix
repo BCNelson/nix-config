@@ -1,17 +1,15 @@
 { pkgs, libx, ... }:
 let
-  testDocker = libx.createDockerComposeStackPackage {
-    name = "test";
-    src = ./config/test;
-    dockerComposeDefinition = {
-      version = "3.8";
-      services = {
-        hello_world = {
-          image = "hello-world";
-        };
-      };
-    };
+  dataDirs = {
+    level1 = "/mnt/vault/data/level1"; # Critical
+    level2 = "/mnt/vault/data/level2"; # Important
+    level3 = "/mnt/vault/data/level3"; # High
+    level4 = "/mnt/vault/data/level4"; # Medium
+    level5 = "/mnt/vault/data/level5"; # Low
+    level6 = "/data/replaceable"; # Replaceable
+    level7 = "/cache"; # Ephemeral
   };
+  services = import ./services.nix { inherit libx dataDirs pkgs; };
 in
 {
   imports =
@@ -25,6 +23,6 @@ in
 
   environment.systemPackages = [
     pkgs.zfs
-    testDocker
+    services.networkBacked
   ];
 }

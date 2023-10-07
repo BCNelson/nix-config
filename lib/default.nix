@@ -28,6 +28,7 @@
     name,
     src,
     dockerComposeDefinition,
+    dependencies ? [],
     platform ? "x86_64-linux"
   }:
   let
@@ -35,7 +36,9 @@
       #!/usr/bin/env bash
       set -euo pipefail
       pushd %outDir%
+      echo $PWD
       echo "Command: docker-compose ''$@"
+      export COMPOSE_PROJECT_NAME=${name}
       docker compose -f %outDir%/docker-compose.yml ''$@
     '';
     pkgs = inputs.nixpkgs.legacyPackages.${platform};
@@ -43,7 +46,7 @@
     name = "${name}-docker-stack";
     runLocal = true;
     src = src;
-    buildInputs = [ pkgs.docker-compose pkgs.docker];
+    buildInputs = [ pkgs.docker-compose pkgs.docker] ++ dependencies;
     installPhase = ''
       echo "Copying files from $src to $out"
       mkdir -p "$out/bin/"
