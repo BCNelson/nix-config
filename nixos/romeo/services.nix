@@ -80,6 +80,15 @@ in
                 container_name = "audiobookshelf";
                 restart = "unless-stopped";
             };
+            openAudible = {
+                image = "openaudible/openaudible:latest";
+                container_name = "openaudible";
+                volumes = [
+                    "${dataDirs.level5}/openAudible:/config/OpenAudible"
+                    "${dataDirs.level6}/media/audible:/media/audiobooks"
+                ];
+                restart = "unless-stopped";
+            };
         };
     };
   };
