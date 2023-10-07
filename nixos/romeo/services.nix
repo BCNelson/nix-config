@@ -60,6 +60,8 @@ in
                     "${dataDirs.level7}/jellyfin/cache:/cache"
                     "${dataDirs.level6}/media:/media:ro"
                 ];
+                group_add = [ "303" ];
+                devices = [ "/dev/dri:/dev/dri" ];
                 restart = "unless-stopped";
                 environment = [
                     "JELLYFIN_PublishedServerUrl=https://media.nel.family"
