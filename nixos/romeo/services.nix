@@ -62,7 +62,7 @@ in
                 ];
                 restart = "unless-stopped";
                 environment = [
-                    "JELLYFIN_PublishedServerUrl=https://media.h.b.nel.family"
+                    "JELLYFIN_PublishedServerUrl=https://media.nel.family"
                 ];
             };
             audiobookshelf = {
