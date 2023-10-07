@@ -47,6 +47,7 @@ in
     pkgs.git
     pkgs.git-crypt
     pkgs.just
+    pkgs.drill
   ];
 
   home.sessionVariables = {
