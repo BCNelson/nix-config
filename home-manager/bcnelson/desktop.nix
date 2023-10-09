@@ -37,10 +37,6 @@
     pkgs.jellyfin-media-player
   ];
 
-  xdg.enable = true;
-  xdg.mime.enable = true;
-  targets.genericLinux.enable = true;
-  xdg.systemDirs.data = [ "${config.home.homeDirectory}/.nix-profile/share/applications" ];
   programs.bash.enable = true;
 
   services.freedesktop.autostart = {
