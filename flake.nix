@@ -24,7 +24,7 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -42,7 +42,7 @@
         "aarch64-darwin"
         "x86_64-darwin"
       ];
-      libx = import ./lib { inherit inputs outputs stateVersion; pkgs = nixpkgs; };
+      libx = import ./lib { inherit inputs outputs stateVersion; };
     in
     rec {
       # Your custom packages and modifications, exported as overlays
@@ -61,7 +61,7 @@
         "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; libx = libx;};
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; libx = libx; pkgs = nixpkgs-unstable; };
       };
 
       # Standalone home-manager configuration entrypoint
