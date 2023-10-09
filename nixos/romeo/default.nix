@@ -24,5 +24,6 @@ in
   environment.systemPackages = [
     pkgs.zfs
     services.networkBacked
+    pkgs.gparted
   ];
 }
