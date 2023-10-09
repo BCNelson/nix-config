@@ -62,6 +62,7 @@
     git
     git-crypt
     pciutils
+    waypipe
   ];
 
   programs.tmux.enable = true;
