@@ -2,9 +2,7 @@
 
 {
   # Home Manager needs a bit of information about you and the paths it should
-  # manage.
-  home.username = "bcnelson";
-  home.homeDirectory = "/home/bcnelson";
+  # manage
 
   imports = [
     outputs.homeManagerModules.autostart
@@ -24,7 +22,6 @@
     pkgs.gitkraken
 
     pkgs.unstable.obsidian
-    pkgs.unstable.anytype
 
     pkgs.libsForQt5.filelight
 
