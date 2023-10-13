@@ -12,6 +12,7 @@
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/flatpak.nix
       ../_mixins/roles/fonts.nix
+      ../_mixins/roles/appimage.nix
     ];
   networking.firewall = {
     enable = true;
