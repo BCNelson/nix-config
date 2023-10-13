@@ -57,7 +57,7 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "sierra-2" = libx.mkHost { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
+        "sierra-2" = libx.mkHost { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; pkgs = nixpkgs-unstable; };
         "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
