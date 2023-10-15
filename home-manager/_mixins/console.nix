@@ -107,11 +107,11 @@
         enable = true;
       };
     };
-    exa = {
-      enable = true;
-      enableAliases = true;
-      icons = true;
-    };
+    # exa = {
+    #   enable = true;
+    #   enableAliases = true;
+    #   icons = true;
+    # };
     fish = {
       enable = true;
       shellAliases = {
