@@ -14,7 +14,7 @@ let
   };
   install-system = pkgs.writeShellApplication {
     name = "install-system";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt ];
+    runtimeInputs = with pkgs; [ git gnupg git-crypt default-config ];
     text = ''
       TARGET_HOST="''${1:-}"
       TARGET_USER="''${2:-bcnelson}"
@@ -83,11 +83,11 @@ let
 
         sudo nixos-generate-config --dir "nixos/$TAGET_HOST_PREFIX" --root /mnt
 
-        rm -f "/mnt/nixos/$TAGET_HOST_PREFIX/configuration.nix"
+        sudo rm -f "./nixos/$TAGET_HOST_PREFIX/configuration.nix"
 
-        if [ ! -f "/mnt/nixos/$TAGET_HOST_PREFIX/default.nix" ]; then
+        if [ ! -f "./nixos/$TAGET_HOST_PREFIX/default.nix" ]; then
           echo "writing default.nix:"
-          cat ${default-config}/default.nix | sudo tee "/mnt/nixos/$TAGET_HOST_PREFIX/default.nix"
+          cp ${default-config} "./nixos/$TAGET_HOST_PREFIX/default.nix"
         fi
 
         git add -A
