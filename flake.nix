@@ -27,7 +27,7 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
