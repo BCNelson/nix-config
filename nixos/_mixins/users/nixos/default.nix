@@ -1,6 +1,17 @@
 { config, desktop, lib, pkgs, username, ... }:
 let
   ifExists = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
+  default-config = pkgs.writeTextFile {
+    name = "default.nix";
+    text = ''
+      { ... }:
+      {
+        imports = [
+          ./hardware-configuration.nix
+        ];
+      }
+    '';
+  };
   install-system = pkgs.writeShellApplication {
     name = "install-system";
     runtimeInputs = with pkgs; [ git gnupg git-crypt ];
@@ -73,6 +84,11 @@ let
         sudo nixos-generate-config --dir "nixos/$TAGET_HOST_PREFIX" --root /mnt
 
         rm -f "/mnt/nixos/$TAGET_HOST_PREFIX/configuration.nix"
+
+        if [ ! -f "/mnt/nixos/$TAGET_HOST_PREFIX/default.nix" ]; then
+          echo "writing default.nix:"
+          cat ${default-config}/default.nix | sudo tee "/mnt/nixos/$TAGET_HOST_PREFIX/default.nix"
+        fi
 
         git add -A
         git config user.email "admin@nel.family"
