@@ -72,7 +72,7 @@
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
         "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
-        "bcnelson@xray-2" = libx.mkHome { hostname = "xray-2"; username = "bcnelson"; desktop = "kde"; homeManager = home-manager-unstable; pkgs = nixpkgs-unstable; };
+        "bcnelson@xray-2" = libx.mkHome { hostname = "xray-2"; username = "bcnelson"; desktop = "kde"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
         "bcnelson@romeo-2" = libx.mkHome { hostname = "romeo-2"; username = "bcnelson"; };
       };
 
