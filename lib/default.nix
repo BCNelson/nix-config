@@ -1,7 +1,7 @@
 { inputs, outputs, stateVersion, ... }: {
   # Helper function for generating home-manager configs
-  mkHome = { hostname, username, desktop ? null, platform ? "x86_64-linux" }: inputs.home-manager.lib.homeManagerConfiguration {
-    pkgs = inputs.nixpkgs.legacyPackages.${platform};
+  mkHome = { hostname, username, desktop ? null, platform ? "x86_64-linux", home-manager ? inputs.home-manager, pkgs ? inputs.nixpkgs }: home-manager.lib.homeManagerConfiguration {
+    pkgs = pkgs.legacyPackages.${platform};
     extraSpecialArgs = {
       inherit inputs outputs desktop hostname platform username stateVersion;
     };
