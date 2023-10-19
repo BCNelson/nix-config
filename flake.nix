@@ -30,7 +30,7 @@
     # nix-colors.url = "github:misterio77/nix-colors";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, nix-darwin, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -73,6 +73,12 @@
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
         "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; };
+      };
+
+      darwinConfigurations = {
+        "GX00087" = nix-darwin.lib.darwinSystem {
+          modules = [ ./darwin/GX00087.nix ];
+        };
       };
 
       formatter = libx.forAllSystems (system:
