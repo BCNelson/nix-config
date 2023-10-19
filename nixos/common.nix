@@ -29,12 +29,17 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
+  networking.wireless.enable = lib.mkForce false;
 
   # Set your time zone.
   time.timeZone = lib.mkDefault "America/Denver";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
+
+  i18n.supportedLocales = lib.mkDefault [
+    "en_US.UTF-8/UTF-8"
+  ];
 
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "en_US.UTF-8";
@@ -54,7 +59,13 @@
 
   environment.systemPackages = with pkgs; [
     vim
+    git
+    git-crypt
+    pciutils
+    waypipe
   ];
+
+  programs.tmux.enable = true;
 
   programs.gnupg.agent = {
     enable = true;

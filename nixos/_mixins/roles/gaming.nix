@@ -4,5 +4,6 @@
   programs.gamemode.enable = true;
   environment.systemPackages = [
     pkgs.gamescope
+    pkgs.steamtinkerlaunch
   ];
 }

@@ -1,4 +1,7 @@
 { pkgs, ... }: {
+  imports = [
+    ./programs/tmux.nix
+  ];
   home = {
     # A Modern Unix experience
     # https://jvns.ca/blog/2022/04/12/a-list-of-new-ish--command-line-tools/
@@ -104,11 +107,11 @@
         enable = true;
       };
     };
-    exa = {
-      enable = true;
-      enableAliases = true;
-      icons = true;
-    };
+    # exa = {
+    #   enable = true;
+    #   enableAliases = true;
+    #   icons = true;
+    # };
     fish = {
       enable = true;
       shellAliases = {

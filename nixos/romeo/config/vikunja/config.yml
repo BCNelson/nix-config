@@ -1,0 +1,251 @@
+ 
+service:
+
+cache:
+  # If cache is enabled or not
+  enabled: false
+  # Cache type. Possible values are "keyvalue", "memory" or "redis".
+  # When choosing "keyvalue" this setting follows the one configured in the "keyvalue" section.
+  # When choosing "redis" you will need to configure the redis connection seperately.
+  type: keyvalue
+  # When using memory this defines the maximum size an element can take
+  maxelementsize: 1000
+
+cors:
+  # Whether to enable or disable cors headers.
+  # Note: If you want to put the frontend and the api on seperate domains or ports, you will need to enable this.
+  #       Otherwise the frontend won't be able to make requests to the api through the browser.
+  enable: true
+  # A list of origins which may access the api. These need to include the protocol (`http://` or `https://`) and port, if any.
+  origins:
+    - "*"
+  # How long (in seconds) the results of a preflight request can be cached.
+  maxage: 0
+
+mailer:
+  # Whether to enable the mailer or not. If it is disabled, all users are enabled right away and password reset is not possible.
+  enabled: true
+  # SMTP Host
+  host: "smtp.migadu.com"
+  # SMTP Host port.
+  # **NOTE:** If you're unable to send mail and the only error you see in the logs is an `EOF`, try setting the port to `25`.
+  port: 465
+  # SMTP Auth Type. Can be either `plain`, `login` or `cram-md5`.
+  authtype: "login"
+  # SMTP username
+  username: "admin@nel.family"
+  # SMTP password
+  password: "x9!ZTcF9KDCRRt"
+  # Wether to skip verification of the tls certificate on the server
+  skiptlsverify: false
+  # The default from address when sending emails
+  fromemail: "admin@nel.family"
+  # The length of the mail queue.
+  queuelength: 100
+  # The timeout in seconds after which the current open connection to the mailserver will be closed.
+  queuetimeout: 30
+  # By default, vikunja will try to connect with starttls, use this option to force it to use ssl.
+  forcessl: true
+
+log:
+  # A folder where all the logfiles should go.
+  path: <rootpath>logs
+  # Whether to show any logging at all or none
+  enabled: true
+  # Where the normal log should go. Possible values are stdout, stderr, file or off to disable standard logging.
+  standard: "stdout"
+  # Change the log level. Possible values (case-insensitive) are CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG.
+  level: "DEBUG"
+  # Whether or not to log database queries. Useful for debugging. Possible values are stdout, stderr, file or off to disable database logging.
+  database: "off"
+  # The log level for database log messages. Possible values (case-insensitive) are CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG.
+  databaselevel: "WARNING"
+  # Whether to log http requests or not. Possible values are stdout, stderr, file or off to disable http logging.
+  http: "stdout"
+  # Echo has its own logging which usually is unnecessary, which is why it is disabled by default. Possible values are stdout, stderr, file or off to disable standard logging.
+  echo: "off"
+  # Whether or not to log events. Useful for debugging. Possible values are stdout, stderr, file or off to disable events logging.
+  events: "stdout"
+  # The log level for event log messages. Possible values (case-insensitive) are ERROR, INFO, DEBUG.
+  eventslevel: "info"
+
+ratelimit:
+  # whether or not to enable the rate limit
+  enabled: false
+  # The kind on which rates are based. Can be either "user" for a rate limit per user or "ip" for an ip-based rate limit.
+  kind: user
+  # The time period in seconds for the limit
+  period: 60
+  # The max number of requests a user is allowed to do in the configured time period
+  limit: 100
+  # The store where the limit counter for each user is stored.
+  # Possible values are "keyvalue", "memory" or "redis".
+  # When choosing "keyvalue" this setting follows the one configured in the "keyvalue" section.
+  store: keyvalue
+
+files:
+  # The path where files are stored
+  basepath: ./files # relative to the binary
+  # The maximum size of a file, as a human-readable string.
+  # Warning: The max size is limited 2^64-1 bytes due to the underlying datatype
+  maxsize: 20MB
+
+migration:
+  # These are the settings for the wunderlist migrator
+  wunderlist:
+    # Wheter to enable the wunderlist migrator or not
+    enable: false
+    # The client id, required for making requests to the wunderlist api
+    # You need to register your vikunja instance at https://developer.wunderlist.com/apps/new to get this
+    clientid:
+    # The client secret, also required for making requests to the wunderlist api
+    clientsecret:
+    # The url where clients are redirected after they authorized Vikunja to access their wunderlist stuff.
+    # This needs to match the url you entered when registering your Vikunja instance at wunderlist.
+    # This is usually the frontend url where the frontend then makes a request to /migration/wunderlist/migrate
+    # with the code obtained from the wunderlist api.
+    # Note that the vikunja frontend expects this to be /migrate/wunderlist
+    redirecturl:
+  todoist:
+    # Wheter to enable the todoist migrator or not
+    enable: false
+    # The client id, required for making requests to the todoist api
+    # You need to register your vikunja instance at https://developer.todoist.com/appconsole.html to get this
+    clientid:
+    # The client secret, also required for making requests to the todoist api
+    clientsecret:
+    # The url where clients are redirected after they authorized Vikunja to access their todoist items.
+    # This needs to match the url you entered when registering your Vikunja instance at todoist.
+    # This is usually the frontend url where the frontend then makes a request to /migration/todoist/migrate
+    # with the code obtained from the todoist api.
+    # Note that the vikunja frontend expects this to be /migrate/todoist
+    redirecturl: <frontend url>/migrate/todoist
+  trello:
+    # Wheter to enable the trello migrator or not
+    enable: false
+    # The client id, required for making requests to the trello api
+    # You need to register your vikunja instance at https://trello.com/app-key (log in before you visit that link) to get this
+    key:
+    # The url where clients are redirected after they authorized Vikunja to access their trello cards.
+    # This needs to match the url you entered when registering your Vikunja instance at trello.
+    # This is usually the frontend url where the frontend then makes a request to /migration/trello/migrate
+    # with the code obtained from the trello api.
+    # Note that the vikunja frontend expects this to end on /migrate/trello.
+    redirecturl: <frontend url>/migrate/trello
+  microsofttodo:
+    # Wheter to enable the microsoft todo migrator or not
+    enable: false
+    # The client id, required for making requests to the microsoft graph api
+    # See https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app#register-an-application
+    # for information about how to register your vikuinja instance.
+    clientid:
+    # The client secret, also required for making requests to the microsoft graph api
+    clientsecret:
+    # The url where clients are redirected after they authorized Vikunja to access their microsoft todo tasks.
+    # This needs to match the url you entered when registering your Vikunja instance at microsoft.
+    # This is usually the frontend url where the frontend then makes a request to /migration/microsoft-todo/migrate
+    # with the code obtained from the microsoft graph api.
+    # Note that the vikunja frontend expects this to be /migrate/microsoft-todo
+    redirecturl: <frontend url>/migrate/microsoft-todo
+
+avatar:
+  # When using gravatar, this is the duration in seconds until a cached gravatar user avatar expires
+  gravatarexpiration: 3600
+
+backgrounds:
+  # Whether to enable backgrounds for lists at all.
+  enabled: true
+  providers:
+    upload:
+      # Whethere to enable uploaded list backgrounds
+      enabled: true
+    unsplash:
+      # Whether to enable setting backgrounds from unsplash as list backgrounds
+      enabled: false
+      # You need to create an application for your installation at https://unsplash.com/oauth/applications/new
+      # and set the access token below.
+      accesstoken:
+      # The unsplash application id is only used for pingback and required as per their api guidelines.
+      # You can find the Application ID in the dashboard for your API application. It should be a numeric ID.
+      # It will only show in the UI if your application has been approved for Enterprise usage, therefore if
+      # you’re in Demo mode, you can also find the ID in the URL at the end: https://unsplash.com/oauth/applications/:application_id
+      applicationid:
+
+# Legal urls
+# Will be shown in the frontend if configured here
+legal:
+  imprinturl:
+  privacyurl:
+
+# Key Value Storage settings
+# The Key Value Storage is used for different kinds of things like metrics and a few cache systems.
+keyvalue:
+  # The type of the storage backend. Can be either "memory" or "redis". If "redis" is chosen it needs to be configured seperately.
+  type: "memory"
+
+auth:
+  # Local authentication will let users log in and register (if enabled) through the db.
+  # This is the default auth mechanism and does not require any additional configuration.
+  local:
+    # Enable or disable local authentication
+    enabled: true
+  # OpenID configuration will allow users to authenticate through a third-party OpenID Connect compatible provider.<br/>
+  # The provider needs to support the `openid`, `profile` and `email` scopes.<br/>
+  # **Note:** Some openid providers (like gitlab) only make the email of the user available through openid claims if they have set it to be publicly visible.
+  # If the email is not public in those cases, authenticating will fail.
+  # **Note 2:** The frontend expects to be redirected after authentication by the third party
+  # to <frontend-url>/auth/openid/<auth key>. Please make sure to configure the redirect url with your third party
+  # auth service accordingy if you're using the default vikunja frontend.
+  # Take a look at the [default config file](https://kolaente.dev/vikunja/api/src/branch/main/config.yml.sample) for more information about how to configure openid authentication.
+  # openid:
+  #   # Enable or disable OpenID Connect authentication
+  #   enabled: true
+  #   # The url to redirect clients to. Defaults to the configured frontend url. If you're using Vikunja with the official
+  #   # frontend, you don't need to change this value.
+  #   # **Note:** The redirect url must exactly match the configured redirect url with the third party provider.
+  #   # This includes all slashes at the end or protocols.
+  #   redirecturl: https://todo.nel.family/auth/openid/
+  #   # A list of enabled providers
+  #   providers:
+  #     # The name of the provider as it will appear in the frontend.
+  #     - name: "Authentik Login"
+  #       # The auth url to send users to if they want to authenticate using OpenID Connect.
+  #       authurl: https://auth.nel.family/application/o/vikunja/
+  #       # The client ID used to authenticate Vikunja at the OpenID Connect provider.
+  #       clientid: 952fbbe646c8e6c2d5c963a2d80a8688141433ed
+  #       # The client secret used to authenticate Vikunja at the OpenID Connect provider.
+  #       clientsecret: bb8494608af44353dbe0b14fe8152a4e1618920806d2cf8d9404164b70533b75a092776b3e04d48e0497df67993d3339f44ebcfbdae499f7413af3232d50abd5
+
+# Prometheus metrics endpoint
+metrics:
+  # If set to true, enables a /metrics endpoint for prometheus to collect metrics about Vikunja.
+  enabled: false
+  # If set to a non-empty value the /metrics endpoint will require this as a username via basic auth in combination with the password below.
+  username:
+  # If set to a non-empty value the /metrics endpoint will require this as a password via basic auth in combination with the username below.
+  password:
+
+# Provide default settings for new users. When a new user is created, these settings will automatically be set for the user. If you change them in the config file afterwards they will not be changed back for existing users.
+defaultsettings:
+  # The avatar source for the user. Can be `gravatar`, `initials`, `upload` or `marble`. If you set this to `upload` you'll also need to specify `defaultsettings.avatar_file_id`.
+  avatar_provider: initials
+  # The id of the file used as avatar.
+  avatar_file_id: 0
+  # If set to true users will get task reminders via email.
+  email_reminders_enabled: false
+  # If set to true will allow other users to find this user when searching for parts of their name.
+  discoverable_by_name: true
+  # If set to true will allow other users to find this user when searching for their exact email.
+  discoverable_by_email: true
+  # If set to true will send an email every day with all overdue tasks at a configured time.
+  overdue_tasks_reminders_enabled: true
+  # When to send the overdue task reminder email.
+  overdue_tasks_reminders_time: 9:00
+  # The id of the default list. Make sure users actually have access to this list when setting this value.
+  default_list_id: 0
+  # Start of the week for the user. `0` is sunday, `1` is monday and so on.
+  week_start: 0
+  # The language of the user interface. Must be an ISO 639-1 language code. Will default to the browser language the user uses when signing up.
+  language: en
+  # The time zone of each individual user. This will affect when users get reminders and overdue task emails.
+  timezone: <time zone set at service.timezone>

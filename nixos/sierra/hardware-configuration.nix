@@ -30,6 +30,12 @@
       device = "/dev/disk/by-uuid/2FAA-50DE";
       fsType = "vfat";
     };
+  
+  fileSystems."/home/storage" =
+    {
+      device = "/dev/disk/by-uuid/17884a7b-cb8c-4257-956b-786077b61c14";
+      fsType = "btrfs";
+    };
 
   swapDevices = [ ];
 

@@ -2,15 +2,7 @@
 
 {
   # Home Manager needs a bit of information about you and the paths it should
-  # manage.
-  home.username = "bcnelson";
-  home.homeDirectory = "/home/bcnelson";
-
-  nixpkgs = {
-    overlays = [
-      outputs.overlays.unstable-packages
-    ];
-  };
+  # manage
 
   imports = [
     outputs.homeManagerModules.autostart
@@ -30,9 +22,10 @@
     pkgs.gitkraken
 
     pkgs.unstable.obsidian
-    pkgs.unstable.anytype
 
     pkgs.libsForQt5.filelight
+
+    pkgs.libsForQt5.kate
 
     # Chat
     pkgs.neochat
@@ -44,10 +37,6 @@
     pkgs.jellyfin-media-player
   ];
 
-  xdg.enable = true;
-  xdg.mime.enable = true;
-  targets.genericLinux.enable = true;
-  xdg.systemDirs.data = [ "${config.home.homeDirectory}/.nix-profile/share/applications" ];
   programs.bash.enable = true;
 
   services.freedesktop.autostart = {
