@@ -34,7 +34,7 @@
     enable = true;
     shellInit = ''
         set fish_greeting # Disable greeting
-      ''
+      '';
   };
   security.pam.enableSudoTouchIdAuth = true;
 
