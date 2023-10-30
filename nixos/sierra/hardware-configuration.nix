@@ -12,6 +12,7 @@
       inputs.nixos-hardware.nixosModules.common-gpu-amd
       inputs.nixos-hardware.nixosModules.common-pc
       ../_mixins/hardware/streamdeck.nix
+      ../_mixins/hardware/qmk.nix
     ];
 
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usbhid" "usb_storage" "sd_mod" ];
