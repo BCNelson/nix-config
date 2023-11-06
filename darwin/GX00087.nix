@@ -5,7 +5,6 @@
   # $ nix-env -qaP | grep wget
   environment.systemPackages = [
     pkgs.vim
-    pkgs.jetbrains.rider
     pkgs.direnv
   ];
 
