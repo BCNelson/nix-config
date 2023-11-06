@@ -1,6 +1,6 @@
 {
-    plugins = [
-        "github-copilot"
-        "nixidea"
-    ];
+  plugins = [
+    "github-copilot"
+    "nixidea"
+  ];
 }

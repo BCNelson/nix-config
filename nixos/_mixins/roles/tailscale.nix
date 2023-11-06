@@ -8,7 +8,7 @@ in
     tailscale
     jq # Needed for parsing tailscale status in the setup script
   ];
-  services.tailscale= {
+  services.tailscale = {
     enable = true;
     package = pkgs.unstable.tailscale;
   };

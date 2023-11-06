@@ -24,37 +24,38 @@
     "x86_64-darwin"
   ];
 
-  createDockerComposeStackPackage = {
-    name,
-    src,
-    dockerComposeDefinition,
-    dependencies ? [],
-    platform ? "x86_64-linux"
-  }:
-  let
-     startScript = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
-      pushd %outDir%
-      echo $PWD
-      echo "Command: docker-compose ''$@"
-      export COMPOSE_PROJECT_NAME=${name}
-      docker compose -f %outDir%/docker-compose.yml ''$@
-    '';
-    pkgs = inputs.nixpkgs.legacyPackages.${platform};
-  in pkgs.stdenv.mkDerivation {
-    name = "${name}-docker-stack";
-    runLocal = true;
-    src = src;
-    buildInputs = [ pkgs.docker-compose pkgs.docker] ++ dependencies;
-    installPhase = ''
-      echo "Copying files from $src to $out"
-      mkdir -p "$out/bin/"
-      cp -r $src/. $out/
-      echo '${startScript}' | sed "s+%outDir%+$out+" > $out/bin/dockerStack-${name}
-      chmod +x $out/bin/dockerStack-${name}
-      echo '${builtins.toJSON dockerComposeDefinition}' > $out/docker-compose.yml
-    '';
-  };
+  createDockerComposeStackPackage =
+    { name
+    , src
+    , dockerComposeDefinition
+    , dependencies ? [ ]
+    , platform ? "x86_64-linux"
+    }:
+    let
+      startScript = ''
+        #!/usr/bin/env bash
+        set -euo pipefail
+        pushd %outDir%
+        echo $PWD
+        echo "Command: docker-compose ''$@"
+        export COMPOSE_PROJECT_NAME=${name}
+        docker compose -f %outDir%/docker-compose.yml ''$@
+      '';
+      pkgs = inputs.nixpkgs.legacyPackages.${platform};
+    in
+    pkgs.stdenv.mkDerivation {
+      name = "${name}-docker-stack";
+      runLocal = true;
+      inherit src;
+      buildInputs = [ pkgs.docker-compose pkgs.docker ] ++ dependencies;
+      installPhase = ''
+        echo "Copying files from $src to $out"
+        mkdir -p "$out/bin/"
+        cp -r $src/. $out/
+        echo '${startScript}' | sed "s+%outDir%+$out+" > $out/bin/dockerStack-${name}
+        chmod +x $out/bin/dockerStack-${name}
+        echo '${builtins.toJSON dockerComposeDefinition}' > $out/docker-compose.yml
+      '';
+    };
 
 }

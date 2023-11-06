@@ -65,7 +65,7 @@
         "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; libx = libx; pkgs = nixpkgs-unstable; };
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
       };
 
       # Standalone home-manager configuration entrypoint

@@ -1,11 +1,11 @@
-{ pkgs, ... }:
+_:
 
 {
-    boot.supportedFilesystems = [ "zfs" ];
-    # boot.zfs = {
-    #     enable = true;
-    # };
-    # environment.systemPackages = [
-    #     pkgs.zfs
-    # ];
+  boot.supportedFilesystems = [ "zfs" ];
+  # boot.zfs = {
+  #     enable = true;
+  # };
+  # environment.systemPackages = [
+  #     pkgs.zfs
+  # ];
 }

@@ -28,12 +28,12 @@
   # };
 
   # Create /etc/zshrc that loads the nix-darwin environment.
-  programs.zsh.enable = true;  # default shell on catalina
-  programs.fish= {
+  programs.zsh.enable = true; # default shell on catalina
+  programs.fish = {
     enable = true;
     shellInit = ''
-        set fish_greeting # Disable greeting
-      '';
+      set fish_greeting # Disable greeting
+    '';
   };
   security.pam.enableSudoTouchIdAuth = true;
 

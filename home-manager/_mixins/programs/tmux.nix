@@ -1,8 +1,8 @@
-{pkgs, ...}:
+_:
 {
-    programs.tmux = {
-        enable = true;
-        newSession = true;
-        mouse = true;
-    };
+  programs.tmux = {
+    enable = true;
+    newSession = true;
+    mouse = true;
+  };
 }
