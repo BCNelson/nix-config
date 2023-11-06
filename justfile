@@ -1,5 +1,7 @@
 #!/usr/bin/env -S just --justfile
 
+hostname := `hostname -s`
+
 [private]
 default:
   @just --list --justfile {{justfile()}} --list-heading $'Avalible Commands\n'
@@ -11,8 +13,13 @@ update:
 
 alias home :=update-home
 alias h :=update-home
+[linux]
 update-home:
     home-manager switch --flake .#$USER@$HOSTNAME
+
+[macos]
+update-home:
+    home-manager switch --flake .#$USER@{{hostname}}
 
 alias os :=update-os
 alias o :=update-os
