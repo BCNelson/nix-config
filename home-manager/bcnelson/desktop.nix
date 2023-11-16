@@ -35,6 +35,11 @@
     pkgs.newsflash
 
     pkgs.jellyfin-media-player
+
+    #Dignostic tools
+    pkgs.glxinfo
+    pkgs.vulkan-tools
+    pkgs.libva-utils
   ];
 
   programs.bash.enable = true;
