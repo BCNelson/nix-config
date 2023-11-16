@@ -19,6 +19,7 @@ in
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
+      ./unbound.nix
     ];
 
   environment.systemPackages = [
