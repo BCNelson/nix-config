@@ -26,20 +26,4 @@ in
     services.networkBacked
     pkgs.gparted
   ];
-
-  services.unbound = {
-    enable = true;
-    settings = {
-      interface = [ "0.0.0.0@53" "::@53" ];
-      do-ipv6 = true;
-      access-control = [
-        "127.0.0.1/32 allow"
-        "192.168.0.0/16 allow"
-        "172.16.0.0.0/12 allow"
-        "10.0.0.0/8 allow"
-        "fc00::/7 allow"
-        "::1/128 allow"
-      ]
-        }
-        };
-    }
+}
