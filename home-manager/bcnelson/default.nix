@@ -53,6 +53,7 @@ in
     pkgs.git-crypt
     pkgs.just
     pkgs.ldns
+    pkgs.nmap
   ];
 
   home.sessionVariables = {
