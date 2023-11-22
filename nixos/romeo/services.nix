@@ -165,6 +165,11 @@ in
             "${dataDirs.level5}/syncthing/config:/config"
             "${dataDirs.level4}/syncthing/data:/data/folders/level4"
           ];
+          ports = [
+            "22000:22000/tcp"
+            "22000:22000/udp"
+            "21027:21027/udp"
+          ];
           restart = "unless-stopped";
         };
       };
