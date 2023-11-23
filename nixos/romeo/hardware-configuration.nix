@@ -27,7 +27,7 @@
     };
   boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
   boot.supportedFilesystems = [ "zfs" ];
-  boot.zfs.extraPools = [ "vault" "scary" ];
+  boot.zfs.extraPools = [ "17291007385680726918" "scary" ];
   boot.zfs.forceImportRoot = false;
   services.zfs.autoScrub.enable = true;
 
