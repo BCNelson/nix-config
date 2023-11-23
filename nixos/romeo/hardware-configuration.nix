@@ -27,8 +27,11 @@
     };
   boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
   boot.supportedFilesystems = [ "zfs" ];
-  boot.zfs.extraPools = [ "17291007385680726918" "scary" ];
-  boot.zfs.forceImportRoot = false;
+  boot.zfs ={
+    extraPools = [ "17291007385680726918" "scary" ];
+    forceImportRoot = false;
+    devNodes = "/dev/disk/by-partlabel";
+  };
   services.zfs.autoScrub.enable = true;
 
   swapDevices = [ ];
