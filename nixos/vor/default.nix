@@ -19,4 +19,5 @@ in
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
     ];
+  networking.hostId = "d80836c3";
 }
