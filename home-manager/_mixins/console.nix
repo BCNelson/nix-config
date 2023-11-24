@@ -7,28 +7,29 @@
     # https://jvns.ca/blog/2022/04/12/a-list-of-new-ish--command-line-tools/
     packages = with pkgs; [
       asciinema # Terminal recorder
+      btm
       #   breezy # Terminal bzr client
       #   butler # Terminal Itch.io API client
       #   chafa # Terminal image viewer
       #   dconf2nix # Nix code from Dconf files
       #   debootstrap # Terminal Debian installer
-      #   diffr # Modern Unix `diff`
+      diffr # Modern Unix `diff`
       #   difftastic # Modern Unix `diff`
       #   dua # Modern Unix `du`
       #   duf # Modern Unix `df`
       #   du-dust # Modern Unix `du`
-      #   entr # Modern Unix `watch`
-      #   fd # Modern Unix `find`
+      entr # Modern Unix `watch`
+      fd # Modern Unix `find`
       #   ffmpeg-headless # Terminal video encoder
       #   glow # Terminal Markdown renderer
-      #   gping # Modern Unix `ping`
+      gping # Modern Unix `ping`
       #   hexyl # Modern Unix `hexedit`
       #   hyperfine # Terminal benchmarking
       #   jpegoptim # Terminal JPEG optimizer
       #   jiq # Modern Unix `jq`
-      #   lazygit # Terminal Git client
+      lazygit # Terminal Git client
       #   lurk # Modern Unix `strace`
-      #   moar # Modern Unix `less`
+      moar # Modern Unix `less`
       #   neofetch # Terminal system info
       #   nixpkgs-review # Nix code review
       #   nurl # Nix URL fetcher
@@ -116,13 +117,13 @@
       enable = true;
       shellAliases = {
         cat = "bat --paging=never --style=plain";
-        # diff = "diffr";
+        diff = "diffr";
         # glow = "glow --pager";
-        # htop = "btm --basic --tree --hide_table_gap --dot_marker --mem_as_value";
-        # ip = "ip --color --brief";
+        htop = "btm --basic --tree --hide_table_gap --dot_marker --mem_as_value";
+        ip = "ip --color --brief";
         less = "bat --paging=always";
         more = "bat --paging=always";
-        # top = "btm --basic --tree --hide_table_gap --dot_marker --mem_as_value";
+        top = "btm --basic --tree --hide_table_gap --dot_marker --mem_as_value";
         # tree = "exa --tree";
       };
       interactiveShellInit = ''

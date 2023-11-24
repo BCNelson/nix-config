@@ -88,7 +88,7 @@ iso:
         else
             echo "Ventoy drive not mounted"
         fi
-    else 
+    else
         echo "No ventoy drive found"
     fi
 

@@ -67,6 +67,7 @@
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; installer = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
+        "vor-2" = libx.mkHost { hostname = "vor-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
       };
 
       # Standalone home-manager configuration entrypoint
@@ -75,6 +76,7 @@
         "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
         "bcnelson@xray-2" = libx.mkHome { hostname = "xray-2"; username = "bcnelson"; desktop = "kde"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
         "bcnelson@romeo-2" = libx.mkHome { hostname = "romeo-2"; username = "bcnelson"; };
+        "bcnelson@vor-2" = libx.mkHome { hostname = "vor-2"; username = "bcnelson"; };
       };
 
       darwinConfigurations = {
