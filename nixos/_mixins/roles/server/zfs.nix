@@ -1,4 +1,4 @@
-_:
+{pkgs, ...}:
 
 {
   boot.supportedFilesystems = [ "zfs" ];
