@@ -17,7 +17,7 @@ _:
             netbios name = vor
             security = user 
             #use sendfile = yes
-            #max protocol = smb2
+            min protocol = smb3
             hosts allow = 100.64.0.0/10 192.168.138.0/24
             hosts deny = 0.0.0.0/0
             guest account = nobody
