@@ -18,6 +18,7 @@ in
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
+      ./samba.nix
     ];
   networking.hostId = "d80836c3";
 }
