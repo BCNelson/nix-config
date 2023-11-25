@@ -10,6 +10,7 @@ _:
     services.samba = {
         enable = true;
         securityType = "user";
+        openFirewall = true;
         extraConfig = ''
             workgroup = WORKGROUP
             server string = vor
