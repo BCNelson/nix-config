@@ -23,7 +23,7 @@ _:
             map to guest = bad user
         '';
         shares = {
-            public = {
+            family = {
                 path = "/liveData/NelsonData/Nelson Family Files";
                 browseable = "yes";
                 "read only" = "no";
