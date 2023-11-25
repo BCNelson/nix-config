@@ -26,7 +26,7 @@
   swapDevices = [ ];
 
   boot.zfs ={
-    extraPools = [ "vault" "liveDate" ];
+    extraPools = [ "vault" "liveData" ];
     forceImportRoot = false;
   };
 
