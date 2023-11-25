@@ -26,9 +26,8 @@
   swapDevices = [ ];
 
   boot.zfs ={
-    extraPools = [ "vault" "Live Data" ];
+    extraPools = [ "vault" "liveDate" ];
     forceImportRoot = false;
-    devNodes = "/dev/disk/by-partlabel";
   };
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
