@@ -9,7 +9,7 @@ _:
                 weekly = 52;
                 monthly = 24;
                 yearly = 10;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
             "vault/data/level2" = {
                 hourly = 72;
@@ -17,7 +17,7 @@ _:
                 weekly = 52;
                 monthly = 24;
                 yearly = 10;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
             "vault/data/level3" = {
                 hourly = 72;
@@ -25,7 +25,7 @@ _:
                 weekly = 24;
                 monthly = 12;
                 yearly = 2;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
             "vault/data/level4" = {
                 hourly = 72;
@@ -33,7 +33,7 @@ _:
                 weekly = 24;
                 monthly = 12;
                 yearly = 2;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
             "vault/data/level5" = {
                 hourly = 72;
@@ -41,7 +41,7 @@ _:
                 weekly = 24;
                 monthly = 12;
                 yearly = 2;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
             "scary/replaceable" = {
                 hourly = 24;
@@ -49,7 +49,7 @@ _:
                 weekly = 8;
                 monthly = 6;
                 yearly = 1;
-                useTemplate = "common";
+                useTemplate = [ "common" ];
             };
         };
         templates = {
