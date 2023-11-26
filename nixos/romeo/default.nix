@@ -20,7 +20,7 @@ in
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
       ./unbound.nix
-      ./backup.nix
+      ./backups.nix
     ];
 
   environment.systemPackages = [
