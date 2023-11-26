@@ -12,7 +12,9 @@
 	},
 
 	// Declare convenient hostname aliases to use in place of IP addresses.
-	"hosts": {},
+	"hosts": {
+		"vor": "100.73.83.164"
+	},
 
 	"tagOwners": {
 		"tag:server":  ["bradleynelson102@gmail.com"],
@@ -24,7 +26,8 @@
 	"acls": [
 		// Match absolutely everything.
 		// Comment this section out if you want to define specific restrictions.
-		{"action": "accept", "users": ["*"], "ports": ["*:*"]},
+		{"action": "accept", "users": ["group:admin"], "ports": ["*:*"]},
+		{"action": "accept", "users": ["group:nelsonFamily"], "ports": ["vor:445"]},
 	],
 	"ssh": [
 		{
@@ -40,4 +43,15 @@
 			"users":  ["autogroup:nonroot"],
 		},
 	],
+	"tests": [
+		{
+			"src": "bradleynelson102@gmail.com",
+			"accept": ["tag:server:22"]
+		},
+		{
+			"src": "group:nelsonFamily",
+			"accept": ["vor:445"],
+			"deny": ["vor:22"]
+		}
+	]
 }
