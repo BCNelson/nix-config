@@ -58,6 +58,6 @@ _:
                 autosnap = true;
                 recursive = true;
             };
-        }
+        };
     };
 }
