@@ -7,8 +7,8 @@
 		"group:admin": ["bradleynelson102@gmail.com"],
 		"group:nelsonFamily": [
 			"bradleynelson102@gmail.com",
-			"cknelson8@gmail.com",
-		],
+			"cknelson8@gmail.com"
+		]
 	},
 
 	// Declare convenient hostname aliases to use in place of IP addresses.
@@ -19,7 +19,7 @@
 	"tagOwners": {
 		"tag:server":  ["bradleynelson102@gmail.com"],
 		"tag:client":  ["bradleynelson102@gmail.com"],
-		"tag:iso":     ["bradleynelson102@gmail.com"],
+		"tag:iso":     ["bradleynelson102@gmail.com"]
 	},
 
 	// Access control lists.
@@ -27,21 +27,15 @@
 		// Match absolutely everything.
 		// Comment this section out if you want to define specific restrictions.
 		{"action": "accept", "users": ["group:admin"], "ports": ["*:*"]},
-		{"action": "accept", "users": ["group:nelsonFamily"], "ports": ["vor:445"]},
+		{"action": "accept", "users": ["group:nelsonFamily"], "ports": ["vor:445"]}
 	],
 	"ssh": [
 		{
 			"action": "accept",
 			"src":    ["group:admin"],
 			"dst":    ["tag:server"],
-			"users":  ["autogroup:nonroot", "root"],
-		},
-		{
-			"action": "accept",
-			"src":    ["group:admin"],
-			"dst":    ["autogroup:self"],
-			"users":  ["autogroup:nonroot"],
-		},
+			"users":  ["autogroup:nonroot", "root"]
+		}
 	],
 	"tests": [
 		{
