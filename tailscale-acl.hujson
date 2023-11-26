@@ -1,0 +1,43 @@
+// This tailnet's ACLs are maintained in https://github.com/BCNelson/nix-config
+
+// Example/default ACLs for unrestricted connections.
+{
+	// Declare static groups of users beyond those in the identity service.
+	"groups": {
+		"group:admin": ["bradleynelson102@gmail.com"],
+		"group:nelsonFamily": [
+			"bradleynelson102@gmail.com",
+			"cknelson8@gmail.com",
+		],
+	},
+
+	// Declare convenient hostname aliases to use in place of IP addresses.
+	"hosts": {},
+
+	"tagOwners": {
+		"tag:server":  ["bradleynelson102@gmail.com"],
+		"tag:client":  ["bradleynelson102@gmail.com"],
+		"tag:iso":     ["bradleynelson102@gmail.com"],
+	},
+
+	// Access control lists.
+	"acls": [
+		// Match absolutely everything.
+		// Comment this section out if you want to define specific restrictions.
+		{"action": "accept", "users": ["*"], "ports": ["*:*"]},
+	],
+	"ssh": [
+		{
+			"action": "accept",
+			"src":    ["group:admin"],
+			"dst":    ["tag:server"],
+			"users":  ["autogroup:nonroot", "root"],
+		},
+		{
+			"action": "accept",
+			"src":    ["group:admin"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot"],
+		},
+	],
+}
