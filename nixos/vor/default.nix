@@ -19,6 +19,7 @@ in
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
       ./samba.nix
+      ./backups.nix
     ];
   networking.hostId = "d80836c3";
 }
