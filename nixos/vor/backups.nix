@@ -31,6 +31,7 @@ _:
     };
     services.syncoid = {
         enable = true;
+        commonArgs = [ "--debug" ];
         commands = {
             "liveData/NelsonData Local Backup" = {
                 source = "liveData/NelsonData";
