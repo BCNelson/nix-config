@@ -1,4 +1,4 @@
-_: 
+{ lib, ...}: 
 {
     services.sanoid = {
         enable = true;
@@ -32,6 +32,8 @@ _:
     services.syncoid = {
         enable = true;
         commonArgs = [ "--debug" ];
+        #https://github.com/NixOS/nixpkgs/pull/265543
+        service.serviceConfig.PrivateUsers = lib.mkForce false;
         commands = {
             "liveData/NelsonData Local Backup" = {
                 source = "liveData/NelsonData";
