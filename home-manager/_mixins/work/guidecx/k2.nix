@@ -31,5 +31,8 @@ in
 
     buf
     protoc-gen-go-grpc-mock
+    go-mockery
+    go-migrate
+    dapr-cli
   ];
 }
