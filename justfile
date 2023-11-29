@@ -14,21 +14,21 @@ update:
 alias home :=update-home
 alias h :=update-home
 [linux]
-update-home:
-    home-manager switch --flake .#$USER@$HOSTNAME
+update-home *additionalArgs:
+    home-manager switch --flake .#$USER@$HOSTNAME {{additionalArgs}}
 
 [macos]
-update-home:
-    home-manager switch --flake .#$USER@{{hostname}}
+update-home *additionalArgs:
+    home-manager switch --flake .#$USER@{{hostname}} {{additionalArgs}}
 
 alias os :=update-os
 alias o :=update-os
 [linux]
-update-os:
-    sudo nixos-rebuild switch --flake .#$HOSTNAME
+update-os *additionalArgs:
+    sudo nixos-rebuild switch --flake .#$HOSTNAME {{additionalArgs}}
 [macos]
-update-os:
-    darwin-rebuild switch --flake .
+update-os *additionalArgs:
+    darwin-rebuild switch --flake . {{additionalArgs}}
 
 [unix]
 unlock:
