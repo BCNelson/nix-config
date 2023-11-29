@@ -37,7 +37,7 @@
         commands = {
             "liveData/NelsonData Local Backup" = {
                 source = "liveData/NelsonData";
-                target = "vault/Backups/Nelson Family Data";
+                target = "vault/Backups/NelsonData";
             };
         };
     };
