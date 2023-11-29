@@ -27,7 +27,7 @@
     };
   boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
   boot.supportedFilesystems = [ "zfs" ];
-  boot.zfs ={
+  boot.zfs = {
     extraPools = [ "vault" "scary" ];
     forceImportRoot = false;
     devNodes = "/dev/disk/by-partlabel";

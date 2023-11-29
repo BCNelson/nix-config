@@ -48,11 +48,11 @@ in
         forward-addr = [ "8.8.8.8" "8.8.4.4" ];
       };
       rpz = {
-          name = "nel.family";
-          zonefile = "${zonefile}/localOverride";
-          rpz-log = "yes";
-          rpz-log-name = "hairpin";
-        };
+        name = "nel.family";
+        zonefile = "${zonefile}/localOverride";
+        rpz-log = "yes";
+        rpz-log-name = "hairpin";
+      };
     };
   };
   networking.firewall = {
