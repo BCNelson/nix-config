@@ -13,6 +13,7 @@
       ../_mixins/roles/flatpak.nix
       ../_mixins/roles/fonts.nix
       ../_mixins/roles/appimage.nix
+      ../_mixins/roles/nixified-ai.nix
     ];
   networking.firewall = {
     enable = true;
