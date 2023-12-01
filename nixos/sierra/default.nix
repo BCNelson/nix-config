@@ -14,6 +14,7 @@
       ../_mixins/roles/fonts.nix
       ../_mixins/roles/appimage.nix
       ../_mixins/roles/nixified-ai.nix
+      ../_mixins/roles/figurine.nix
     ];
   networking.firewall = {
     enable = true;
