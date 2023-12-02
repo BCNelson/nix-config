@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
   services.sanoid = {
     enable = true;
@@ -76,15 +76,30 @@
     service.serviceConfig.PrivateUsers = lib.mkForce false;
     commands = {
       "vor/vault/Backups/NelsonData" = {
-        source = "syncoid@vor.ck.nel.family:vault/Backups/NelsonData";
+        source = "bcnelson@vor.ck.nel.family:vault/Backups/NelsonData";
         target = "vault/remotebackups/VorNelsonData";
         extraArgs = [
             "--compress=zstd-slow"
             "--source-bwlimit=15m"
             "--debug"
             "--sshoption=StrictHostKeyChecking=off"
+            "--no-sync-snap"
         ];
       };
     };
+  };
+
+  users.users.backup = {
+    isNormalUser = true;
+    description = "Backup user";
+  };
+
+  systemd.services.BackupZFSAlow = {
+    serviceConfig.Type = "oneshot";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    script = with pkgs; ''
+        sudo zfs allow -u backup send,hold
+    '';
   };
 }
