@@ -14,7 +14,10 @@
 
 	// Declare convenient hostname aliases to use in place of IP addresses.
 	"hosts": {
-		"vor": "100.73.83.164"
+		"vor": "100.73.83.164",
+		"vor6": "fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4",
+		"romeo": "100.76.49.168",
+		"romeo6": "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8"
 	},
 
 	"tagOwners": {
@@ -27,14 +30,22 @@
 	"acls": [
 		// Match absolutely everything.
 		// Comment this section out if you want to define specific restrictions.
-		{"action": "accept", "users": ["group:admin"], "ports": ["*:*"]},
-		{"action": "accept", "users": ["group:nelsonFamily"], "ports": ["vor:445"]}
+		{"action": "accept", "src": ["group:admin"], "dst": ["*:*"]},
+		{"action": "accept", "src": ["group:nelsonFamily"], "dst": ["vor:445"]},
+		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22"]}
 	],
 	"ssh": [
 		{
 			"action": "accept",
 			"src":    ["group:admin"],
 			"dst":    ["tag:server"],
+			"users":  ["autogroup:nonroot", "root"]
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:server"],
+			"dst":    ["tag:server"],
+			// "users":  ["syncoid"]
 			"users":  ["autogroup:nonroot", "root"]
 		}
 	],
@@ -47,6 +58,11 @@
 			"src": "group:nelsonFamily",
 			"accept": ["vor:445"],
 			"deny": ["vor:22"]
+		},
+		//Romeo should be able to access vor:22 for backup replication
+		{
+			"src": "romeo",
+			"accept": ["vor:22"]
 		}
 	]
 }

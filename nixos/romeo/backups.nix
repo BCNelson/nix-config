@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 {
   services.sanoid = {
     enable = true;
@@ -51,12 +51,39 @@ _:
         yearly = 1;
         useTemplate = [ "common" ];
       };
+      "vault/remotebackups/VorNelsonData" = {
+        hourly = 72;
+        daily = 31;
+        weekly = 26;
+        monthly = 12;
+        yearly = 5;
+        useTemplate = [ "common" ];
+        autosnap = false;
+      };
     };
     templates = {
       "common" = {
         autoprune = true;
         autosnap = true;
         recursive = true;
+      };
+    };
+  };
+  services.syncoid = {
+    enable = true;
+    commonArgs = [ "--debug" ];
+    #https://github.com/NixOS/nixpkgs/pull/265543
+    service.serviceConfig.PrivateUsers = lib.mkForce false;
+    commands = {
+      "vor/vault/Backups/NelsonData" = {
+        source = "syncoid@vor.ck.nel.family:vault/Backups/NelsonData";
+        target = "vault/remotebackups/VorNelsonData";
+        extraArgs = [
+            "--compress=zstd-slow"
+            "--source-bwlimit=15m"
+            "--debug"
+            "--sshoption=StrictHostKeyChecking=off"
+        ];
       };
     };
   };
