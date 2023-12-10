@@ -18,7 +18,7 @@ let
 in
 {
 
-    nixpkgs.overlays = [ (final: prev: { go = prev."go_1_${toString goVersion}"; }) ];
+  nixpkgs.overlays = [ (_final: prev: { go = prev."go_1_${toString goVersion}"; }) ];
   home.packages = with pkgs; [
     # go 1.21 (specified by overlay)
     go
