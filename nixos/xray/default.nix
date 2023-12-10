@@ -6,6 +6,7 @@
     ../_mixins/roles/gaming.nix
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
+    ../_mixins/roles/emulator.nix
   ];
   networking.firewall = {
     enable = true;
