@@ -76,6 +76,7 @@ in
           volumes = [
             "${dataDirs.level6}/media/audiobooks:/audiobooks"
             "${dataDirs.level6}/media/audible:/audible"
+            "${dataDirs.level6}/media/audible3:/audible3"
             "${dataDirs.level5}/audiobookshelf/config:/config"
             "${dataDirs.level5}/audiobookshelf/metadata:/metadata"
           ];
@@ -88,6 +89,15 @@ in
           volumes = [
             "${dataDirs.level5}/openAudible:/config/OpenAudible"
             "${dataDirs.level6}/media/audible:/media/audiobooks"
+          ];
+          restart = "unless-stopped";
+        };
+        libation = {
+          image = "ghcr.io/bcnelson/libation_docker:latest";
+          container_name = "libation";
+          volumes = [
+            "${dataDirs.level5}/libation:/config/Libation"
+            "${dataDirs.level6}/media/audible3:/media/audiobooks"
           ];
           restart = "unless-stopped";
         };
