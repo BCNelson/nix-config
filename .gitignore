@@ -2,3 +2,5 @@ result
 test/qemu/console
 test/qemu/desktop
 .direnv
+
+test/qemu/vm/**/*.qcow2

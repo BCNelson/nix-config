@@ -46,3 +46,19 @@ iso recipe='desktop':
         sudo cp {{justfile_directory()}}/../result/iso/$ISO {{justfile_directory()}}/qemu/console/Nix_Installer_Console.iso
         pushd {{justfile_directory()}}/qemu/console
         quickemu --vm ../nixConsole.conf
+
+vm machine='vm_test':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pushd {{justfile_directory()}}/..
+    nixosConfigs=$(nix eval .#nixosConfigurations --apply builtins.attrNames)
+    popd
+    if [[ $nixosConfigs == *\""{{machine}}"\"* ]]; then
+        echo "Building {{machine}} VM"
+        nix build .#nixosConfigurations.{{machine}}.config.system.build.vm -o {{justfile_directory()}}/../result
+        mkdir -p {{justfile_directory()}}/qemu/vm/{{machine}}
+        pushd {{justfile_directory()}}/qemu/vm/{{machine}}
+        ../../../../result/bin/run-*-vm
+    else
+        echo "No such machine: {{machine}}"
+    fi
