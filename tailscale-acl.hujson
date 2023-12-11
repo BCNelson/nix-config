@@ -17,7 +17,9 @@
 		"vor": "100.73.83.164",
 		"vor6": "fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4",
 		"romeo": "100.76.49.168",
-		"romeo6": "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8"
+		"romeo6": "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8",
+		"xray": "100.114.232.151",
+		"porter-pc": "100.111.54.18"
 	},
 
 	"tagOwners": {
@@ -35,7 +37,7 @@
 		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22000"]},
 		// Allow to vor for smb
 		{"action": "accept", "src": ["group:nelsonFamily"], "dst": ["vor:445"]},
-		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22"]}
+		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["tag:server:22"]}
 	],
 	"ssh": [
 		{
@@ -65,7 +67,8 @@
 		//Romeo should be able to access vor:22 for backup replication
 		{
 			"src": "romeo",
-			"accept": ["vor:22"]
+			"accept": ["vor:22"],
+			"deny": ["xray:22", "porter-pc:22"]
 		}
 	]
 }
