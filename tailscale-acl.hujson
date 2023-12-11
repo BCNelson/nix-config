@@ -31,6 +31,9 @@
 		// Match absolutely everything.
 		// Comment this section out if you want to define specific restrictions.
 		{"action": "accept", "src": ["group:admin"], "dst": ["*:*"]},
+		// Allow Outgoing syncthing connections
+		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22000"]},
+		// Allow to vor for smb
 		{"action": "accept", "src": ["group:nelsonFamily"], "dst": ["vor:445"]},
 		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22"]}
 	],
