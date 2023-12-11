@@ -37,7 +37,8 @@
 		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["*:22000"]},
 		// Allow to vor for smb
 		{"action": "accept", "src": ["group:nelsonFamily"], "dst": ["vor:445"]},
-		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["tag:server:22"]}
+		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["tag:server:22"]},
+		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:22"]}
 	],
 	"ssh": [
 		{
