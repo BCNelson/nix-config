@@ -106,6 +106,22 @@ in
       repo = sensitive.borgRepos.level1;
       paths = "/mnt/vault/data/level1";
     };
+    # level2 = basicBorgJob {
+    #   repo = sensitive.borgRepos.level2;
+    #   paths = "/mnt/vault/data/level2";
+    # };
+    level3 = basicBorgJob {
+      repo = sensitive.borgRepos.level3;
+      paths = "/mnt/vault/data/level3";
+    };
+    # level4 = basicBorgJob {
+    #   repo = sensitive.borgRepos.level4;
+    #   paths = "/mnt/vault/data/level4";
+    # };
+    # level5 = basicBorgJob {
+    #   repo = sensitive.borgRepos.level5;
+    #   paths = "/mnt/vault/data/level5";
+    # };
   };
 
   users.users.backup = {
