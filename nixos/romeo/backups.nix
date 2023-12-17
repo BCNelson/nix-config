@@ -1,4 +1,16 @@
 { lib, pkgs, ... }:
+let
+  basicBorgJob = { repo, paths }: {
+    inherit repo paths;
+    encryption.mode = "none";
+    environment.BORG_RSH = "ssh -o 'StrictHostKeyChecking=no' -i /root/.ssh/id_ed25519";
+    environment.BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK = "yes";
+    extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
+    compression = "zstd,1";
+    startAt = "daily";
+  };
+  sensitive = import ./sensitive.nix;
+in
 {
   services.sanoid = {
     enable = true;
@@ -79,13 +91,20 @@
         source = "bcnelson@vor.ck.nel.family:vault/Backups/NelsonData";
         target = "vault/remotebackups/VorNelsonData";
         extraArgs = [
-            "--compress=zstd-slow"
-            "--source-bwlimit=15m"
-            "--debug"
-            "--sshoption=StrictHostKeyChecking=off"
-            "--no-sync-snap"
+          "--compress=zstd-slow"
+          "--source-bwlimit=15m"
+          "--debug"
+          "--sshoption=StrictHostKeyChecking=off"
+          "--no-sync-snap"
         ];
       };
+    };
+  };
+
+  services.borgbackup.jobs = {
+    level1 = basicBorgJob {
+      repo = sensitive.borgRepos.level1;
+      paths = "/mnt/vault/data/level1";
     };
   };
 
@@ -99,7 +118,7 @@
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     script = with pkgs; ''
-        sudo zfs allow -u backup send,hold
+      sudo zfs allow -u backup send,hold
     '';
   };
 }
