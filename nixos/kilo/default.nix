@@ -1,7 +1,6 @@
 { inputs, pkgs, ... }:
 {
   imports = [
-    inputs.nixos-generators.nixosModules.linode
     ./hardware-configuration.nix
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/server
