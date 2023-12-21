@@ -24,6 +24,11 @@
     # Add the Nix User Repository (NUR)
     nur.url = "github:nix-community/NUR";
 
+    nixos-generators = {
+      url = "github:nix-community/nixos-generators";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -68,6 +73,7 @@
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
+        "kilo-1" = libx.mkHost { hostname = "kilo-1"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
       };
 
       # Standalone home-manager configuration entrypoint
