@@ -73,7 +73,7 @@
         "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
-        "kilo-1" = libx.mkHost { hostname = "kilo-1"; username = "bcnelson"; nixosMods = nixpkgs + "/nixos/modules/virtualisation/linode-image.nix"; inherit libx; pkgs = nixpkgs-unstable; };
+        "kilo-1" = libx.mkHost { hostname = "kilo-1"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
       };
 
       # Standalone home-manager configuration entrypoint
