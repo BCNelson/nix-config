@@ -88,14 +88,13 @@ in
     service.serviceConfig.PrivateUsers = lib.mkForce false;
     commands = {
       "vor/vault/Backups/NelsonData" = {
-        source = "bcnelson@vor.ck.nel.family:vault/Backups/NelsonData";
+        source = "syncoid@vor.ck.nel.family:vault/Backups/NelsonData";
         target = "vault/remotebackups/VorNelsonData";
         extraArgs = [
           "--compress=zstd-slow"
           "--source-bwlimit=15m"
           "--debug"
           "--sshoption=StrictHostKeyChecking=off"
-          "--no-sync-snap"
         ];
       };
     };
