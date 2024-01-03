@@ -103,4 +103,4 @@ setup:
     nix run nix-darwin -- switch --flake .
 
 build machine='vm_test' type='vm':
-    nix build .#nixosConfigurations.{{machine}}.config.formats.{{type}} -o {{justfile_directory()}}/result
+    nix build .#nixosConfigurations.{{machine}}.config.system.build.{{type}} -o {{justfile_directory()}}/result
