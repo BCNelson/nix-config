@@ -1,7 +1,7 @@
 { pkgs, ... }:
 let
   shared = import ./shared.nix;
-  plugins = [ ] ++ shared.plugins;
+  inherit (shared) plugins;
 in
 {
   home.packages = with pkgs.unstable; [

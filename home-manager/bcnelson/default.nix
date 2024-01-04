@@ -14,7 +14,9 @@ in
       inputs.nur.overlay
       outputs.overlays.unstable-packages
     ];
-    config.allowUnfreePredicate = _pkg: true;
+    config= {
+      allowUnfreePredicate = _pkg: true;
+    };
   };
 
   home.username = "bcnelson";

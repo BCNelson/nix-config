@@ -1,5 +1,5 @@
 { desktop, lib, ... }: {
-  imports = [ ] ++ lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
+  imports = lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
   # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
