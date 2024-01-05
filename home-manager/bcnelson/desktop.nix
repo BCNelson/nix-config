@@ -31,6 +31,7 @@
     pkgs.neochat
     pkgs.unstable.signal-desktop
     pkgs.unstable.discord
+    pkgs.beeper
 
     pkgs.newsflash
 
