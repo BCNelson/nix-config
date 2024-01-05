@@ -16,6 +16,7 @@
       ../_mixins/roles/nixified-ai.nix
       ../_mixins/roles/figurine.nix
       ../_mixins/roles/emulator.nix
+      ../_mixins/roles/weylus.nix
     ];
   networking.firewall = {
     enable = true;
