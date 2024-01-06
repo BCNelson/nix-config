@@ -16,7 +16,7 @@
   unstable-packages = final: _prev: {
     unstable = import inputs.nixpkgs-unstable {
       inherit (final) system;
-      config= {
+      config = {
         allowUnfree = true;
         permittedInsecurePackages = [
           "electron-25.9.0"

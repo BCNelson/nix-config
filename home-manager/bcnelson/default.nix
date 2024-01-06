@@ -14,7 +14,7 @@ in
       inputs.nur.overlay
       outputs.overlays.unstable-packages
     ];
-    config= {
+    config = {
       allowUnfreePredicate = _pkg: true;
     };
   };
