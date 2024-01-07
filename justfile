@@ -1,4 +1,5 @@
 #!/usr/bin/env -S just --justfile
+set shell := sh
 
 hostname := `hostname -s`
 
