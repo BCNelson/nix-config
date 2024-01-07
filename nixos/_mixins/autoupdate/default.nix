@@ -14,6 +14,7 @@ in
             OnUnitActiveSec="1w";
             Persistent = true;
         };
+        wantedBy = [ "timers.target" ];
     };
 
     systemd.services.auto-update = {
