@@ -25,7 +25,15 @@ alias os :=update-os
 alias o :=update-os
 [linux]
 update-os *additionalArgs:
-    sudo nixos-rebuild switch --flake .#$HOSTNAME {{additionalArgs}}
+    #!/usr/bin/env bash
+    if [ "$EUID" -ne 0 ]
+    then
+        sudo nixos-rebuild switch --flake .#$HOSTNAME {{additionalArgs}}
+    else
+        nixos-rebuild switch --flake .#$HOSTNAME {{additionalArgs}}
+    fi
+
+    
 [macos]
 update-os *additionalArgs:
     darwin-rebuild switch --flake . {{additionalArgs}}
