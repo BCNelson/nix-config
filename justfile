@@ -1,7 +1,5 @@
 #!/usr/bin/env -S just --justfile
-set shell := sh
 
-hostname := `hostname -s`
 
 [private]
 default:
@@ -20,6 +18,7 @@ update-home *additionalArgs:
 
 [macos]
 update-home *additionalArgs:
+    hostname := `hostname -s`
     home-manager switch --flake .#$USER@{{hostname}} {{additionalArgs}}
 
 alias os :=update-os
