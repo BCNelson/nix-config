@@ -2,7 +2,7 @@
 let
     updateScript = pkgs.writeShellApplication {
         name = "auto-update";
-        runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash ];
+        runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix sudo ];
         text = builtins.readFile ./auto-update.sh;
     };
 in
