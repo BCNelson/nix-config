@@ -1,4 +1,4 @@
-{ pkg, ... }:
+{ pkgs, ... }:
 let
     updateScript = pkgs.writeShellApplication {
         name = "auto-update";
