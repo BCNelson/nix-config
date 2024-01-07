@@ -10,8 +10,8 @@ in
     systemd.timers.auto-update = {
         enable = true;
         timerConfig = {
-            OnBootSec="15min";
-            OnUnitActiveSec="1w";
+            OnBootSec="1min";
+            OnUnitActiveSec="5m";
             Persistent = true;
         };
         wantedBy = [ "timers.target" ];
