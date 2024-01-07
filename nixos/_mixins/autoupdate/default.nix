@@ -20,6 +20,7 @@ in
         serviceConfig = {
             Type = "oneshot";
             User = "root";
+            ExecStart = "${updateScript}/bin/auto-update.sh";
         };
     };
 }
