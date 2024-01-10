@@ -9,7 +9,7 @@ let
     level6 = "/data/replaceable"; # Replaceable
     level7 = "/cache"; # Ephemeral
   };
-  services = import ./services.nix { inherit libx dataDirs pkgs; };
+  services = import ./services { inherit libx dataDirs pkgs; };
 in
 {
   imports =
