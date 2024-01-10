@@ -1,6 +1,7 @@
 { dataDirs }:
 let
   sensitiveData = import ../../../sensitive.nix;
+  config = ".";
 in
 {
   vikunja_db = {
