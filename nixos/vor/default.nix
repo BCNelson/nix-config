@@ -4,6 +4,7 @@
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ../_mixins/autoupdate
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
