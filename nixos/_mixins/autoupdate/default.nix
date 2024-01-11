@@ -28,5 +28,6 @@ in
       User = "root";
       ExecStart = "${updateScript}/bin/auto-update";
     };
+    restartIfChanged = false;
   };
 }
