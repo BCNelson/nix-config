@@ -5,7 +5,7 @@ let
     runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd ];
     text = builtins.readFile ./auto-update.sh;
   };
-  sensitive = import ../../../sensitive.nix;
+  sensitive = import ../../sensitive.nix;
 in
 {
   systemd.timers.auto-update = {
