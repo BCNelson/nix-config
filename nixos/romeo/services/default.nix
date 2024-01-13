@@ -18,6 +18,7 @@ let
   foundryvtt = import ./defs/foundryvtt.nix { inherit dataDirs; };
   fastenhealth = import ./defs/fastenhealth.nix { inherit dataDirs; };
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
+  immich = import ./defs/immich.nix { inherit dataDirs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -37,6 +38,7 @@ in
         foundryvtt
         fastenhealth
         homebox
+        immich
       ];
     };
   };
