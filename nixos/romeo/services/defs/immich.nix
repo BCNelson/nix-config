@@ -4,7 +4,7 @@ let
 in
 {
   immich-server = {
-    image = "ghcr.io/immich-app/immich-server:latest";
+    image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_server";
     command = [ "start.sh" "immich" ];
     volumes = [
@@ -23,7 +23,7 @@ in
   };
 
   immich-microservices = {
-    image = "ghcr.io/immich-app/immich-server:latest";
+    image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_microservices";
     command = [ "start.sh" "microservices" ];
     volumes = [
@@ -43,7 +43,7 @@ in
   };
 
   immich-machine-learning = {
-    image = "ghcr.io/immich-app/immich-machine-learning:latest";
+    image = "ghcr.io/immich-app/immich-machine-learning:release";
     container_name = "immich_machine_learning";
     volumes = [
       "${dataDirs.level7}/immich:/cache"
