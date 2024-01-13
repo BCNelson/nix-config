@@ -34,5 +34,6 @@ in
     go-mockery
     go-migrate
     dapr-cli
+    gnumake
   ];
 }
