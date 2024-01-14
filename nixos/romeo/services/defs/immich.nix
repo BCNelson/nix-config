@@ -27,7 +27,7 @@ in
     container_name = "immich_microservices";
     command = [ "start.sh" "microservices" ];
     volumes = [
-      "${dataDirs.level5}/immich/photos:/usr/src/app/upload"
+      "${dataDirs.level2}/immich/photos:/usr/src/app/upload"
       "/etc/localtime:/etc/localtime:ro"
     ];
     environment = [
