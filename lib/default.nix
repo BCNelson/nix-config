@@ -13,7 +13,14 @@
     specialArgs = {
       inherit inputs outputs desktop hostname username stateVersion libx;
     };
-    modules = [ ../nixos ] ++ (pkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
+    modules = [ 
+      ../nixos
+      inputs.home-manager.nixosModules.home-manager
+      {
+        home-manager.useGlobalPkgs = true;
+        home-manager.useUserPackages = true;
+      }
+    ] ++ (pkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
 
   forAllSystems = inputs.nixpkgs.lib.genAttrs [

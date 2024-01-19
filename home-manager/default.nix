@@ -1,4 +1,4 @@
-{ username, stateVersion, lib, pkgs, ... }:
+{username}: { stateVersion, lib, pkgs, ... }:
 
 {
   imports = lib.optional (builtins.pathExists ./${username}) ./${username};
