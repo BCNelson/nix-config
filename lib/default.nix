@@ -1,26 +1,47 @@
-{ inputs, outputs, stateVersion, ... }: {
-  # Helper function for generating home-manager configs
-  mkHome = { hostname, username, desktop ? null, platform ? "x86_64-linux", home-manager ? inputs.home-manager, pkgs ? inputs.nixpkgs }: home-manager.lib.homeManagerConfiguration {
-    pkgs = pkgs.legacyPackages.${platform};
-    extraSpecialArgs = {
-      inherit inputs outputs desktop hostname platform username stateVersion;
+{ inputs, outputs, stateVersion, ... }:
+let
+  mkHome = { hostname, usernames, desktop ? null, platform ? "x86_64-linux", ... }: {
+    home-manager.useGlobalPkgs = false;
+    home-manager.useUserPackages = false;
+    home-manager.extraSpecialArgs = {
+      inherit inputs outputs stateVersion desktop hostname platform;
+      # pkgs = pkgs.legacyPackages.${platform};
+      # inherit (pkgs) lib;
     };
-    modules = [ ../home-manager ];
+    home-manager.users = builtins.listToAttrs (map
+      (username: {
+        name = username;
+        value = import ../home-manager { inherit username; };
+      })
+      usernames);
   };
 
-  # Helper function for generating host configs
-  mkHost = { hostname, username, desktop ? null, nixosMods ? null, libx ? null, pkgs ? inputs.nixpkgs }: pkgs.lib.nixosSystem {
-    specialArgs = {
-      inherit inputs outputs desktop hostname username stateVersion libx;
+  versions = {
+    unstable = {
+      nixpkgs = inputs.nixpkgs-unstable;
+      home-manager = inputs.home-manager-unstable;
     };
-    modules = [ 
+    stable = {
+      nixpkgs = inputs.nixpkgs;
+      home-manager = inputs.home-manager;
+    };
+    "23.11" = {
+      nixpkgs = inputs.nixpkgs;
+      home-manager = inputs.home-manager;
+    };
+  };
+in
+{
+  # Helper function for generating host configs
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable" }: versions.${version}.nixpkgs.lib.nixosSystem {
+    specialArgs = {
+      inherit inputs outputs desktop hostname usernames stateVersion libx;
+    };
+    modules = [
       ../nixos
-      inputs.home-manager.nixosModules.home-manager
-      {
-        home-manager.useGlobalPkgs = true;
-        home-manager.useUserPackages = true;
-      }
-    ] ++ (pkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
+      versions.${version}.home-manager.nixosModules.home-manager
+      (mkHome { inherit hostname usernames desktop; })
+    ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
 
   forAllSystems = inputs.nixpkgs.lib.genAttrs [

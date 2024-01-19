@@ -9,16 +9,6 @@ in
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
-  nixpkgs = {
-    overlays = [
-      inputs.nur.overlay
-      outputs.overlays.unstable-packages
-    ];
-    config = {
-      allowUnfreePredicate = _pkg: true;
-    };
-  };
-
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";
 

@@ -1,6 +1,16 @@
-{username}: { stateVersion, lib, pkgs, ... }:
+{ username }: { inputs, outputs, stateVersion, lib, pkgs, ... }:
 
 {
+  nixpkgs = {
+    overlays = [
+      inputs.nur.overlay
+      outputs.overlays.unstable-packages
+    ];
+    config = {
+      allowUnfreePredicate = _pkg: true;
+    };
+  };
+
   imports = lib.optional (builtins.pathExists ./${username}) ./${username};
   home.stateVersion = stateVersion;
   programs.home-manager.enable = true;
