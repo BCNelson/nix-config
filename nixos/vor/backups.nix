@@ -46,6 +46,26 @@
   users.users.syncoid = {
     isSystemUser = true;
     description = "syncoid user";
-    useDefaultShell = true;
+    useDefaultShell = false;
+  };
+
+  systemd.timers.syncoid-zfs-allow = {
+    enable = true;
+    timerConfig = {
+      OnBootSec = "1min";
+      OnUnitActiveSec = "60m";
+      Persistent = true;
+    };
+    wantedBy = [ "timers.target" ];
+  };
+
+  systemd.services.syncoid-zfs-allow = {
+    enable = true;
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+      ExecStart = "${pkg.zfs}/bin/zfs allow -u syncoid send,hold,mount,snapshot,destroy vault";
+    };
+    restartIfChanged = false;
   };
 }
