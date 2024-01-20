@@ -30,4 +30,24 @@ in
     services.networkBacked
     pkgs.gparted
   ];
+
+  systemd.timers.auto-update-services = {
+    enable = true;
+    timerConfig = {
+      OnBootSec = "30min";
+      OnUnitActiveSec = "60m";
+      Persistent = true;
+    };
+    wantedBy = [ "timers.target" ];
+  };
+
+  systemd.services.auto-update-services = {
+    enable = true;
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+      ExecStart = "${services.networkBacked}/bin/dockerStack-general up -d --remove-orphans --pull always --quiet-pull";
+    };
+    restartIfChanged = false;
+  };
 }
