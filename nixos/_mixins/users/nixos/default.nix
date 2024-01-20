@@ -1,4 +1,4 @@
-{ config, desktop, lib, pkgs, username, ... }:
+{ config, desktop, lib, pkgs, ... }:
 let
   ifExists = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
   install-system = pkgs.writeShellApplication {
@@ -30,5 +30,5 @@ in
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;
   config.environment.systemPackages = [ install-system ];
-  config.services.kmscon.autologinUser = "${username}";
+  config.services.kmscon.autologinUser = "nixos";
 }

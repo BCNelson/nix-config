@@ -66,23 +66,19 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "sierra-2" = libx.mkHost { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; pkgs = nixpkgs-unstable; };
-        "xray-2" = libx.mkHost { hostname = "xray-2"; username = "bcnelson"; desktop = "kde"; pkgs = nixpkgs-unstable; };
-        "iso_console" = libx.mkHost { hostname = "iso_console"; username = "nixos"; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
-        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; username = "nixos"; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
+        "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version="unstable"; };
+        "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version="unstable";};
+        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
+        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
-        "vor-2" = libx.mkHost { hostname = "vor-2"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
-        "kilo-1" = libx.mkHost { hostname = "kilo-1"; username = "bcnelson"; inherit libx; pkgs = nixpkgs-unstable; };
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
+        "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
+        "kilo-1" = libx.mkHost { hostname = "kilo-1"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
       };
 
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
-        "bcnelson@sierra-2" = libx.mkHome { hostname = "sierra-2"; username = "bcnelson"; desktop = "kde"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
-        "bcnelson@xray-2" = libx.mkHome { hostname = "xray-2"; username = "bcnelson"; desktop = "kde"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
-        "bcnelson@romeo-2" = libx.mkHome { hostname = "romeo-2"; username = "bcnelson"; };
-        "bcnelson@vor-2" = libx.mkHome { hostname = "vor-2"; username = "bcnelson"; };
         "bnelson@GX00087" = libx.mkHome { hostname = "GX00087"; username = "bnelson"; platform = "aarch64-darwin"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
       };
 
