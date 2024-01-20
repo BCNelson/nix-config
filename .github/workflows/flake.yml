@@ -19,6 +19,8 @@ jobs:
 
       - run: nix flake update
 
+      - run: nix flake check
+
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Bump flake.lock
