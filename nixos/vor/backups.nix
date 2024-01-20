@@ -41,4 +41,11 @@
       };
     };
   };
+
+  # User for syncoid to pull backups
+  users.users.syncoid = {
+    isSystemUser = true;
+    description = "syncoid user";
+    useDefaultShell = true;
+  };
 }
