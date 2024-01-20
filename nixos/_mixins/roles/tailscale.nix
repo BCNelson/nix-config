@@ -55,5 +55,12 @@ in
   # Network manager should not manage tailscale0 interface
   # It does not bring up the wireguard interface properly when running nix-rebuild switch
   # see issue https://github.com/NixOS/nixpkgs/issues/180175
-  networking.networkmanager.unmanaged = [ "tailscale0" ];
+  systemd.services.NetworkManager-wait-online = {
+    serviceConfig = {
+      ExecStart = [ "" "${pkgs.networkmanager}/bin/nm-online -q" ];
+      Restart = "on-failure";
+      RestartSec = 1;
+    };
+    unitConfig.StartLimitIntervalSec = 0;
+  };
 }
