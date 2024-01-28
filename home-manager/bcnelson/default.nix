@@ -1,4 +1,4 @@
-{ inputs, outputs, hostname, desktop, config, lib, pkgs, ... }:
+{ hostname, desktop, config, lib, pkgs, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)

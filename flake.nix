@@ -66,14 +66,14 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version="unstable"; };
-        "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version="unstable";};
+        "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version = "unstable"; };
+        "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" ]; desktop = "kde"; version = "unstable"; };
         "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
-        "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
-        "kilo-1" = libx.mkHost { hostname = "kilo-1"; usernames = [ "bcnelson" ]; inherit libx; version="unstable"; };
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
+        "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
+        "kilo-1" = libx.mkHost { hostname = "kilo-1"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
       };
 
       # Standalone home-manager configuration entrypoint
