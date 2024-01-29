@@ -104,30 +104,6 @@
     deck = "emojis/main.deck"
 
 [[keys]]
-  index = 11
-  [keys.widget]
-    id = "recentWindow"
-    [keys.widget.config]
-      window = 1
-      showTitle = true
-
-[[keys]]
-  index = 12
-  [keys.widget]
-    id = "recentWindow"
-    [keys.widget.config]
-      window = 3
-      showTitle = true
-
-[[keys]]
-  index = 13
-  [keys.widget]
-    id = "recentWindow"
-    [keys.widget.config]
-      window = 4
-      showTitle = true
-
-[[keys]]
   index = 14
   [keys.widget]
     id = "button"
