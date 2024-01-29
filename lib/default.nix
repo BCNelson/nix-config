@@ -44,6 +44,13 @@ in
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
 
+  getSecret = path: key:
+    let
+      rawSecret = builtins.readFile path;
+      isNix = builtins.substring 0 1 rawSecret == "{";
+    in
+    if isNix then (import path).${key} else (builtins.trace rawSecret "");
+
   forAllSystems = inputs.nixpkgs.lib.genAttrs [
     "aarch64-linux"
     "i686-linux"

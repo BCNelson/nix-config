@@ -39,6 +39,10 @@ update-os *additionalArgs:
     darwin-rebuild switch --flake . {{additionalArgs}}
 
 [unix]
+lock:
+    git-crypt lock
+
+[unix]
 unlock:
     #!/usr/bin/env bash
     # set -euxo pipefail

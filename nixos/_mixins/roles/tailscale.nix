@@ -1,7 +1,7 @@
-{ pkgs, ... }:
+{ pkgs, libx, ... }@args:
 
 let
-  sensitive = import ../../sensitive.nix;
+  ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
 in
 {
   environment.systemPackages = with pkgs; [
@@ -49,7 +49,7 @@ in
           -H "X-Click: $auth_url" \
           -H "X-Icon: https://tailscale.com/favicon.ico" \
           -d "There has been a Request to login to your tailscale network: $auth_url" \
-          https://ntfy.sh/${sensitive.ntfy_topic}
+          https://ntfy.sh/${ntfy_topic}
     '';
   };
   # Network manager should not manage tailscale0 interface

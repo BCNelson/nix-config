@@ -11,14 +11,14 @@ let
   swag = import ./defs/swag.nix { inherit dataDirs linodeToken; };
   jellyfin = import ./defs/jellyfin.nix { inherit dataDirs; };
   audiobooks = import ./defs/audiobooks.nix { inherit dataDirs; };
-  nextcloud = import ./defs/nextcloud.nix { inherit dataDirs; };
-  vikunja = import ./defs/vikunja.nix { inherit dataDirs; };
-  mealie = import ./defs/mealie.nix { inherit dataDirs; };
+  nextcloud = import ./defs/nextcloud.nix { inherit dataDirs libx; };
+  vikunja = import ./defs/vikunja.nix { inherit dataDirs libx; };
+  mealie = import ./defs/mealie.nix { inherit dataDirs libx; };
   syncthing = import ./defs/syncthing.nix { inherit dataDirs; };
-  foundryvtt = import ./defs/foundryvtt.nix { inherit dataDirs; };
+  foundryvtt = import ./defs/foundryvtt.nix { inherit dataDirs libx; };
   fastenhealth = import ./defs/fastenhealth.nix { inherit dataDirs; };
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
-  immich = import ./defs/immich.nix { inherit dataDirs; };
+  immich = import ./defs/immich.nix { inherit dataDirs libx; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {

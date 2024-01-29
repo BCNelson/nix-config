@@ -1,6 +1,6 @@
-{ dataDirs }:
+{ dataDirs, libx }:
 let
-  sensitiveData = import ../../../sensitive.nix;
+  sensitiveData = libx.getSecret ../../../sensitive.nix "foundry";
 in
 {
   foundryvtt = {
@@ -8,9 +8,9 @@ in
     container_name = "foundryvtt";
     environment = [
       "FOUNDRY_USERNAME=bcnelson"
-      "FOUNDRY_PASSWORD=${sensitiveData.foundry.account_password}"
+      "FOUNDRY_PASSWORD=${sensitiveData.account_password}"
       "CONTAINER_CACHE=/data/container_cache"
-      "FOUNDRY_ADMIN_KEY=${sensitiveData.foundry.admin_password}"
+      "FOUNDRY_ADMIN_KEY=${sensitiveData.admin_password}"
       "FOUNDRY_MINIFY_STATIC_FILES=true"
       "FOUNDRY_HOSTNAME=pathfinder.h.b.nel.family"
       "FOUNDRY_PROXY_PORT=443"
