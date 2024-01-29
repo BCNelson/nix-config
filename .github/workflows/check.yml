@@ -4,7 +4,13 @@ on:
   pull_request:
     paths:
       - '**.nix'
-
+      - '.github/workflows/check.yml'
+  push:
+    branches:
+      - 'main'
+    paths:
+      - '**.nix'
+      - '.github/workflows/check.yml'
   workflow_dispatch:
 
 jobs:
