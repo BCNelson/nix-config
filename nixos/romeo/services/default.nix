@@ -1,10 +1,10 @@
 { libx, dataDirs, pkgs, ... }:
 let
-  sensitiveData = import ../../sensitive.nix;
+  dns_linode_key = libx.getSecret ../../sensitive.nix "dns_linode_key";
   linodeToken = pkgs.writeTextFile {
     name = "linode-dns-config";
     text = ''
-      dns_linode_key = ${sensitiveData.dns_linode_key}
+      dns_linode_key = ${dns_linode_key}
     '';
     destination = "/linode.ini";
   };

@@ -1,6 +1,9 @@
 { dataDirs, libx }:
 let
-  sensitiveData = libx.getSecret ../../../sensitive.nix "foundry";
+  sensitiveData = libx.getSecretWithDefault ../../../sensitive.nix "foundry" {
+    account_password = "";
+    admin_password = "";
+  };
 in
 {
   foundryvtt = {
