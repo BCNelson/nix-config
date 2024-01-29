@@ -1,0 +1,22 @@
+name: Bump flake.lock
+
+on:
+  pull_request:
+    paths:
+      - '**.nix'
+
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: cachix/install-nix-action@v20
+
+
+      - run: nix flake check
