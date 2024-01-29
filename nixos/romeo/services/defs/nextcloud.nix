@@ -1,6 +1,6 @@
-{ dataDirs }:
+{ dataDirs, libx }:
 let
-  sensitiveData = import ../../../sensitive.nix;
+  nextcloud_postgress_password = libx.getSecret ../../../sensitive.nix "nextcloud_postgress_password";
 in
 {
   nextcloud = {
@@ -26,7 +26,7 @@ in
       "${dataDirs.level5}/nextcloud/database:/var/lib/postgresql/data"
     ];
     environment = [
-      "POSTGRES_PASSWORD=${sensitiveData.nextcloud_postgress_password}"
+      "POSTGRES_PASSWORD=${nextcloud_postgress_password}"
     ];
   };
 }

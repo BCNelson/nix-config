@@ -30,6 +30,22 @@ let
       inherit (inputs) home-manager;
     };
   };
+
+  getSecretWithDefault = path: key: default:
+    let
+      # This is needed because nix can't import a file that is encrypted https://github.com/NixOS/nix/issues/4329#issuecomment-740787749
+      inherit (inputs.nixpkgs.legacyPackages.x86_64-linux) runCommandNoCCLocal file;
+      inherit (inputs.nixpkgs.lib) concatStringsSep singleton attrByPath hasPrefix hasInfix fileContents;
+      inherit (builtins) pathExists isString;
+
+      isNotEncrypted = f: hasInfix "text" (fileContents (runCommandNoCCLocal "chk-encryption"
+        {
+          buildInputs = [ file ];
+          src = f;
+        } "file $src > $out"));
+      hasCredentials = if pathExists path && isNotEncrypted path then true else false;
+    in
+    if hasCredentials then (import path).${key} else (builtins.trace "${path} is not a nix file does your git-cypt need to be unlocked?" default);
 in
 {
   # Helper function for generating host configs
@@ -43,6 +59,10 @@ in
       (mkHome { inherit hostname usernames desktop; })
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
+
+  getSecretWithDefault = getSecretWithDefault;
+
+  getSecret = path: key: getSecretWithDefault path key "";
 
   forAllSystems = inputs.nixpkgs.lib.genAttrs [
     "aarch64-linux"

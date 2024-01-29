@@ -1,6 +1,6 @@
-{ dataDirs }:
+{ dataDirs, libx }:
 let
-  sensitiveData = import ../../../sensitive.nix;
+  smtp_password = libx.getSecret ../../../sensitive.nix "smtp_password";
 in
 {
   mealie-frontend = {
@@ -35,7 +35,7 @@ in
       "SMTP_FROM_NAME=Nelson Family Admin"
       "SMTP_AUTH_STRATEGY=SSL"
       "SMTP_FROM_EMAIL=admin@nel.family"
-      "SMTP_PASSWORD=${sensitiveData.smtp_password}"
+      "SMTP_PASSWORD=${smtp_password}"
     ];
     restart = "unless-stopped";
   };
