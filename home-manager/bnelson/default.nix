@@ -24,7 +24,7 @@ in
     git = {
       enable = true;
       userName = "Bradley Nelson";
-      userEmail = "bradely@nel.family";
+      userEmail = "bradley@nel.family";
       extraConfig = {
         push = {
           default = "matching";
