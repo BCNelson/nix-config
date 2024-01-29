@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
   services.sanoid = {
     enable = true;
@@ -64,7 +64,7 @@
     serviceConfig = {
       Type = "oneshot";
       User = "root";
-      ExecStart = "${pkg.zfs}/bin/zfs allow -u syncoid send,hold,mount,snapshot,destroy vault";
+      ExecStart = "${pkgs.zfs}/bin/zfs allow -u syncoid send,hold,mount,snapshot,destroy vault";
     };
     restartIfChanged = false;
   };
