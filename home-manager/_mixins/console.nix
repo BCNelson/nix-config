@@ -42,6 +42,7 @@
       #   tokei # Modern Unix `wc` for code
       #   wget # Terminal downloader
       #   yq-go # Terminal `jq` for YAML
+      nix-search-cli
     ];
   };
 
@@ -139,6 +140,13 @@
           inherit (pkgs.fishPlugins.z) src;
         }
       ];
+      functions = {
+        fish_command_not_found = {
+          body = ''
+            nix-search --details -p $argv[1]
+          '';
+        };
+      };
     };
     # gh = {
     #   enable = true;

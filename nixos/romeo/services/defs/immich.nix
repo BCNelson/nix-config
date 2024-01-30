@@ -1,6 +1,6 @@
-{ dataDirs }:
+{ dataDirs, libx }:
 let
-  sensitiveData = import ../../../sensitive.nix;
+  immich_postgres_password = libx.getSecret ../../../sensitive.nix "immich_postgres_password";
 in
 {
   immich-server = {
@@ -15,7 +15,7 @@ in
       "DB_HOSTNAME=immich_postgres"
       "DB_USERNAME=postgres"
       "DB_DATABASE_NAME=immich"
-      "DB_PASSWORD=${sensitiveData.immich_postgres_password}"
+      "DB_PASSWORD=${immich_postgres_password}"
       "REDIS_HOSTNAME=immich_redis"
     ];
     depends_on = [ "immich_redis" "immich_postgres" ];
@@ -34,7 +34,7 @@ in
       "DB_HOSTNAME=immich_postgres"
       "DB_USERNAME=postgres"
       "DB_DATABASE_NAME=immich"
-      "DB_PASSWORD=${sensitiveData.immich_postgres_password}"
+      "DB_PASSWORD=${immich_postgres_password}"
       "REDIS_HOSTNAME=immich_redis"
     ];
     devices = [ "/dev/dri:/dev/dri" ];
@@ -63,7 +63,7 @@ in
     image = "tensorchord/pgvecto-rs:pg14-v0.1.11";
     container_name = "immich_postgres";
     environment = [
-      "POSTGRES_PASSWORD=${sensitiveData.immich_postgres_password}"
+      "POSTGRES_PASSWORD=${immich_postgres_password}"
       "POSTGRES_USER=postgres"
       "POSTGRES_DB=immich"
     ];

@@ -2,12 +2,12 @@ name: Bump flake.lock
 
 on:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 9 * * *"
 
   workflow_dispatch:
 
 jobs:
-  build:
+  update:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,9 +15,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: cachix/install-nix-action@v20
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - run: nix flake update
+      - run: nix flake check
 
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:

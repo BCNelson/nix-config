@@ -67,11 +67,6 @@
 
   programs.tmux.enable = true;
 
-  programs.gnupg.agent = {
-    enable = true;
-    enableSSHSupport = true;
-  };
-
   programs.fish = {
     enable = true;
     useBabelfish = true;

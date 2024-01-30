@@ -28,4 +28,8 @@
     layout = "us";
     xkbVariant = "";
   };
+
+  programs.ssh = {
+    startAgent = true;
+  };
 }

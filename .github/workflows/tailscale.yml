@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
     paths:
       - "tailscale-acl.hujson"
+      - ".github/workflows/tailscale.yml"
   pull_request:
     branches: [ "main" ]
     paths:
       - "tailscale-acl.hujson"
+      - ".github/workflows/tailscale.yml"
 
 jobs:
   acls:

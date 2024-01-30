@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ lib, pkgs, libx, ... }:
 let
   basicBorgJob = { repo, paths }: {
     inherit repo paths;
@@ -9,7 +9,13 @@ let
     compression = "zstd,1";
     startAt = "daily";
   };
-  sensitive = import ./sensitive.nix;
+  borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
+    level1 = "";
+    level2 = "";
+    level3 = "";
+    level4 = "";
+    level5 = "";
+  };
 in
 {
   services.sanoid = {
@@ -102,23 +108,23 @@ in
 
   services.borgbackup.jobs = {
     level1 = basicBorgJob {
-      repo = sensitive.borgRepos.level1;
+      repo = borgReposSecrets.level1;
       paths = "/mnt/vault/data/level1";
     };
     level2 = basicBorgJob {
-      repo = sensitive.borgRepos.level2;
+      repo = borgReposSecrets.level2;
       paths = "/mnt/vault/data/level2";
     };
     level3 = basicBorgJob {
-      repo = sensitive.borgRepos.level3;
+      repo = borgReposSecrets.level3;
       paths = "/mnt/vault/data/level3";
     };
     # level4 = basicBorgJob {
-    #   repo = sensitive.borgRepos.level4;
+    #   repo = borgReposSecrets.level4;
     #   paths = "/mnt/vault/data/level4";
     # };
     # level5 = basicBorgJob {
-    #   repo = sensitive.borgRepos.level5;
+    #   repo = borgReposSecrets.level5;
     #   paths = "/mnt/vault/data/level5";
     # };
   };

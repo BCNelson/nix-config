@@ -1,11 +1,11 @@
-{ pkgs, ... }:
+{ pkgs, libx, ... }:
 let
   updateScript = pkgs.writeShellApplication {
     name = "auto-update";
     runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname ];
     text = builtins.readFile ./auto-update.sh;
   };
-  sensitive = import ../../sensitive.nix;
+  ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
 in
 {
   systemd.timers.auto-update = {
@@ -21,7 +21,7 @@ in
   systemd.services.auto-update = {
     enable = true;
     environment = {
-      NTFY_TOPIC = sensitive.ntfy_topic;
+      NTFY_TOPIC = ntfy_topic;
     };
     serviceConfig = {
       Type = "oneshot";
