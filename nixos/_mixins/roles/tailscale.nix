@@ -1,4 +1,4 @@
-{ pkgs, libx, ... }@args:
+{ pkgs, libx, ... }:
 
 let
   ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";

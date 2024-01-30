@@ -35,8 +35,8 @@ let
     let
       # This is needed because nix can't import a file that is encrypted https://github.com/NixOS/nix/issues/4329#issuecomment-740787749
       inherit (inputs.nixpkgs.legacyPackages.x86_64-linux) runCommandNoCCLocal file;
-      inherit (inputs.nixpkgs.lib) concatStringsSep singleton attrByPath hasPrefix hasInfix fileContents;
-      inherit (builtins) pathExists isString;
+      inherit (inputs.nixpkgs.lib) hasInfix fileContents;
+      inherit (builtins) pathExists;
 
       isNotEncrypted = f: hasInfix "text" (fileContents (runCommandNoCCLocal "chk-encryption"
         {
@@ -60,7 +60,7 @@ in
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
 
-  getSecretWithDefault = getSecretWithDefault;
+  inherit getSecretWithDefault;
 
   getSecret = path: key: getSecretWithDefault path key "";
 
