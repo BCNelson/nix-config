@@ -24,4 +24,5 @@ _:
       KERNEL=="hidraw*", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0090", MODE:="666", GROUP="plugdev"
     '';
   };
+  hardware.uinput.enable = true;
 }
