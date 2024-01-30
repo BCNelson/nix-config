@@ -139,6 +139,14 @@
           inherit (pkgs.fishPlugins.z) src;
         }
       ];
+      functions = {
+        zcode = {
+          body = ''
+            set -l path (z -e $argv)
+            direnv exec $path code $path
+          '';
+        };
+      };
     };
     # gh = {
     #   enable = true;
