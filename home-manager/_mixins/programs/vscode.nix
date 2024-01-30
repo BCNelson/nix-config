@@ -21,4 +21,13 @@
             '';
     };
   };
+
+  programs.fish.functions = {
+    zcode = {
+      body = ''
+        set -l path (z -e $argv)
+        direnv exec $path code $path
+      '';
+    };
+  };
 }

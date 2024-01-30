@@ -42,6 +42,7 @@
       #   tokei # Modern Unix `wc` for code
       #   wget # Terminal downloader
       #   yq-go # Terminal `jq` for YAML
+      nix-search-cli
     ];
   };
 
@@ -140,10 +141,9 @@
         }
       ];
       functions = {
-        zcode = {
+        fish_command_not_found = {
           body = ''
-            set -l path (z -e $argv)
-            direnv exec $path code $path
+            nix-search --details -p $argv[1]
           '';
         };
       };
