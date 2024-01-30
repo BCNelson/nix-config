@@ -21,6 +21,7 @@ update-home *additionalArgs:
     hostname := `hostname -s`
     home-manager switch --flake .#$USER@{{hostname}} {{additionalArgs}}
 
+alias apply :=update-os
 alias os :=update-os
 alias o :=update-os
 [linux]
@@ -81,6 +82,9 @@ push: unlock
 
 sync: pull update-os
 
+[linux]
+check:
+    nix flake check
 
 alias fmt :=format
 [unix]
