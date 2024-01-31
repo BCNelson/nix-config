@@ -1,47 +1,57 @@
 ---
 # Page meta info, like heading, footer text and nav links
 pageInfo:
-  title: Dashy
-  description: Welcome to your new dashboard!
+  title: Nelson Family
   navLinks:
   - title: GitHub
-    path: https://github.com/Lissy93/dashy
-  - title: Documentation
-    path: https://dashy.to/docs
+    path: https://github.com/bcnelson
 
 # Optional app settings and configuration
 appConfig:
   theme: colorful
+  disableConfiguration: true
+  websearch:
+    searchEngine: google
+    openingMethod: 'sametab'
+    searchBangs:
+      /np: 'https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query='
+      /nixos: "https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query="
+      /nixpkgs: "https://sourcegraph.com/search?patternType=standard&sm=1&q=context:global+repo:^github\.com/NixOS/nixpkgs%24+"
 
 # Main content - An array of sections, each containing an array of items
 sections:
-- name: Getting Started
-  icon: fas fa-rocket
-  items:
-  - title: Dashy Live
-    description: Development a project management links for Dashy
-    icon: https://i.ibb.co/qWWpD0v/astro-dab-128.png
-    url: https://live.dashy.to/
-    target: newtab
-  - title: GitHub
-    description: Source Code, Issues and Pull Requests
-    url: https://github.com/lissy93/dashy
-    icon: favicon
-  - title: Docs
-    description: Configuring & Usage Documentation
-    provider: Dashy.to
-    icon: far fa-book
-    url: https://dashy.to/docs
-  - title: Showcase
-    description: See how others are using Dashy
-    url: https://github.com/Lissy93/dashy/blob/master/docs/showcase.md
-    icon: far fa-grin-hearts
-  - title: Config Guide
-    description: See full list of configuration options
-    url: https://github.com/Lissy93/dashy/blob/master/docs/configuring.md
-    icon: fas fa-wrench
-  - title: Support
-    description: Get help with Dashy, raise a bug, or get in contact
-    url: https://github.com/Lissy93/dashy/blob/master/.github/SUPPORT.md
-    icon: far fa-hands-helping
-  
+  - name: Nix
+    icon: mdi:nix
+    items:
+    - title: NixPkgs Search
+      description: Development a project management links for Dashy
+      icon: mdi:search-web
+      url: https://search.nixos.org/packages
+      target: newtab
+  - name: Media
+    icon: mdi:multimedia
+    items:
+      - title: Jellyfin
+        description: Media server
+        icon: mdi:server
+        url: https://media.nel.family
+        target: newtab
+      - title: AudioBooks
+        description: AudioBooks
+        icon: mdi:bookshelf
+        url: https://audiobooks.nel.family
+  - name: Home
+    icon: mdi:home
+    items:
+      - title: Home Assistant
+        description: Home Automation
+        icon: mdi:home-assistant
+        url: https://homeassistant.h.b.nel.family
+      - title: Inventory
+        description: Homebox
+        icon: mdi:clipboard
+        url: https://homebox.nel.family
+      - title: Todo
+        description: Todo
+        icon: mdi:checkbox-marked-circle-auto-outline
+        url: https://todo.nel.family
