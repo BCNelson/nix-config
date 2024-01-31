@@ -21,37 +21,37 @@ appConfig:
 # Main content - An array of sections, each containing an array of items
 sections:
   - name: Nix
-    icon: mdi:nix
+    icon: mdi-nix
     items:
     - title: NixPkgs Search
       description: Development a project management links for Dashy
-      icon: mdi:search-web
+      icon: mdi-search-web
       url: https://search.nixos.org/packages
       target: newtab
   - name: Media
-    icon: mdi:multimedia
+    icon: mdi-multimedia
     items:
       - title: Jellyfin
         description: Media server
-        icon: mdi:server
+        icon: mdi-server
         url: https://media.nel.family
         target: newtab
       - title: AudioBooks
         description: AudioBooks
-        icon: mdi:bookshelf
+        icon: mdi-bookshelf
         url: https://audiobooks.nel.family
   - name: Home
-    icon: mdi:home
+    icon: mdi-home
     items:
       - title: Home Assistant
         description: Home Automation
-        icon: mdi:home-assistant
+        icon: mdi-home-assistant
         url: https://homeassistant.h.b.nel.family
       - title: Inventory
         description: Homebox
-        icon: mdi:clipboard
+        icon: mdi-clipboard
         url: https://homebox.nel.family
       - title: Todo
         description: Todo
-        icon: mdi:checkbox-marked-circle-auto-outline
+        icon: mdi-checkbox-marked-circle-auto-outline
         url: https://todo.nel.family
