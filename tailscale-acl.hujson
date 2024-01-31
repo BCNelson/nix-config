@@ -9,6 +9,10 @@
 			"bradleynelson102@gmail.com",
 			"cknelson8@gmail.com",
 			"cwnelson1990@gmail.com"
+		],
+		"group:gaming": [
+			"brennonschow@gmail.com",
+			"nelson.7.jeffery@gmail.com"
 		]
 	},
 
@@ -19,7 +23,8 @@
 		"romeo": "100.76.49.168",
 		"romeo6": "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8",
 		"xray": "100.114.232.151",
-		"porter-pc": "100.111.54.18"
+		"porter-pc": "100.111.54.18",
+		"sierra": "100.92.32.99"
 	},
 
 	"tagOwners": {
@@ -38,7 +43,8 @@
 		// Allow to vor for smb
 		{"action": "accept", "src": ["group:nelsonFamily"], "dst": ["vor:445"]},
 		{"action": "accept", "src": ["romeo", "romeo6"], "dst": ["tag:server:22"]},
-		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:22"]}
+		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:22"]},
+		{"action": "accept", "src": ["group:gaming"], "dst": ["sierra:52450"]}
 	],
 	"ssh": [
 		{
