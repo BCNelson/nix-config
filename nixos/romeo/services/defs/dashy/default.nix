@@ -15,7 +15,7 @@ in
     ];
     restart = "unless-stopped";
     volumes = [
-      "${dashyConfig}/config.yml:/public/conf.yml:ro"
+      "${dashyConfig}/config.yml:/app/public/conf.yml:ro"
     ];
     healthcheck = {
       test = [ "CMD" "node" "/app/services/healthcheck" ];
