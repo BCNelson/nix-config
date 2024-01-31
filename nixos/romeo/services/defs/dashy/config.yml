@@ -16,7 +16,7 @@ appConfig:
     searchBangs:
       /np: 'https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query='
       /nixos: "https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query="
-      /nixpkgs: "https://sourcegraph.com/search?patternType=standard&sm=1&q=context:global+repo:^github\.com/NixOS/nixpkgs%24+"
+      /nixpkgs: "https://sourcegraph.com/search?patternType=standard&sm=1&q=context:global+repo:^github\\.com/NixOS/nixpkgs%24+"
 
 # Main content - An array of sections, each containing an array of items
 sections:
