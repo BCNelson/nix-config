@@ -5,6 +5,7 @@ _:
     enable = true;
     # Enable Stream Deck support
     extraRules = ''
+      # Elgato Stream Deck
       SUBSYSTEM=="input", GROUP="input", MODE="0666"
       SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0060", MODE:="666", GROUP="plugdev", SYMLINK+="streamdeck"
       SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0063", MODE:="666", GROUP="plugdev", SYMLINK+="streamdeck-mini"
