@@ -19,6 +19,7 @@ let
   fastenhealth = import ./defs/fastenhealth.nix { inherit dataDirs; };
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
   immich = import ./defs/immich.nix { inherit dataDirs libx; };
+  dashy = import ./defs/dashy { inherit pkgs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -39,6 +40,7 @@ in
         fastenhealth
         homebox
         immich
+        dashy
       ];
     };
   };
