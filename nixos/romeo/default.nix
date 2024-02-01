@@ -49,6 +49,7 @@ in
       User = "root";
       ExecStart = "${services.networkBacked}/bin/dockerStack-general up -d --remove-orphans --pull always --quiet-pull";
     };
+    reloadTriggers = [ services.networkBacked ]
     restartIfChanged = false;
   };
 }
