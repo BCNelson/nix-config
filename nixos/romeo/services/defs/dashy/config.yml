@@ -50,7 +50,7 @@ sections:
       - title: Inventory
         description: Homebox
         icon: mdi-clipboard
-        url: https://homebox.nel.family
+        url: https://inventory.h.b.nel.family/
       - title: Todo
         description: Todo
         icon: mdi-checkbox-marked-circle-auto-outline

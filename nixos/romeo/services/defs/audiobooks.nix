@@ -25,13 +25,4 @@
     ];
     restart = "unless-stopped";
   };
-  libation = {
-    image = "ghcr.io/bcnelson/libation_docker:latest";
-    container_name = "libation";
-    volumes = [
-      "${dataDirs.level5}/libation:/config/Libation"
-      "${dataDirs.level6}/media/audible3:/media/audiobooks"
-    ];
-    restart = "unless-stopped";
-  };
 }
