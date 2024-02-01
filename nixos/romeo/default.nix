@@ -43,6 +43,7 @@ in
 
   systemd.services.auto-update-services = {
     enable = true;
+    path = [ pkgs.docker ]
     serviceConfig = {
       Type = "oneshot";
       User = "root";
