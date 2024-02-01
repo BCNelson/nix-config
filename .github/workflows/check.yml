@@ -1,4 +1,4 @@
-name: Bump flake.lock
+name: Nix Flake Check
 
 on:
   pull_request:
