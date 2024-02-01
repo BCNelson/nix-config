@@ -10,7 +10,7 @@ pageInfo:
 appConfig:
   theme: colorful
   disableConfiguration: true
-  websearch:
+  webSearch:
     searchEngine: google
     openingMethod: 'sametab'
     searchBangs:
