@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -8,5 +8,9 @@
     ../_mixins/programs/emulator.nix
     ../_mixins/programs/gimp.nix
     ../_mixins/work/guidecx/k2.nix
+  ];
+
+  home.packages = [
+    pkgs.winbox
   ];
 }
