@@ -25,8 +25,18 @@ sections:
     items:
     - title: NixPkgs Search
       description: Development a project management links for Dashy
-      icon: mdi-search-web
+      icon: mdi-package
       url: https://search.nixos.org/packages
+      target: newtab
+    - title: NixOS Options
+      description: NixOS Options
+      icon: mdi-cog
+      url: https://search.nixos.org/options
+      target: newtab
+    - title: NixPkgs Sourcegraph
+      description: NixPkgs Sourcegraph
+      icon: mdi-source-branch
+      url: https://sourcegraph.com/search?q=context:global+repo:%5Egithub%5C.com/NixOS/nixpkgs%24%403742ab6&patternType=keyword&sm=0
       target: newtab
   - name: Media
     icon: mdi-multimedia
