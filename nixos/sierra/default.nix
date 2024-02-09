@@ -30,4 +30,6 @@
     allowedTCPPorts = [ 22000 ]; # Syncthing
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+
 }
