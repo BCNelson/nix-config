@@ -20,6 +20,7 @@ let
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
   immich = import ./defs/immich.nix { inherit dataDirs libx; };
   dashy = import ./defs/dashy { inherit pkgs; };
+  authelia = import ./defs/authelia { inherit dataDirs libx pkgs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {

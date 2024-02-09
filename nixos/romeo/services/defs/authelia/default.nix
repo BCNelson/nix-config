@@ -1,8 +1,8 @@
-{ dataDirs, pkgs }:
+{ dataDirs, pkgs, libx }:
 let
   autheliaConfig = pkgs.writeTextFile {
     name = "authelia-config.yml";
-    text = builtins.toJSON (import ./config.nix);
+    text = builtins.toJSON (import ./config.nix { inherit libx;});
     destination = "/config.yml";
   };
   authelia-users = pkgs.writeTextFile {
