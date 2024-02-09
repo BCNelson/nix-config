@@ -10,6 +10,7 @@ let
       notes.bnel.me A 192.168.3.7
       audiobooks.nel.family A 192.168.3.7
       changedetection.nel.family A 192.168.3.7
+      auth.nel.family A 192.168.3.7
       nel.to A 192.168.3.7
     '';
     destination = "/localOverride";
