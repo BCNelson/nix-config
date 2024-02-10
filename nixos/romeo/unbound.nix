@@ -32,7 +32,7 @@ in
           "fc00::/7 allow"
           "::1/128 allow"
         ];
-        logfile = ''"/var/log/unbound/unbound.log"'';
+        use-syslog = "yes";
         local-zone = [
           ''"atlas.h.b.nel.family" redirect''
           ''"hypnos.h.b.nel.family" redirect''
