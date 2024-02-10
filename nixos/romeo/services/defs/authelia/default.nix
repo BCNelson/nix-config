@@ -2,7 +2,7 @@
 let
   autheliaConfig = pkgs.writeTextFile {
     name = "authelia-config.yml";
-    text = builtins.toJSON (import ./config.nix { inherit libx;});
+    text = builtins.toJSON (import ./config.nix { inherit libx; });
     destination = "/config.yml";
   };
   authelia-users = pkgs.writeTextFile {
