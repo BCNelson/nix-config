@@ -13,7 +13,7 @@ in
     buffers = {
       read = 4096;
       write = 4096;
-    }
+    };
     path = "authelia";
   };
 
