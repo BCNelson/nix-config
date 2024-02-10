@@ -42,6 +42,7 @@ in
         homebox
         immich
         dashy
+        authelia
       ];
     };
   };
