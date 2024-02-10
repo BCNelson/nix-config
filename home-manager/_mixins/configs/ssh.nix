@@ -7,5 +7,6 @@ _:
       # "*.b.nel.family" = {
       # };
     };
+    addKeysToAgent = true;
   };
 }
