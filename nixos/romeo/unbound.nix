@@ -33,7 +33,6 @@ in
           "::1/128 allow"
         ];
         use-syslog = "yes";
-        log-queries = "yes";
         local-zone = [
           ''"atlas.h.b.nel.family" redirect''
           ''"hypnos.h.b.nel.family" redirect''
@@ -44,10 +43,7 @@ in
           ''"h.b.nel.family. IN A 192.168.3.7"''
           ''"notes.bnel.me. IN A 192.168.3.7"''
         ];
-      };
-      forward-zone = {
-        name = ".";
-        forward-addr = [ "8.8.8.8" "8.8.4.4" ];
+        serve-expired = "yes";
       };
       rpz = {
         name = "nel.family";
