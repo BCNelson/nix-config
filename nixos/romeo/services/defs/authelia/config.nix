@@ -10,8 +10,10 @@ in
   server = {
     host = "0.0.0.0";
     port = 9091;
-    read_buffer_size = 4096;
-    write_buffer_size = 4096;
+    buffers = {
+      read = 4096;
+      write = 4096;
+    }
     path = "authelia";
   };
 
@@ -32,19 +34,23 @@ in
     skew = 1;
   };
 
-  oidc = {
-    inherit hmac_secret;
-    issuer_private_key = oidc_issuer_private_key;
-    access_token_lifespan = "1h";
-    authorize_code_lifespan = "1m";
-    id_token_lifespan = "1h";
-    refresh_token_lifespan = "90m";
-    enable_client_debug_messages = true;
-    clients = [ ];
-  };
+  # identity_providers = {
+  #   oidc = {
+  #     inherit hmac_secret;
+  #     issuer_private_key = oidc_issuer_private_key;
+  #     access_token_lifespan = "1h";
+  #     authorize_code_lifespan = "1m";
+  #     id_token_lifespan = "1h";
+  #     refresh_token_lifespan = "90m";
+  #     enable_client_debug_messages = true;
+  #     clients = [ ];
+  #   };
+  # };
 
   authentication_backend = {
-    disable_reset_password = false;
+    password_reset = {
+      disable = true;
+    };
     file = {
       path = "/config/users_database.yml";
       password = {
@@ -57,11 +63,15 @@ in
       };
     };
     access_control = {
-      default_policy = "deny";
+      default_policy = "two_factor";
       networks = [ ];
       rules = [ ];
     };
   };
+
+  privacy_policy= {
+    enable = false;
+  }
 
   session = {
     name = "authelia_session";
