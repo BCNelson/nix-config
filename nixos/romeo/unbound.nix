@@ -33,6 +33,7 @@ in
           "::1/128 allow"
         ];
         use-syslog = "yes";
+        log-queries = "yes";
         local-zone = [
           ''"atlas.h.b.nel.family" redirect''
           ''"hypnos.h.b.nel.family" redirect''
