@@ -71,7 +71,7 @@ in
 
   privacy_policy= {
     enable = false;
-  }
+  };
 
   session = {
     name = "authelia_session";
