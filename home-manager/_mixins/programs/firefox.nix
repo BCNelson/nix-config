@@ -13,6 +13,7 @@
           wallabagger
           enhancer-for-youtube
           pay-by-privacy
+          google-cal-event-merge
         ];
         search = {
           default = "Google";
