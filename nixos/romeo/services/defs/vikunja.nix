@@ -15,8 +15,8 @@ in
     ];
     restart = "unless-stopped";
   };
-  vikunja_api = {
-    image = "vikunja/api";
+  vikunja = {
+    image = "vikunja/vikunja";
     environment = [
       "VIKUNJA_DATABASE_HOST=vikunja_db"
       "VIKUNJA_DATABASE_PASSWORD=${sensitiveData "vikunja_postgress_password"}"
@@ -24,20 +24,13 @@ in
       "VIKUNJA_DATABASE_USER=vikunja"
       "VIKUNJA_DATABASE_DATABASE=vikunja"
       "VIKUNJA_SERVICE_JWTSECRET=${sensitiveData "vikunja_jwt_secret" }"
-      "VIKUNJA_SERVICE_FRONTENDURL=https://todo.nel.family/"
+      "VIKUNJA_SERVICE_PUBLICURL=https://todo.nel.family/"
     ];
     volumes = [
       "${dataDirs.level5}/vikunja/files:/app/vikunja/files"
       "${config}/vikunja/config.yml:/app/vikunja/config.yml"
     ];
     depends_on = [ "vikunja_db" ];
-    restart = "unless-stopped";
-  };
-  vikunja_frontend = {
-    image = "vikunja/frontend";
-    environment = [
-      "VIKUNJA_API_URL=https://todo.nel.family/api/v1"
-    ];
     restart = "unless-stopped";
   };
 }
