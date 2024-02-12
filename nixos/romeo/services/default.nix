@@ -21,7 +21,7 @@ let
   immich = import ./defs/immich.nix { inherit dataDirs libx; };
   dashy = import ./defs/dashy { inherit pkgs; };
   authelia = import ./defs/authelia { inherit dataDirs libx pkgs; };
-  actualBudget = import ./defs/actualBudget.nix { inherit dataDirs; };
+  actualBudget = import ./defs/actualbudget.nix { inherit dataDirs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {

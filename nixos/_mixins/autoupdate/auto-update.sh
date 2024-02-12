@@ -8,7 +8,7 @@ then
     exit 1
 fi
 
-just sync
+just --unstable sync
 
 # Check if a reboot is required
 
