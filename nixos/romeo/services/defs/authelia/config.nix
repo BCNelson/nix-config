@@ -1,8 +1,8 @@
 { libx }:
 let
   jwt_secret = libx.getSecret ./sensitive.nix "jwt_secret";
-  hmac_secret = libx.getSecret ./sensitive.nix "hmac_secret";
-  oidc_issuer_private_key = libx.getSecret ./sensitive.nix "oidc_issuer_private_key";
+  # hmac_secret = libx.getSecret ./sensitive.nix "hmac_secret";
+  # oidc_issuer_private_key = libx.getSecret ./sensitive.nix "oidc_issuer_private_key";
   database_key = libx.getSecret ./sensitive.nix "database_key";
   smtp_password = libx.getSecret ../../../../sensitive.nix "smtp_password";
 in
@@ -69,7 +69,7 @@ in
     };
   };
 
-  privacy_policy= {
+  privacy_policy = {
     enable = false;
   };
 
