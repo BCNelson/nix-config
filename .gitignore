@@ -4,3 +4,4 @@ test/qemu/desktop
 .direnv
 
 test/qemu/vm/**/*.qcow2
+test/working

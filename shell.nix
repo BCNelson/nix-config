@@ -5,7 +5,8 @@
   default = pkgs.mkShell {
     # Enable experimental features without having to specify the argument
     NIX_CONFIG = "experimental-features = nix-command flakes";
-    nativeBuildInputs = with pkgs; [ nix home-manager git git-crypt just ]
-      ++ lib.optional (lib.hasInfix system == "linux") pkgs.quickemu;
+    JUST_UNSTABLE = "true"; #Must be enabled for just modules to work
+    nativeBuildInputs = with pkgs; [ nix home-manager git git-crypt just qemu zstd ]
+      ++ lib.optional (lib.hasInfix system == "linux") [ pkgs.quickemu pkgs.qemu ];
   };
 }

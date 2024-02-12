@@ -1,5 +1,6 @@
 #!/usr/bin/env -S just --justfile
 
+mod test
 
 [private]
 default:
@@ -107,12 +108,6 @@ iso:
     else
         echo "No ventoy drive found"
     fi
-
-
-alias t :=test
-[no-exit-message]
-@test *recipe='list':
-    just -f ./test/justfile {{recipe}}
 
 [macos]
 setup:
