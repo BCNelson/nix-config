@@ -1,4 +1,4 @@
-{ lib, modulesPath, ... }:
+{ lib, modulesPath, pkgs, ... }:
 {
   imports =
     [
@@ -14,4 +14,10 @@
 
   boot.loader.systemd-boot.enable = lib.mkForce false;
   boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
+
+  services.cage = {
+    enable = true;
+    user = "bcnelson";
+    program = "${pkgs.firefox}/bin/firefox -kiosk https://dashy.h.b.nel.family";
+  };
 }
