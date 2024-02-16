@@ -45,5 +45,5 @@ in
           -d "$HOSTNAME Has Booted!" \
           https://ntfy.sh/${ntfy_topic}
     '';
-
+  };
 }
