@@ -30,4 +30,20 @@ in
     };
     restartIfChanged = false;
   };
+
+  systemd.services.startup-notify = {
+    enable = true;
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+    };
+    script = with pkgs; ''
+      #!/usr/bin/env bash
+      ${curl}/bin/curl -H "X-Title: $HOSTNAME has Started" \
+          -H "X-Priority: 1" \
+          -d "$HOSTNAME Has Booted!" \
+          https://ntfy.sh/${ntfy_topic}
+    '';
+
 }
