@@ -44,6 +44,8 @@ in
           -H "X-Priority: 1" \
           -d "$HOSTNAME Has Booted!" \
           https://ntfy.sh/${ntfy_topic}
+      sleep infinity
     '';
+    restartIfChanged = false;
   };
 }
