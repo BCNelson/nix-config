@@ -12,5 +12,6 @@
 
   home.packages = [
     pkgs.winbox
+    pkgs.android-tools
   ];
 }

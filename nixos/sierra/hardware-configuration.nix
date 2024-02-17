@@ -60,8 +60,9 @@
   };
   environment.systemPackages = [
     pkgs.libva
-    pkgs.android-udev-rules
   ];
+
+  services.udev.packages = [ pkgs.android-udev-rules ];
 
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot

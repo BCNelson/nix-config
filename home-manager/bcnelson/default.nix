@@ -46,6 +46,8 @@ in
     pkgs.just
     pkgs.ldns
     pkgs.nmap
+
+    pkgs.usbutils # lsusb
   ];
 
   home.sessionVariables = {
