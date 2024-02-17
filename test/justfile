@@ -9,5 +9,17 @@ sierra: && (_test_vm "sierra-2")
 delta:
     @echo "Raspberry Pi 4 images can't be run in a VM yet"
     mkdir -p {{justfile_directory()}}/test/working/delta
-    zstd -d {{justfile_directory()}}/result/sd-image/*.img.zst -o {{justfile_directory()}}/test/working/delta/sd-card.img
+    zstd -d {{justfile_directory()}}/../result/sd-image/*.img.zst -o {{justfile_directory()}}/test/working/delta/sd-card.img
     
+deckmaster:
+    #!/usr/bin/env bash
+    cleanup() {
+        systemctl --user start deckmaster.path
+        trap - SIGINT SIGTERM # clear the trap
+        kill -- -$$ # Sends SIGTERM to child/sub processes
+    }
+    systemctl --user stop deckmaster.path
+    systemctl --user stop deckmaster.service
+    deckmaster -deck {{justfile_directory()}}/../home-manager/_mixins/programs/deckmaster/files/main.deck
+
+    trap cleanup EXIT

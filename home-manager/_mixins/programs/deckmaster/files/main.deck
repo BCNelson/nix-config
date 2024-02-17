@@ -104,6 +104,15 @@
     deck = "emojis/main.deck"
 
 [[keys]]
+  index = 11
+  [keys.widget]
+    id = "button"
+    [keys.widget.config]
+      icon = "assets/terminal_icon.png"
+  [keys.action]
+    keycode = "Leftmeta-T"
+
+[[keys]]
   index = 14
   [keys.widget]
     id = "button"
