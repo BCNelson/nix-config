@@ -65,10 +65,10 @@ in
   };
 
   access_control = {
-      default_policy = "two_factor";
-      networks = [ ];
-      rules = [ ];
-    };
+    default_policy = "two_factor";
+    networks = [ ];
+    rules = [ ];
+  };
 
   webauthn = {
     disable = false;
