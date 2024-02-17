@@ -78,10 +78,6 @@ in
     user_verification = "preferred";
   };
 
-  privacy_policy = {
-    enable = false;
-  };
-
   session = {
     name = "authelia_session";
     expiration = "1h";
