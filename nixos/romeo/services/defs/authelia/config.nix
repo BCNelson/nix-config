@@ -62,11 +62,20 @@ in
         parallelism = 8;
       };
     };
-    access_control = {
+  };
+
+  access_control = {
       default_policy = "two_factor";
       networks = [ ];
       rules = [ ];
     };
+
+  webauthn = {
+    disable = false;
+    timeout = "60s";
+    display_name = "Nelson Family";
+    attestation_conveyance_preference = "indirect";
+    user_verification = "preferred";
   };
 
   privacy_policy = {
