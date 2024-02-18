@@ -36,7 +36,8 @@ in
     wantedBy = [ "multi-user.target" ];
     wants = [ "network-online.target" ];
     serviceConfig = {
-      Type = "oneshot";
+      Type = "simple";
+      RemainAfterExit = true;
     };
     script = with pkgs; ''
       #!/usr/bin/env bash
@@ -44,7 +45,6 @@ in
           -H "X-Priority: 1" \
           -d "$HOSTNAME Has Booted!" \
           https://ntfy.sh/${ntfy_topic}
-      sleep infinity
     '';
     restartIfChanged = false;
   };
