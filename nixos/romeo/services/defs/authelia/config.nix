@@ -21,7 +21,7 @@ in
 
   log = {
     # Level of verbosity for logs: info, debug, trace
-    level = "info";
+    level = "trace";
     file_path = "/config/authelia.log";
   };
 
