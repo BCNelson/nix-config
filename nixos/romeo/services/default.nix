@@ -43,7 +43,6 @@ in
         immich
         dashy
         authelia
-        actualBudget
       ];
     };
   };
