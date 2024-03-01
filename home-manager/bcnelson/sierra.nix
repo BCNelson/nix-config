@@ -13,5 +13,6 @@
   home.packages = [
     pkgs.winbox
     pkgs.android-tools
+    pkgs.nixpkgs-review
   ];
 }
