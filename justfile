@@ -84,8 +84,8 @@ push: unlock
 sync: pull update-os
 
 [linux]
-check:
-    nix flake check
+check *additionalArgs:
+    nix flake check {{additionalArgs}}
 
 alias fmt :=format
 [unix]
