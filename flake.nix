@@ -44,13 +44,6 @@
       # want to update the value, then make sure to first check the Home Manager
       # release notes.
       stateVersion = "23.05";
-      forAllSystems = nixpkgs.lib.genAttrs [
-        "aarch64-linux"
-        "i686-linux"
-        "x86_64-linux"
-        "aarch64-darwin"
-        "x86_64-darwin"
-      ];
       libx = import ./lib { inherit inputs outputs stateVersion; };
     in
     rec {
@@ -100,6 +93,10 @@
           };
         }
       );
+
+      # Your custom packages
+      # Accessible through 'nix build', 'nix shell', etc
+      packages = libx.forAllSystems (system: import ./pkgs nixpkgs.legacyPackages.${system});
 
       # Devshell for bootstrapping
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
