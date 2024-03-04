@@ -6,6 +6,8 @@
   environment.systemPackages = [
     pkgs.vim
     pkgs.direnv
+    pkgs.kubectl
+    pkgs.awscli2
   ];
 
   # Use a custom configuration.nix location.

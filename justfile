@@ -19,8 +19,7 @@ update-home *additionalArgs:
 
 [macos]
 update-home *additionalArgs:
-    hostname := `hostname -s`
-    home-manager switch --flake .#$USER@{{hostname}} {{additionalArgs}}
+    home-manager switch --flake .#$USER@$(hostname -s) {{additionalArgs}}
 
 alias apply :=update-os
 alias os :=update-os
@@ -38,7 +37,8 @@ update-os *additionalArgs:
     
 [macos]
 update-os *additionalArgs:
-    darwin-rebuild switch --flake . {{additionalArgs}}
+    #!/usr/bin/env zsh
+    /run/current-system/sw/bin/darwin-rebuild switch --flake {{justfile_directory()}} {{additionalArgs}}
 
 [unix]
 lock:
@@ -111,7 +111,10 @@ iso:
 
 [macos]
 setup:
-    nix run nix-darwin -- switch --flake .
+    #!/usr/bin/env bash
+    sudo mv /etc/bashrc /etc/bashrc.$(date +%s).bak
+    sudo mv /etc/zshrc /etc/zshrc.$(date +%s).bak
+    nix run nix-darwin -- switch --flake {{justfile_directory()}}
 
 build machine='vm_test' type='vm':
     nix build .#nixosConfigurations.{{machine}}.config.system.build.{{type}} -o {{justfile_directory()}}/result
