@@ -3,22 +3,9 @@ let
   smtp_password = libx.getSecret ../../../sensitive.nix "smtp_password";
 in
 {
-  mealie-frontend = {
-    image = "hkotel/mealie:frontend-v1.0.0beta-5";
-    container_name = "mealie-frontend";
-    environment = [
-      "API_URL=http://mealie-api:9000"
-      "ALLOW_SIGNUP=false"
-    ];
-    volumes = [
-      "${dataDirs.level2}/mealie:/app/data"
-    ];
-    restart = "unless-stopped";
-    depends_on = [ "mealie-api" ];
-  };
-  mealie-api = {
-    image = "hkotel/mealie:api-v1.0.0beta-5";
-    container_name = "mealie-api";
+  mealie = {
+    image = "ghcr.io/mealie-recipes/mealie:v1.2.0";
+    container_name = "mealie";
     volumes = [
       "${dataDirs.level2}/mealie:/app/data"
     ];
@@ -27,6 +14,7 @@ in
       "PUID=1000"
       "PGID=1000"
       "TZ=America/Denver"
+      "WEB_GUNICORN=false"
       "MAX_WORKERS=1"
       "WEB_CONCURRENCY=1"
       "BASE_URL=https://recipes.nel.family"
