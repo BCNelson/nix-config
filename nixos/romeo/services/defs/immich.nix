@@ -60,7 +60,7 @@ in
   };
 
   immich_postgres = {
-    image = "tensorchord/pgvecto-rs:pg14-v0.1.11";
+    image = "tensorchord/pgvecto-rs:pg14-v0.2.0";
     container_name = "immich_postgres";
     environment = [
       "POSTGRES_PASSWORD=${immich_postgres_password}"
