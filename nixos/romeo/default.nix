@@ -52,26 +52,4 @@ in
     restartTriggers = [ services.networkBacked ];
     restartIfChanged = false;
   };
-
-  networking = {
-    vlans = {
-      vlan10 = {
-        id = 10;
-        interface = "enp11s0";
-      };
-      vlan30 = {
-        id = 30;
-        interface = "enp11s0";
-      };
-    };
-    interfaces = {
-      vlan10 = {
-        useDHCP = true;
-      };
-      vlan30 = {
-        useDHCP = true;
-      };
-    };
-  };
-
 }
