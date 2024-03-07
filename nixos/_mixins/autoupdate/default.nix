@@ -42,7 +42,7 @@ in
     script = with pkgs; ''
       #!/usr/bin/env bash
       ${curl}/bin/curl -H "X-Title: $HOSTNAME has Started" \
-          -H "X-Priority: 1" \
+          -H "X-Priority: 2" \
           -d "$HOSTNAME Has Booted!" \
           https://ntfy.sh/${ntfy_topic}
     '';
