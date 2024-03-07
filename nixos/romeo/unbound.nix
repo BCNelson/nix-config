@@ -22,7 +22,7 @@ in
     enable = true;
     settings = {
       server = {
-        module-config = ''"respip validator iterator respip"'';
+        module-config = ''"respip validator iterator"'';
         interface = [ "0.0.0.0@53" "::@53" ];
         do-ip6 = "yes";
         access-control = [
