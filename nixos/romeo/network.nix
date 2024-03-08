@@ -31,13 +31,13 @@ _:
       };
       "40-vlan10" = {
         matchConfig.Name = "vlan10";
-        addresses = [
+        address = [
           "10.10.1.7/24"
         ];
       };
       "40-vlan30" = {
         matchConfig.Name = "vlan30";
-        addresses = [
+        address = [
           "10.30.1.7/24"
         ];
       };
