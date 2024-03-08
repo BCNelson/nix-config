@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, ... }:
 let
   zonefile = pkgs.writeTextFile {
     name = "linode-dns-config";
@@ -53,7 +53,6 @@ in
       };
     };
   };
-  networking.networkmanager.dns = lib.mkForce "unbound";
   networking.firewall = {
     enable = true;
     allowedUDPPorts = [ 53 ];
