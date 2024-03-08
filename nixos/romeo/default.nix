@@ -23,6 +23,7 @@ in
       ../_mixins/roles/figurine.nix
       ./unbound.nix
       ./backups.nix
+      ./network.nix
     ];
 
   environment.systemPackages = [

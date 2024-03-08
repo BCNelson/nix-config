@@ -47,6 +47,8 @@ in
     pkgs.ldns
     pkgs.nmap
 
+    pkgs.lsof
+
     pkgs.usbutils # lsusb
   ];
 
