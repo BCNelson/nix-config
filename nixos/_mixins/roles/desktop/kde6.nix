@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+_:
 {
   services.xserver.desktopManager.plasma6.enable = true;
 
