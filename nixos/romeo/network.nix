@@ -31,9 +31,15 @@ _:
       };
       "40-vlan10" = {
         matchConfig.Name = "vlan10";
+        networkConfig = {
+            DHCP = "yes";
+        };
       };
       "40-vlan30" = {
         matchConfig.Name = "vlan30";
+        networkConfig = {
+            DHCP = "yes";
+        };
       };
     };
   };
