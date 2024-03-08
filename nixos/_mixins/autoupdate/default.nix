@@ -12,7 +12,7 @@ in
     enable = true;
     timerConfig = {
       OnBootSec = "1min";
-      OnUnitActiveSec = "5m";
+      OnUnitActiveSec = "2m";
       Persistent = true;
     };
     wantedBy = [ "timers.target" ];
