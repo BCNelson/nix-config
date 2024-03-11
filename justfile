@@ -38,6 +38,15 @@ update-os *additionalArgs:
 [macos]
 update-os *additionalArgs:
     #!/usr/bin/env zsh
+    confilictingFile=("/etc/bashrc" "/etc/zshrc")
+    for file in $confilictingFile
+    do
+        if [ -f $file ] && [ ! -L $file ];
+        then
+            echo "Moving $file to $file.$(date +%s).bak"
+            sudo mv $file $file.$(date +%s).bak
+        fi
+    done
     /run/current-system/sw/bin/darwin-rebuild switch --flake {{justfile_directory()}} {{additionalArgs}}
 
 [unix]
