@@ -43,6 +43,7 @@
       #   wget # Terminal downloader
       #   yq-go # Terminal `jq` for YAML
       nix-search-cli
+      jq
     ];
   };
 
