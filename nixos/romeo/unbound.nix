@@ -54,9 +54,7 @@ in
     };
   };
   networking.networkmanager.dns = lib.mkForce "unbound";
-  systemd.services.unbound = {
-    before = [ "systemd-resolved.service" ];
-  };
+  services.resolved.enable = lib.mkForce false;
   networking.firewall = {
     enable = true;
     allowedUDPPorts = [ 53 ];
