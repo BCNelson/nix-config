@@ -147,6 +147,19 @@
             nix-search --details -p $argv[1]
           '';
         };
+        update = {
+          body = ''
+            systemctl start --no-block auto-update.service
+            argparse --name=update 'l/log' 'check' -- $argv
+            if test $_flag_check
+              systemctl status --no-pager auto-update.timer
+              systemctl status --no-pager auto-update.service
+            end
+            if test $_flag_log
+              journalctl -u auto-update.service -f
+            end
+          '';
+        };
       };
     };
     # gh = {
