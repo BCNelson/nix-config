@@ -53,7 +53,7 @@ in
       };
     };
   };
-  networking.networkmanager.dns = lib.mkForce "unbound";
+  networking.networkmanager.dns = lib.mkForce "none";
   services.resolved.enable = lib.mkForce false;
   networking.firewall = {
     enable = true;
