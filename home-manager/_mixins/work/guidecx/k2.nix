@@ -36,5 +36,8 @@ in
     go-migrate
     dapr-cli
     gnumake
+
+    postman
+    nodejs_20
   ];
 }
