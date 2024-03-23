@@ -12,7 +12,6 @@ in
     image = "ghcr.io/paperless-ngx/paperless-ngx:latest";
     restart = "unless-stopped";
     depends_on = [ "broker" "gotenberg" "tika" ];
-    ports = [ "8000:8000" ];
     healthcheck = {
       test = [ "CMD" "curl" "-f" "http://localhost:8000" ];
       interval = "30s";
