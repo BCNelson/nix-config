@@ -1,5 +1,13 @@
 #!/bin/sh
 
+curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"
+
+cleanup() {
+    curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
+}
+
+trap cleanup INT
+
 cd /config || exit 1
 
 if ! git config --local --get filter.git-crypt.smudge > /dev/null;
@@ -35,3 +43,5 @@ then
           "https://ntfy.sh/$NTFY_TOPIC"
     fi
 fi
+
+curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"

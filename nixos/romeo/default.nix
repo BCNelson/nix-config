@@ -1,4 +1,4 @@
-{ pkgs, libx, ... }:
+args@{ pkgs, libx, ... }:
 let
   dataDirs = {
     level1 = "/mnt/vault/data/level1"; # Critical
@@ -10,13 +10,14 @@ let
     level7 = "/cache"; # Ephemeral
   };
   services = import ./services { inherit libx dataDirs pkgs; };
+  healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
 in
 {
   imports =
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ../_mixins/autoupdate
+      (import ../_mixins/autoupdate (args // { inherit healthcheckUuid;}))
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix

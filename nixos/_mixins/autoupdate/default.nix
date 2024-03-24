@@ -1,4 +1,4 @@
-{ pkgs, libx, ... }:
+{ pkgs, libx, healthcheckUuid, ... }:
 let
   updateScript = pkgs.writeShellApplication {
     name = "auto-update";
@@ -22,6 +22,7 @@ in
     enable = true;
     environment = {
       NTFY_TOPIC = ntfy_topic;
+      HEALTHCHECK_UUID = healthcheckUuid;
     };
     serviceConfig = {
       Type = "oneshot";
