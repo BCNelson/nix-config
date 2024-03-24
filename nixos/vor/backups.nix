@@ -46,7 +46,7 @@
   users.users.syncoid = {
     isSystemUser = true;
     description = "syncoid user";
-    useDefaultShell = false;
+    useDefaultShell = true;
   };
 
   systemd.timers.syncoid-zfs-allow = {
