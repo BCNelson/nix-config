@@ -2,11 +2,11 @@
 
 curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"
 
-cleanup() {
+fail() {
     curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
 }
 
-trap cleanup INT
+trap fail INT
 
 cd /config || exit 1
 
@@ -17,6 +17,12 @@ then
 fi
 
 just --unstable sync
+
+# Fail if sync returns an error
+if [ $? -ne 0 ]; then
+    fail
+    exit 1
+fi
 
 # Check if a reboot is required
 
