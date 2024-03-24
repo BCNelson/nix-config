@@ -27,6 +27,7 @@ in
       Type = "oneshot";
       User = "root";
       ExecStart = "${updateScript}/bin/auto-update";
+      TimeoutStartSec = "6h";
     };
     restartIfChanged = false;
   };
