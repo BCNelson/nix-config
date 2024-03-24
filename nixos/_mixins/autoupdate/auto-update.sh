@@ -16,10 +16,9 @@ then
     exit 1
 fi
 
-just --unstable sync
 
 # Fail if sync returns an error
-if [ $? -ne 0 ]; then
+if ! just --unstable sync; then
     fail
     exit 1
 fi
