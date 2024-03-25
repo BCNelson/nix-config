@@ -15,6 +15,19 @@ let
 
     vendorHash = "sha256-qcORCUEgCctJ0gDCJeo6l6de2NaRrzwFcjAfUeL5GDU=";
   };
+
+  godepgraph = pkgs.buildGoModule {
+    pname = "godepgraph";
+    version = "1.2.0";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "kisielk";
+      repo = "godepgraph";
+      hash = "sha256-IBjSBtv1fn9KOwrFTJk4zUVgil6iTCl4NyuBUQIV09Q=";
+    };
+
+    vendorHash = "sha256-qcORCUEgCctJ0gDCJeo6l6de2NaRrzwFcjAfUeL5GDU=";
+  };
 in
 {
 
@@ -32,6 +45,8 @@ in
 
     buf
     protoc-gen-go-grpc-mock
+    godepgraph
+    
     go-mockery
     go-migrate
     dapr-cli
