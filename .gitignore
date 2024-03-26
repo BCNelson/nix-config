@@ -5,3 +5,5 @@ test/qemu/desktop
 
 test/qemu/vm/**/*.qcow2
 test/working
+
+disk-config.nix

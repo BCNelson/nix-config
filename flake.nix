@@ -19,6 +19,9 @@
     nix-formatter-pack.url = "github:Gerschtli/nix-formatter-pack";
     nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs";
 
+    disko.url = "github:nix-community/disko";
+    disko.inputs.nixpkgs.follows = "nixpkgs";
+
     nixos-hardware.url = "github:nixos/nixos-hardware";
 
     # Add the Nix User Repository (NUR)
@@ -33,7 +36,7 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, nix-darwin, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, nix-darwin, disko, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -65,6 +68,7 @@
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; inherit libx; };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
+        "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "kilo-1" = libx.mkHost { hostname = "kilo-1"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "delta-1" = libx.mkHost { hostname = "delta-1"; usernames = [ "bcnelson" ]; inherit libx; version = "stable"; };
