@@ -1,0 +1,23 @@
+name: Apply Terraform
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "*.tf"
+      - ".github/workflows/terraform.yml"
+
+jobs:
+  acls:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform init
+      - name: Terraform Apply
+        env:
+            TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
+            TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
+        run: terraform apply -auto-approve

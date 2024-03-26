@@ -127,3 +127,6 @@ setup:
 
 build machine='vm_test' type='vm':
     nix build .#nixosConfigurations.{{machine}}.config.system.build.{{type}} -o {{justfile_directory()}}/result
+
+
+remote-install 

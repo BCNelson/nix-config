@@ -105,7 +105,7 @@
       # Devshell for bootstrapping
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
       devShells = libx.forAllSystems (system:
-        let pkgs = nixpkgs.legacyPackages.${system};
+        let pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
         in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs) lib; }
       );
     };
