@@ -1,4 +1,13 @@
 terraform {
+  backend "s3" {
+    bucket                      = "terraform-b-nel-family"
+    key                         = "state.json"
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    endpoint                    = "https://s3.us-west-000.backblazeb2.com"
+    region                      = "us-west-004"
+  }
+
   required_providers {
     porkbun = {
       source = "cullenmcdermott/porkbun"
