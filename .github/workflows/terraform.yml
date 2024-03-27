@@ -15,6 +15,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
         run: terraform init
       - name: Terraform Plan
         env:
