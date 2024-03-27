@@ -8,7 +8,7 @@ on:
       - ".github/workflows/terraform.yml"
 
 jobs:
-  acls:
+  terraform:
     runs-on: ubuntu-latest
 
     steps:

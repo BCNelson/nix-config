@@ -138,6 +138,36 @@ resource "porkbun_dns_record" "public_poseidon_b_nel_family-AAAA" {
   type = "AAAA"
   content = "2600:3c01::f03c:92ff:fe36:3ed9"
 }
+# whiskey.b      A  100.89.15.100
+resource "porkbun_dns_record" "whiskey_b_nel_family-A" {
+  domain = "nel.family"
+  name = "whiskey.b"
+  type = "A"
+  content = "100.89.15.100"
+}
+# whiskey.b      AAAA  fd7a:115c:a1e0::ad01:f64
+resource "porkbun_dns_record" "whiskey_b_nel_family-AAAA" {
+  domain = "nel.family"
+  name = "whiskey.b"
+  type = "AAAA"
+  content = "fd7a:115c:a1e0::ad01:f64"
+}
+
+# public.whiskey.b      A  15.204.59.201
+resource "porkbun_dns_record" "public_whiskey_b_nel_family-A" {
+  domain = "nel.family"
+  name = "public.whiskey.b"
+  type = "A"
+  content = "15.204.59.201"
+}
+# public.whiskey.b      AAAA  2604:2dc0:202:300::b6a
+resource "porkbun_dns_record" "public_whiskey_b_nel_family-AAAA" {
+  domain = "nel.family"
+  name = "public.whiskey.b"
+  type = "AAAA"
+  content = "2604:2dc0:202:300::b6a"
+}
+
 # romeo.b      A  100.76.49.168
 resource "porkbun_dns_record" "romeo_b_nel_family-A" {
   domain = "nel.family"
