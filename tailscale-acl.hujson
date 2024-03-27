@@ -55,6 +55,12 @@
 		},
 		{
 			"action": "accept",
+			"src":    ["group:admin"],
+			"dst":    ["tag:client"],
+			"users":  ["autogroup:nonroot", "root"]
+		},
+		{
+			"action": "accept",
 			"src":    ["tag:server"],
 			"dst":    ["tag:server"],
 			// "users":  ["syncoid"]
