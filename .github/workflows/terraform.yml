@@ -16,10 +16,11 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
         run: terraform init
-      - name: Terraform Apply
+      - name: Terraform Plan
         env:
             TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
             TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
+            TF_LOG: DEBUG
         run: terraform plan -out=tfplan
       - name: Terraform Apply
         run: terraform apply tfplan
