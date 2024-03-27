@@ -20,4 +20,9 @@ jobs:
         env:
             TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
             TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
-        run: terraform apply -auto-approve
+        run: terraform plan -out=tfplan
+      - name: Terraform Apply
+        run: terraform apply tfplan
+        env:
+            TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
+            TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
