@@ -211,7 +211,6 @@ resource "porkbun_dns_record" "vor_ck_nel_family-AAAA" {
   content = "fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4"
 }
 
-
 # *.h.b      CNAME  h.b.nel.family.
 resource "porkbun_dns_record" "wildcard_h_b_nel_family-CNAME" {
   domain = "nel.family"
@@ -234,9 +233,9 @@ resource "porkbun_dns_record" "wildcard_romeo_b_nel_family-CNAME" {
   content = "romeo.b.nel.family"
 }
 # audiobooks      CNAME  audiobooks.h.b.nel.family.
-resource "porkbun_dns_record" "audiobooks_h_b_nel_family-CNAME" {
+resource "porkbun_dns_record" "audiobooks_nel_family-CNAME" {
   domain = "nel.family"
-  name = "audiobooks.h.b"
+  name = "audiobooks"
   type = "CNAME"
   content = "audiobooks.h.b.nel.family"
 }
@@ -247,17 +246,10 @@ resource "porkbun_dns_record" "auth_h_b_nel_family-CNAME" {
   type = "CNAME"
   content = "h.b.nel.family"
 }
-# bookmark      CNAME  romeovirt.b.nel.family.
-resource "porkbun_dns_record" "bookmark_romeovirt_b_nel_family-CNAME" {
-  domain = "nel.family"
-  name = "bookmark.romeovirt.b"
-  type = "CNAME"
-  content = "romeovirt.b.nel.family"
-}
 # check      CNAME  esoteric-rattlesnake.pikapod.net.
-resource "porkbun_dns_record" "check_esoteric-rattlesnake_pikapod_net-CNAME" {
+resource "porkbun_dns_record" "check_nel_family-CNAME" {
   domain = "nel.family"
-  name = "check.esoteric-rattlesnake.pikapod.net"
+  name = "check"
   type = "CNAME"
   content = "esoteric-rattlesnake.pikapod.net"
 }
@@ -269,9 +261,9 @@ resource "porkbun_dns_record" "docs_h_b_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 # health.b      CNAME  public.poseidon.b.nel.family.
-resource "porkbun_dns_record" "health_b_public_poseidon_b_nel_family-CNAME" {
+resource "porkbun_dns_record" "health_b_nel_family-CNAME" {
   domain = "nel.family"
-  name = "health.b.public.poseidon.b"
+  name = "health.b"
   type = "CNAME"
   content = "public.poseidon.b.nel.family"
 }
@@ -306,14 +298,14 @@ resource "porkbun_dns_record" "media_h_b_nel_family-CNAME" {
 # recipes      CNAME  recipes.h.b.nel.family.
 resource "porkbun_dns_record" "recipes_h_b_nel_family-CNAME" {
   domain = "nel.family"
-  name = "recipes.h.b"
+  name = "recipes"
   type = "CNAME"
   content = "recipes.h.b.nel.family"
 }
 # todo      CNAME  h.b.nel.family.
 resource "porkbun_dns_record" "todo_h_b_nel_family-CNAME" {
   domain = "nel.family"
-  name = "todo.h.b"
+  name = "todo"
   type = "CNAME"
   content = "h.b.nel.family"
 }
