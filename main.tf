@@ -4,6 +4,7 @@ terraform {
     key                         = "state.json"
     skip_credentials_validation = true
     skip_region_validation      = true
+    skip_requesting_account_id  = true
     endpoint                    = "https://s3.us-west-000.backblazeb2.com"
     region                      = "us-west-004"
   }
