@@ -37,6 +37,4 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: git checkout -b auto-update
-      - run: git reset --hard origin/main
-      - run: git push origin auto-update
+      - run: git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f
