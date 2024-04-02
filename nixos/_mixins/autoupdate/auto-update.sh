@@ -1,9 +1,15 @@
 #!/bin/sh
+tempfile=$(mktemp)
 
 curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"
 
 fail() {
-    curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
+    curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
+    exit 1
+}
+
+log() {
+    echo "$1" | tee -a "$tempfile"
 }
 
 trap fail INT
@@ -12,15 +18,17 @@ cd /config || exit 1
 
 if ! git config --local --get filter.git-crypt.smudge > /dev/null;
 then
-    echo "Locked and must be unlocked before update"
-    exit 1
+    log "Locked and must be unlocked before update"
+    fail
 fi
 
 
 # Fail if sync returns an error
-if ! just --unstable sync; then
+tempfile=$(mktemp)
+just --unstable sync | tee -a "$tempfile"
+
+if ! just --unstable sync | tee "$tempfile"; then
     fail
-    exit 1
 fi
 
 # Check if a reboot is required
@@ -38,15 +46,18 @@ if [ "$current_system_initrd" != "$booted_system_initrd" ] ||
    [ "$current_system_kernel" != "$booted_system_kernel" ] ||
    [ "$current_system_kernel_modules" != "$booted_system_kernel_modules" ];
 then
-    echo "Reboot required"
+    log "Reboot required"
     shutdown -r +1 "Rebooting for updates in 1 minute"
     # check if NTFY_TOPIC is set
     if [ -n "$NTFY_TOPIC" ]; then
-        echo "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
-        curl -H "X-Title: $(hostname) rebooting in 2 mins" \
+        log "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
+        curl -H "X-Title: $(hostname) rebooting in 1 min" \
           -d "$(hostname) is rebooting in 1 min as necessary for updates" \
           "https://ntfy.sh/$NTFY_TOPIC"
+        curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/log" \
+          --data-raw "Rebooting for updates in 1 minute"
     fi
 fi
 
-curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
+# Success no logs needed
+curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
