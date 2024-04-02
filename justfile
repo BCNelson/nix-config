@@ -54,7 +54,7 @@ lock:
     git-crypt lock
 
 [unix]
-unlock bootstrap:
+unlock:
     #!/usr/bin/env bash
     # set -euxo pipefail
     git config --local --get filter.git-crypt.smudge > /dev/null
