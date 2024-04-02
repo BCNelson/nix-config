@@ -22,7 +22,7 @@ jobs:
 
       - run: nix flake check
 
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: Bump flake.lock
           branch: main
@@ -33,3 +33,5 @@ jobs:
           commit_author: Flake Bot <actions@github.com> # defaults to author of the commit that triggered the run
           skip_dirty_check: false    
           skip_fetch: true
+
+      - run: git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f
