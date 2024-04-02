@@ -68,7 +68,7 @@ unlock:
         fi
 
         echo "Unlocking"
-        gpg --decrypt local.key.asc | git-crypt unlock -
+        gpg --pinentry-mode ask --decrypt local.key.asc | git-crypt unlock -
 
         # check if there were changes that were stashed
         if [ "$STASHED" = true ]; then
