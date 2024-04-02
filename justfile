@@ -54,7 +54,7 @@ lock:
     git-crypt lock
 
 [unix]
-unlock:
+unlock bootstrap:
     #!/usr/bin/env bash
     # set -euxo pipefail
     git config --local --get filter.git-crypt.smudge > /dev/null
@@ -68,7 +68,7 @@ unlock:
         fi
 
         echo "Unlocking"
-        gpg --pinentry-mode ask --decrypt local.key.asc | git-crypt unlock -
+        gpg --decrypt local.key.asc | git-crypt unlock -
 
         # check if there were changes that were stashed
         if [ "$STASHED" = true ]; then
