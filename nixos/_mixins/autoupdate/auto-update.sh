@@ -1,7 +1,9 @@
 #!/bin/sh
 tempfile=$(mktemp)
 
-curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"
+if ! curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"; then
+    log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
+fi
 
 fail() {
     curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
