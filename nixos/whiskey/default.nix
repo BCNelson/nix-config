@@ -7,6 +7,7 @@ in
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      (import ../_mixins/autoupdate (args // { inherit healthcheckUuid;}))
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
     ];
