@@ -6,7 +6,7 @@
     # Enable experimental features without having to specify the argument
     NIX_CONFIG = "experimental-features = nix-command flakes";
     JUST_UNSTABLE = "true"; #Must be enabled for just modules to work
-    nativeBuildInputs = with pkgs; [ nix home-manager git git-crypt just qemu zstd terraform ]
+    nativeBuildInputs = with pkgs; [ nix home-manager git git-crypt gnupg just qemu zstd terraform ]
       ++ lib.optional (lib.hasInfix system == "linux") [ pkgs.quickemu pkgs.qemu ];
   };
 }
