@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports =
@@ -34,4 +34,6 @@
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
   boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+  services.printing.enable = true;
+  services.printing.drivers = [ pkgs.hplipWithPlugin ];
 }
