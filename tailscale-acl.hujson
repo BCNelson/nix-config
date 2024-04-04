@@ -87,7 +87,7 @@
 	"sshTests": [
 		{
 			"src": "bradleynelson102@gmail.com",
-			"dst": "tag:server",
+			"dst": ["tag:server"],
 			"accept": ["autogroup:nonroot", "root"]
 		}
 	]
