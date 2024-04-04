@@ -83,5 +83,12 @@
 			"accept": ["vor:22"],
 			"deny": ["xray:22", "porter-pc:22"]
 		}
+	],
+	"sshTests": [
+		{
+			"src": "bradleynelson102@gmail.com",
+			"dst": "tag:server",
+			"accept": ["autogroup:nonroot", "root"]
+		}
 	]
 }
