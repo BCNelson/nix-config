@@ -20,7 +20,7 @@ jobs:
 
       - run: nix flake update
 
-      - run: nix flake check
+      - run: nix flake check --show-trace
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
