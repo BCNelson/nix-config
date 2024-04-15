@@ -3,7 +3,7 @@
   # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
-  services.xserver.displayManager.sddm = {
+  servicesdisplayManager.sddm = {
     enable = true;
     autoNumlock = true;
   };
