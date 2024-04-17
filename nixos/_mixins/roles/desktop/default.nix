@@ -3,11 +3,6 @@
   # Enable the X11 windowing system.
   services.xserver.enable = true; #TODO: See if this is needed
 
-  services.displayManager.sddm = {
-    enable = true;
-    autoNumlock = true;
-  };
-
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
@@ -34,4 +29,15 @@
   programs.ssh = {
     startAgent = true;
   };
-}
+} // (if lib.strings.versionAtLeast lib.trivial.release "24.05" then {
+  services.displayManager.sddm = {
+    enable = true;
+    autoNumlock = true;
+    wayland.enable = true;
+  };
+} else {
+  services.xserver.displayManager.sddm = {
+    enable = true;
+    autoNumlock = true;
+  };
+})
