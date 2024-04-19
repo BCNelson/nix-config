@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-TARGET_HOST="''${1:-}"
-TARGET_USER="''${2:-bcnelson}"
-TARGET_DISK="''${3:-}"
+TARGET_HOST="${1:-}"
+TARGET_USER="${2:-bcnelson}"
+TARGET_DISK="${3:-}"
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "ERROR! $(basename "$0") should be run as a regular user"
@@ -35,7 +35,7 @@ if [[ -z "$TARGET_DISK" ]]; then
     exit 1
 fi
 
-echo "WARNING! The disks in $TAGET_HOST_PREFIX are about to get wiped"
+echo "WARNING! The disk $TARGET_DISK in $TAGET_HOST_PREFIX is about to get wiped"
 echo "         NixOS will be re-installed"
 echo "         This is a destructive operation"
 echo
@@ -88,7 +88,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     # Rsync nix-config to the target install
     echo "Rsyncing $HOME to /mnt/home/$TARGET_USER"
-    rsync -a --delete "$HOME/nix-config" "/config"
+    rsync -a  "$HOME/nix-config" "/config"
+    rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
     pushd "/mnt/home/$TARGET_USER/nix-config" || exit 1
     popd || exit 1
 

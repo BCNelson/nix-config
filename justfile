@@ -58,7 +58,7 @@ unlock:
     #!/usr/bin/env bash
     # set -euxo pipefail
     git config --local --get filter.git-crypt.smudge > /dev/null
-    # check if the lat command was successful
+    # check if the last command was successful
     if [ $? -ne 0 ]; then
         # check if there are changes that need to be stashed
         if [ -n "$(git status --porcelain)" ]; then
@@ -77,7 +77,7 @@ unlock:
         fi
     else
         echo "Already unlocked"
-    fi 
+    fi
 
 pull: unlock
     #!/usr/bin/env bash
