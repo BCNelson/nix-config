@@ -88,8 +88,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 
     # Rsync nix-config to the target install
     echo "Rsyncing $HOME to /mnt/home/$TARGET_USER"
-    rsync -a  "$HOME/nix-config" "/config"
-    rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
+    sudo rsync -a  "$HOME/nix-config" "/config"
+    sudo rsync -a --delete "$HOME/nix-config" "/mnt/home/$TARGET_USER"
     pushd "/mnt/home/$TARGET_USER/nix-config" || exit 1
     popd || exit 1
 
