@@ -1,4 +1,4 @@
-{ desktop, lib, ... }: 
+{ desktop, lib, ... }:
 let
   atLeast2405 = lib.versionAtLeast lib.trivial.release "24.05";
 in

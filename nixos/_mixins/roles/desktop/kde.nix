@@ -1,6 +1,6 @@
 { pkgs, lib, ... }:
 {
-  services = {} // (if lib.strings.versionAtLeast lib.trivial.release "24.05" then {
+  services = { } // (if lib.strings.versionAtLeast lib.trivial.release "24.05" then {
     xserver.desktopManager.plasma5.enable = true;
     displayManager.defaultSession = "plasmawayland";
   } else {

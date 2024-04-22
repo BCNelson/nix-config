@@ -17,7 +17,7 @@
     pinentry-qt
   ];
 
-  programs.gnupg.agent = {                                                      
+  programs.gnupg.agent = {
     enable = true;
     pinentryFlavor = "qt";
   };

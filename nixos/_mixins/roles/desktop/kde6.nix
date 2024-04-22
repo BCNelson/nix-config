@@ -1,4 +1,4 @@
-{lib, pkgs, ...}:
+{ lib, pkgs, ... }:
 {
   programs.partition-manager.enable = true;
 } // (
