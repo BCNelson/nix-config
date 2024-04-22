@@ -24,6 +24,7 @@ in
     ];
     volumes = [
       "${dataDirs.level7}/swag:/config"
+      "${dataDirs.level6}/nixcache:/tmp/pkgcache"
       "${linodeToken}/linode.ini:/config/dns-conf/linode.ini:ro"
       "${config}/swag/nginx/proxy-confs:/config/nginx/proxy-confs:ro"
       "${config}/swag/nginx/tailscale.conf:/config/nginx/tailscale.conf:ro"
