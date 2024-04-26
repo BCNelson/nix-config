@@ -302,9 +302,9 @@ resource "porkbun_dns_record" "key3__domainkey_nel_family-CNAME" {
   content = "key3.nel.family._domainkey.migadu.com"
 }
 # media      CNAME  media.h.b.nel.family.
-resource "porkbun_dns_record" "media_h_b_nel_family-CNAME" {
+resource "porkbun_dns_record" "media_nel_family-CNAME" {
   domain  = "nel.family"
-  name    = "media.h.b"
+  name    = "media"
   type    = "CNAME"
   content = "media.h.b.nel.family"
 }
@@ -323,9 +323,9 @@ resource "porkbun_dns_record" "todo_h_b_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 # vault      CNAME  public.poseidon.b.nel.family.
-resource "porkbun_dns_record" "vault_public_poseidon_b_nel_family-CNAME" {
+resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   domain  = "nel.family"
-  name    = "vault.public.poseidon.b"
+  name    = "vault"
   type    = "CNAME"
   content = "public.poseidon.b.nel.family"
 }

@@ -19,10 +19,10 @@ in
       retries = 5;
     };
     volumes = [
-        "${dataDirs.level1}/paperless/data:/usr/src/paperless/data"
-        "${dataDirs.level1}/paperless/media:/usr/src/paperless/media"
-        "${dataDirs.level3}/paperless/export:/usr/src/paperless/export"
-        "${dataDirs.level3}/paperless/consume:/usr/src/paperless/consume"
+      "${dataDirs.level1}/paperless/data:/usr/src/paperless/data"
+      "${dataDirs.level1}/paperless/media:/usr/src/paperless/media"
+      "${dataDirs.level3}/paperless/export:/usr/src/paperless/export"
+      "${dataDirs.level3}/paperless/consume:/usr/src/paperless/consume"
     ];
     environment = {
       PAPERLESS_REDIS = "redis://broker:6379";

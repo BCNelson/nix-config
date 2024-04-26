@@ -58,7 +58,7 @@ unlock:
     #!/usr/bin/env bash
     # set -euxo pipefail
     git config --local --get filter.git-crypt.smudge > /dev/null
-    # check if the lat command was successful
+    # check if the last command was successful
     if [ $? -ne 0 ]; then
         # check if there are changes that need to be stashed
         if [ -n "$(git status --porcelain)" ]; then
@@ -77,7 +77,7 @@ unlock:
         fi
     else
         echo "Already unlocked"
-    fi 
+    fi
 
 pull: unlock
     #!/usr/bin/env bash
@@ -105,10 +105,11 @@ format:
 iso:
     #!/usr/bin/env bash
     set -euo pipefail
+    shopt -s extglob
     nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{ justfile_directory() }}/../result
     ISO=$(head -n1 {{ justfile_directory() }}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
-    if test -e /dev/disk/by-label/ventoy; then
-        ventoy_Mount=$(findmnt -n -o TARGET /dev/disk/by-label/ventoy)
+    if test -e /dev/disk/by-label/@(v|V)entoy; then
+        ventoy_Mount=$(findmnt -n -o TARGET /dev/disk/by-label/@(v|V)entoy)
         if [ -n "$ventoy_Mount" ]; then
             echo "Copying iso to ventoy drive"
             cp {{ justfile_directory() }}/../result/iso/$ISO $ventoy_Mount/Nixos_Install_Desktop.iso
