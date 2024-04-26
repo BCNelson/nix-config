@@ -323,9 +323,9 @@ resource "porkbun_dns_record" "todo_h_b_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 # vault      CNAME  public.poseidon.b.nel.family.
-resource "porkbun_dns_record" "vault_public_poseidon_b_nel_family-CNAME" {
+resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   domain  = "nel.family"
-  name    = "vault.public.poseidon.b"
+  name    = "vault"
   type    = "CNAME"
   content = "public.poseidon.b.nel.family"
 }
