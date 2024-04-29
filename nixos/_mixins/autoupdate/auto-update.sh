@@ -1,6 +1,10 @@
 #!/bin/sh
 tempfile=$(mktemp)
 
+log() {
+    echo "$1" | tee -a "$tempfile"
+}
+
 if ! curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"; then
     log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
 fi
@@ -8,10 +12,6 @@ fi
 fail() {
     curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
     exit 1
-}
-
-log() {
-    echo "$1" | tee -a "$tempfile"
 }
 
 trap fail INT
