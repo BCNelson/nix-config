@@ -18,7 +18,7 @@ in
       "EMAIL=bradley@nel.family"
       "DHLEVEL=2048"
       "ONLY_SUBDOMAINS=true"
-      "STAGING=true"
+      "STAGING=false"
       "EXTRA_DOMAINS=health.b.nel.family"
       "DOCKER_MODS=linuxserver/mods:swag-auto-reload"
     ];
