@@ -278,7 +278,7 @@ resource "porkbun_dns_record" "health_b_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "health.b"
   type    = "CNAME"
-  content = "public.poseidon.b.nel.family"
+  content = "public.whiskey.b.nel.family"
 }
 # key1._domainkey      CNAME  key1.nel.family._domainkey.migadu.com.
 resource "porkbun_dns_record" "key1__domainkey_nel_family-CNAME" {
@@ -327,7 +327,7 @@ resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "vault"
   type    = "CNAME"
-  content = "public.poseidon.b.nel.family"
+  content = "public.whiskey.b.nel.family"
 }
 
 
