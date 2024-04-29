@@ -19,7 +19,7 @@ in
       "DHLEVEL=2048"
       "ONLY_SUBDOMAINS=true"
       "STAGING=true"
-      "EXTRA_DOMAINS=health.nel.family vault.nel.family"
+      "EXTRA_DOMAINS=health.b.nel.family"
       "DOCKER_MODS=linuxserver/mods:swag-auto-reload"
     ];
     volumes = [
