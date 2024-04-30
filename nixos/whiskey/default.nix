@@ -20,6 +20,7 @@ in
       (import ../_mixins/autoupdate (args // { inherit pkgs healthcheckUuid; }))
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
+      ./backup.nix
     ];
   environment.systemPackages = [
     services.networkBacked
