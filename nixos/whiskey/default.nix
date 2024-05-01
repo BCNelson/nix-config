@@ -84,7 +84,7 @@ in
           };
         };
       };
-      "health.h.b.nel.family" = {
+      "health.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
