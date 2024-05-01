@@ -32,6 +32,9 @@ in
         volumes = [
             "${dataDirs.level1}/vaultwarden:/data"
         ];
+        ports = [
+            "127.0.0.1:8080:80"
+        ];
         restart = "unless-stopped";
     };
 }

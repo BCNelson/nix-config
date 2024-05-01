@@ -11,6 +11,8 @@ let
   };
   services = import ./services { inherit libx dataDirs pkgs; };
   healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
+  porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
+  porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
 in
 {
   imports =
@@ -47,5 +49,53 @@ in
     restartTriggers = [ services.networkBacked ];
     restartIfChanged = false;
   };
+
+  security.acme = {
+    acceptTerms = true;
+    defaults = {
+      email = "admin@nel.family";
+      dnsProvider = "porkbun";
+      environmentFile = "${pkgs.writeText "porkbun-creds" ''
+        PORKBUN_SECRET_API_KEY=${porkbun_api_secret}
+        PORKBUN_API_KEY=${porkbun_api_key}
+      ''}";
+    };
+  };
+
+  services.nginx = {
+    enable = true;
+    recommendedGzipSettings = true;
+    recommendedZstdSettings = true;
+    recommendedTlsSettings = true;
+    recommendedProxySettings = true;
+    recommendedOptimisations = true;
+    virtualHosts = {
+      "vault.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 525M;
+        '';
+        locations = {
+          "/" = {
+            proxyWebsockets = true;
+            proxyPass = "http://localhost:8080";
+          };
+        };
+      };
+      "health.h.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:8000";
+          };
+        };
+      };
+    };
+  };
+
   networking.hostId = "9a637b7f";
 }

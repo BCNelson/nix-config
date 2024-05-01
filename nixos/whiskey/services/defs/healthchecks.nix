@@ -21,6 +21,9 @@ healthchecks = {
     volumes = [
         "${dataDirs.level3}/healthchecks:/config"
     ];
+    ports = [
+        "127.0.0.1:8000:8000"
+    ];
     restart = "unless-stopped";
 };
 }
