@@ -68,7 +68,7 @@ in
     recommendedZstdSettings = true;
     recommendedTlsSettings = true;
     recommendedProxySettings = true;
-    recommendedOptimisations = true;
+    recommendedOptimisation = true;
     virtualHosts = {
       "vault.nel.family" = {
         forceSSL = true;
