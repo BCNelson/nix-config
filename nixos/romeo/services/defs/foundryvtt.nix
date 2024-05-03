@@ -19,6 +19,7 @@ in
       "FOUNDRY_PROXY_PORT=443"
       "FOUNDRY_PROXY_SSL=true"
       "TIMEZONE=America/Denver"
+      "FOUNDRY_WORLD=Lambda"
     ];
     volumes = [
       "${dataDirs.level4}/foundryvtt/data:/data"
