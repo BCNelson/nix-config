@@ -1,10 +1,10 @@
 { dataDirs, libx }:
 let
-healthchecks_admin_password = libx.getSecret ../../sensitive.nix "healthchecks_admin_password";
-healthchecks_secret_key = libx.getSecret ../../sensitive.nix "healthchecks_secret_key";
+  healthchecks_admin_password = libx.getSecret ../../sensitive.nix "healthchecks_admin_password";
+  healthchecks_secret_key = libx.getSecret ../../sensitive.nix "healthchecks_secret_key";
 in
 {
-healthchecks = {
+  healthchecks = {
     image = "ghcr.io/linuxserver/healthchecks";
     container_name = "healthchecks";
     environment = [
@@ -19,11 +19,11 @@ healthchecks = {
       "SECRET_KEY=${healthchecks_secret_key}"
     ];
     volumes = [
-        "${dataDirs.level3}/healthchecks:/config"
+      "${dataDirs.level3}/healthchecks:/config"
     ];
     ports = [
-        "127.0.0.1:8000:8000"
+      "127.0.0.1:8000:8000"
     ];
     restart = "unless-stopped";
-};
+  };
 }

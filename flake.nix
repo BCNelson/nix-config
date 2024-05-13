@@ -33,10 +33,10 @@
     };
 
     nix-darwin.url = "github:LnL7/nix-darwin/master";
-    nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+    nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, nix-darwin, disko, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, disko, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -78,13 +78,11 @@
       # Standalone home-manager configuration entrypoint
       # Available through 'home-manager --flake .#your-username@your-hostname'
       homeConfigurations = {
-        "bnelson@GX00087" = libx.mkHome { hostname = "GX00087"; username = "bnelson"; platform = "aarch64-darwin"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
+        "bnelson@GX00087" = libx.mkHome { hostname = "GX00087"; usernames = [ "bnelson" ]; platform = "aarch64-darwin"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
       };
 
       darwinConfigurations = {
-        "GX00087" = nix-darwin.lib.darwinSystem {
-          modules = [ ./darwin/GX00087.nix ];
-        };
+        "GX00087" = libx.mkDarwin { hostname = "GX00087"; usernames = [ "bnelson" ]; platform = "aarch64-darwin"; version = "unstable"; };
       };
 
       formatter = libx.forAllSystems (system:

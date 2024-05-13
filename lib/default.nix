@@ -60,6 +60,18 @@ in
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
 
+  mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {
+    specialArgs = {
+      inherit inputs outputs hostname usernames;
+    };
+    modules = [
+      ../darwin
+      { nixpkgs.hostPlatform = platform; }
+      versions.${version}.home-manager.darwinModules.home-manager
+      (mkHome { inherit hostname usernames platform; })
+    ];
+  };
+
   inherit getSecretWithDefault;
 
   getSecret = path: key: getSecretWithDefault path key "";

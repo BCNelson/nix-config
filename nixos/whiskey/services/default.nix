@@ -1,4 +1,4 @@
-{ libx, dataDirs, pkgs, ... }:
+{ libx, dataDirs, ... }:
 let
   vaultwarden = import ./defs/vaultwarden.nix { inherit dataDirs libx; };
   healthchecks = import ./defs/healthchecks.nix { inherit dataDirs libx; };

@@ -1,4 +1,4 @@
-{ lib, pkgs, libx, ... }:
+{ libx, ... }:
 let
   basicBorgJob = { repo, paths }: {
     inherit repo paths;
