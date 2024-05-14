@@ -10,10 +10,10 @@
         extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           bitwarden
           darkreader
-          wallabagger
           enhancer-for-youtube
           pay-by-privacy
           google-cal-event-merge
+          ublock-origin
         ];
         search = {
           default = "Google";
