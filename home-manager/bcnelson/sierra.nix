@@ -6,6 +6,7 @@
     ../_mixins/programs/jetbrains/dataGrip.nix
     ../_mixins/programs/jetbrains/goland.nix
     ../_mixins/programs/emulator.nix
+    ../_mixins/work/k2.nix
   ];
 
   home.packages = [
