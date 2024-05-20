@@ -14,6 +14,8 @@
           pay-by-privacy
           google-cal-event-merge
           ublock-origin
+          i-dont-care-about-cookies
+          languagetool
         ];
         search = {
           default = "Google";
