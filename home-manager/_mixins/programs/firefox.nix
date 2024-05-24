@@ -37,6 +37,6 @@
     policies = {
       DisablePocket = true;
       DisableSetDesktopBackground = true;
-    }
+    };
   };
 }
