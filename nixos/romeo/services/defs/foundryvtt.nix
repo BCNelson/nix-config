@@ -7,7 +7,7 @@ let
 in
 {
   foundryvtt = {
-    image = "felddy/foundryvtt:release";
+    image = "felddy/foundryvtt:11";
     container_name = "foundryvtt";
     environment = [
       "FOUNDRY_USERNAME=bcnelson"
