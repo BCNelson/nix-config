@@ -40,5 +40,6 @@ in
 
     postman
     nodejs_20
+    awscli2
   ];
 }
