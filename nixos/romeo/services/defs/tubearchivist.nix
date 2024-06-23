@@ -9,9 +9,8 @@ in
     container_name = "tubearchivist";
     user = "1000:1000";
     volumes = [
-      "${dataDirs.level5}/jellyfin/config:/config"
-      "${dataDirs.level7}/jellyfin/cache:/cache"
-      "${dataDirs.level6}/media:/media:ro"
+      "${dataDirs.level6}/media/youtube:/youtube"
+       "${dataDirs.level7}/tubearchivist:/cache"
     ];
     restart = "unless-stopped";
     environment = [
