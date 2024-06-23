@@ -30,7 +30,6 @@ in
     src = ./defs/config;
     dependencies = [ linodeToken ];
     dockerComposeDefinition = {
-      version = "3.8";
       services = builtins.foldl' (a: b: a // b) { } [
         swag
         jellyfin
