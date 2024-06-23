@@ -1,7 +1,7 @@
 { dataDirs, libx }:
 let
-  tubearchivist_ELASTIC_PASSWORD = libx.getSecretWithDefault ../../sensitive.nix "tubearchivist_ELASTIC_PASSWORD";
-  tubearchivist_password = libx.getSecretWithDefault ../../sensitive.nix "tubearchivist_password";
+  tubearchivist_ELASTIC_PASSWORD = libx.getSecret ../../sensitive.nix "tubearchivist_ELASTIC_PASSWORD";
+  tubearchivist_password = libx.getSecret ../../sensitive.nix "tubearchivist_password";
 in
 {
   tubearchivist = {
