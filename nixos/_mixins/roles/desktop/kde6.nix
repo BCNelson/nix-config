@@ -6,6 +6,9 @@
     xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-kde ];
     services.desktopManager.plasma6.enable = true;
     services.displayManager.defaultSession = "plasma";
+    environment.systemPackages = [
+      pkgs.kdePackages.polkit-kde-agent-1
+    ];
   } else {
     services.desktopManager.plasma6.enable = true;
     services.xserver.displayManager.defaultSession = "plasma";

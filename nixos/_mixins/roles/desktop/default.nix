@@ -42,6 +42,8 @@ in
   sound.enable = true;
   hardware.pulseaudio.enable = lib.mkForce false;
 
+  security.polkit.enable = true;
+
   programs.ssh = {
     startAgent = true;
   };
