@@ -22,6 +22,7 @@ let
   dashy = import ./defs/dashy { inherit pkgs; };
   authelia = import ./defs/authelia { inherit dataDirs libx pkgs; };
   paperless = import ./defs/paperless.nix { inherit dataDirs libx; };
+  tubearchivist = import ./defs/tubearchivist.nix { inherit dataDirs libx; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -45,6 +46,7 @@ in
         dashy
         authelia
         paperless
+        tubearchivist
       ];
     };
   };
