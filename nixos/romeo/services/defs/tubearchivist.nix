@@ -7,7 +7,6 @@ in
   tubearchivist = {
     image = "bbilly1/tubearchivist:latest";
     container_name = "tubearchivist";
-    user = "1000:1000";
     volumes = [
       "${dataDirs.level6}/media/youtube:/youtube"
       "${dataDirs.level7}/tubearchivist:/cache"
