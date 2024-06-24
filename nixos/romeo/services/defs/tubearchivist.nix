@@ -5,7 +5,7 @@ let
 in
 {
   tubearchivist = {
-    image = "bbilly1/tubearchivist:lastest";
+    image = "bbilly1/tubearchivist:latest";
     container_name = "tubearchivist";
     user = "1000:1000";
     volumes = [
