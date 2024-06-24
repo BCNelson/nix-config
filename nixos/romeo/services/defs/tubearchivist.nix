@@ -36,6 +36,7 @@ in
   archivist-redis = {
     image = "redis/redis-stack-server";
     container_name = "archivist-redis";
+    user = "1000:1000";
     restart = "unless-stopped";
     volumes = [ "${dataDirs.level6}/archivistRedis:/data" ];
     depends_on = [ "archivist-es" ];
@@ -44,6 +45,7 @@ in
     image = "bbilly1/tubearchivist-es";
     container_name = "archivist-es";
     restart = "unless-stopped";
+    user = "1000:1000";
     environment = [
       "ELASTIC_PASSWORD=${tubearchivist_ELASTIC_PASSWORD}"
       "ES_JAVA_OPTS=-Xms512m -Xmx512m"
@@ -57,6 +59,6 @@ in
         hard = -1;
       };
     };
-    volumes = [ "${dataDirs.level6}/archivistEs:/usr/share/elasticsearch/data" ];
+    volumes = [ "${dataDirs.level6}/archivistes:/usr/share/elasticsearch/data" ];
   };
 }
