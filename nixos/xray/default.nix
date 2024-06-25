@@ -7,6 +7,7 @@
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
     ../_mixins/roles/emulator.nix
+    ../_mixins/hardware/qmk.nix
   ];
   networking.firewall = {
     enable = true;
