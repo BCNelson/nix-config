@@ -50,10 +50,6 @@
         package = pkgs.yakuake;
         path = "share/applications/org.kde.yakuake.desktop";
       }
-      {
-        package = pkgs.neochat;
-        path = "share/applications/org.kde.neochat.desktop";
-      }
     ];
   };
 
