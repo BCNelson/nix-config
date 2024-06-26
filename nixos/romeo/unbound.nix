@@ -7,7 +7,6 @@ let
       recipes.nel.family A 192.168.3.7
       h.b.nel.family A 192.168.3.7
       media.nel.family A 192.168.3.7
-      notes.bnel.me A 192.168.3.7
       audiobooks.nel.family A 192.168.3.7
       changedetection.nel.family A 192.168.3.7
       auth.nel.family A 192.168.3.7
@@ -41,7 +40,6 @@ in
         local-data = [
           ''"atlas.h.b.nel.family. IN A 192.168.3.7"''
           ''"h.b.nel.family. IN A 192.168.3.7"''
-          ''"notes.bnel.me. IN A 192.168.3.7"''
         ];
         serve-expired = "yes";
       };
