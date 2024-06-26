@@ -14,7 +14,7 @@ in
       "URL=h.b.nel.family"
       "SUBDOMAINS=wildcard"
       "VALIDATION=dns"
-      "DNSPLUGIN=prokbun"
+      "DNSPLUGIN=porkbun"
       "EMAIL=bradley@nel.family"
       "DHLEVEL=2048"
       "ONLY_SUBDOMAINS=true"
