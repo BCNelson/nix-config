@@ -1,4 +1,4 @@
-{ hostname, desktop, config, lib, pkgs, ... }:
+{ hostname, desktop, config, lib, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -23,7 +23,7 @@ in
     };
   };
 
-  home.packages = [];
+  home.packages = [ ];
 
   home.sessionVariables = {
     EDITOR = "vim";
