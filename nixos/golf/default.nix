@@ -5,7 +5,7 @@
     ../_mixins/roles/gaming.nix
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
-    ../mixins/hardware/fingerprint.nix
+    ../_mixins/hardware/fingerprint.nix
   ] ++ lib.optional (builtins.pathExists ./hardware-configuration.nix) ./hardware-configuration.nix;
   networking.firewall = {
     enable = true;
