@@ -19,8 +19,6 @@
 
     pkgs.helvum
 
-    pkgs.gitkraken
-
     pkgs.unstable.obsidian
 
     pkgs.libsForQt5.filelight
