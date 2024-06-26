@@ -1,4 +1,4 @@
-{ dataDirs, linodeToken }:
+{ dataDirs, porkbun }:
 let
   config = ".";
 in
@@ -14,7 +14,7 @@ in
       "URL=h.b.nel.family"
       "SUBDOMAINS=wildcard"
       "VALIDATION=dns"
-      "DNSPLUGIN=linode"
+      "DNSPLUGIN=prokbun"
       "EMAIL=bradley@nel.family"
       "DHLEVEL=2048"
       "ONLY_SUBDOMAINS=true"
@@ -24,7 +24,7 @@ in
     ];
     volumes = [
       "${dataDirs.level7}/swag:/config"
-      "${linodeToken}/linode.ini:/config/dns-conf/linode.ini:ro"
+      "${porkbun}/prokbun.ini:/config/dns-conf/porkbun.ini:ro"
       "${config}/swag/nginx/proxy-confs:/config/nginx/proxy-confs:ro"
       "${config}/swag/nginx/tailscale.conf:/config/nginx/tailscale.conf:ro"
       "${config}/swag/nginx/internal.conf:/config/nginx/internal.conf:ro"

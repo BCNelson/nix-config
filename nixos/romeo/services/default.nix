@@ -1,14 +1,18 @@
 { libx, dataDirs, pkgs, ... }:
 let
-  dns_linode_key = libx.getSecret ../../sensitive.nix "dns_linode_key";
-  linodeToken = pkgs.writeTextFile {
-    name = "linode-dns-config";
-    text = ''
-      dns_linode_key = ${dns_linode_key}
-    '';
-    destination = "/linode.ini";
+  porkbun_api_creds = libx.getSecretWithDefault ../sensitive.nix "porkbun_api" {
+    api_key = "";
+    secret_key = "";
   };
-  swag = import ./defs/swag.nix { inherit dataDirs linodeToken; };
+  porkbun = pkgs.writeTextFile {
+    name = "porkbun-dns-config";
+    text = ''
+      dns_porkbun_key=${porkbun_api_creds.api_key}
+      dns_porkbun_secret=${porkbun_api_creds.secret_key}
+    '';
+    destination = "/porkbun.ini";
+  };
+  swag = import ./defs/swag.nix { inherit dataDirs porkbun; };
   jellyfin = import ./defs/jellyfin.nix { inherit dataDirs; };
   audiobooks = import ./defs/audiobooks.nix { inherit dataDirs; };
   nextcloud = import ./defs/nextcloud.nix { inherit dataDirs libx; };
@@ -28,7 +32,7 @@ in
   networkBacked = libx.createDockerComposeStackPackage {
     name = "general";
     src = ./defs/config;
-    dependencies = [ linodeToken ];
+    dependencies = [ porkbun ];
     dockerComposeDefinition = {
       services = builtins.foldl' (a: b: a // b) { } [
         swag
