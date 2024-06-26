@@ -24,7 +24,7 @@ in
     ];
     volumes = [
       "${dataDirs.level7}/swag:/config"
-      "${porkbun}/prokbun.ini:/config/dns-conf/porkbun.ini:ro"
+      "${porkbun}/porkbun.ini:/config/dns-conf/porkbun.ini:ro"
       "${config}/swag/nginx/proxy-confs:/config/nginx/proxy-confs:ro"
       "${config}/swag/nginx/tailscale.conf:/config/nginx/tailscale.conf:ro"
       "${config}/swag/nginx/internal.conf:/config/nginx/internal.conf:ro"
