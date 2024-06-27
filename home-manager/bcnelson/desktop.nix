@@ -9,6 +9,7 @@
     ../_mixins/programs/firefox.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
+    ./_mixins/kde.nix
   ];
 
   home.packages = [

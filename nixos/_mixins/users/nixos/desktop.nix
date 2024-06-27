@@ -9,6 +9,6 @@
     "L+ /home/nixos/Desktop/io.calamares.calamares.desktop - - - - ${pkgs.calamares-nixos}/share/applications/io.calamares.calamares.desktop"
   ];
   config.isoImage.edition = lib.mkForce "${desktop}";
-  config.services.xserver.displayManager.autoLogin.user = "nixos";
+  config.services.displayManager.autoLogin.user = "nixos";
   config.services.kmscon.autologinUser = lib.mkForce null;
 }

@@ -3,24 +3,31 @@
 
   inputs = {
     # Nixpkgs
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
-    # You can access packages and modules from different nixpkgs revs
-    # at the same time. Here's an working example:
+    nixpkgs23-11.url = "github:nixos/nixpkgs/nixos-23.11";
+    nixpkgs24-05.url = "github:nixos/nixpkgs/nixos-24.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    # Also see the 'unstable-packages' overlay at 'overlays/default.nix'.
 
     # Home manager
-    home-manager.url = "github:nix-community/home-manager/release-23.11";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    home-manager23-11.url = "github:nix-community/home-manager/release-23.11";
+    home-manager23-11.inputs.nixpkgs.follows = "nixpkgs23-11";
+
+    home-manager24-05.url = "github:nix-community/home-manager/release-24.05";
+    home-manager24-05.inputs.nixpkgs.follows = "nixpkgs24-05";
 
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
+    plasma-manager = {
+      url = "github:nix-community/plasma-manager";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.home-manager.follows = "home-manager-unstable";
+    };
+
     nix-formatter-pack.url = "github:Gerschtli/nix-formatter-pack";
-    nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs";
+    nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs24-05";
 
     disko.url = "github:nix-community/disko";
-    disko.inputs.nixpkgs.follows = "nixpkgs";
+    disko.inputs.nixpkgs.follows = "nixpkgs24-05";
 
     nixos-hardware.url = "github:nixos/nixos-hardware";
 
@@ -29,7 +36,7 @@
 
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs24-05";
     };
 
     nix-darwin.url = "github:LnL7/nix-darwin/master";

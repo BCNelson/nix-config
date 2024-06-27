@@ -22,12 +22,16 @@ let
       home-manager = inputs.home-manager-unstable;
     };
     stable = {
-      inherit (inputs) nixpkgs;
-      inherit (inputs) home-manager;
+      nixpkgs = inputs.nixpkgs24-05;
+      home-manager = inputs.home-manager24-05;
     };
     "23.11" = {
-      inherit (inputs) nixpkgs;
-      inherit (inputs) home-manager;
+      nixpkgs = inputs.nixpkgs23-11;
+      home-manager = inputs.home-manager23-11;
+    };
+    "24.05" = {
+      nixpkgs = inputs.nixpkgs24-05;
+      home-manager = inputs.home-manager24-05;
     };
   };
 
