@@ -1,4 +1,4 @@
-{ inputs, options, lib, ... }:
+{ inputs, ... }:
 {
   imports = [
     inputs.plasma-manager.homeManagerModules.plasma-manager
@@ -13,6 +13,6 @@
       "services/org.kde.krunner.desktop"."_launch" = "Meta+Space";
       "yakuake"."toggle-window-state" = "F12";
     };
-    configFile = {};
+    configFile = { };
   };
 }
