@@ -8,7 +8,7 @@ in
     options = [ "bind" "x-systemd.requires=zfs-import.target" ];
   };
 
-  services.nfs = {
+  services.nfs.server = {
     enable = true;
     exports = ''
       /export/photos 100.64.0.0/10(rw,async)
