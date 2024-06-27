@@ -8,6 +8,7 @@
     ../_mixins/roles/desktop
     ../_mixins/roles/emulator.nix
     ../_mixins/hardware/qmk.nix
+    ../_mixins/roles/nfs.nix
   ];
   networking.firewall = {
     enable = true;
