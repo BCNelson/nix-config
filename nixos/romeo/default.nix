@@ -1,14 +1,6 @@
 args@{ pkgs, libx, ... }:
 let
-  dataDirs = {
-    level1 = "/mnt/vault/data/level1"; # Critical
-    level2 = "/mnt/vault/data/level2"; # Important
-    level3 = "/mnt/vault/data/level3"; # High
-    level4 = "/mnt/vault/data/level4"; # Medium
-    level5 = "/mnt/vault/data/level5"; # Low
-    level6 = "/data/replaceable"; # Replaceable
-    level7 = "/cache"; # Ephemeral
-  };
+  dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };
   healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
 in
@@ -24,6 +16,7 @@ in
       ../_mixins/roles/figurine.nix
       ./unbound.nix
       ./backups.nix
+      ./nfs.nix
     ];
 
   environment.systemPackages = [
@@ -53,4 +46,7 @@ in
     restartTriggers = [ services.networkBacked ];
     restartIfChanged = false;
   };
+
+
+
 }
