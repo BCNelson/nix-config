@@ -19,7 +19,7 @@ in
       "DHLEVEL=2048"
       "ONLY_SUBDOMAINS=true"
       "STAGING=false"
-      "EXTRA_DOMAINS= *.romeo.b.nel.family, *.nel.family nel.to"
+      "EXTRA_DOMAINS= *.romeo.b.nel.family, *.nel.family"
       "DOCKER_MODS=linuxserver/mods:swag-auto-reload"
     ];
     volumes = [
