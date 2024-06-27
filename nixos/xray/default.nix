@@ -20,4 +20,10 @@
     allowedTCPPorts = [ 22000 ]; # Syncthing
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
+
+  fileSystems."/mnt/photos" = {
+    device = "romeo.b.nel.family:/export/photos";
+    fsType = "nfs";
+    options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" ];
+  };
 }
