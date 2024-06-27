@@ -27,4 +27,12 @@
     fsType = "nfs";
     options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" ];
   };
+
+  users.groups = {
+    photos = {
+      name = "photos";
+      gid = 27000;
+      members = [ "bcnelson" "hlnelson" ];
+    };
+  };
 }

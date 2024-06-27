@@ -22,6 +22,7 @@ in
   users.groups = {
     photos = {
       name = "photos";
+      gid = 27000;
       members = [ "bcnelson" "hlnelson" ];
     };
   };
