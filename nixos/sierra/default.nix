@@ -20,6 +20,7 @@
       ../_mixins/hardware/streamdeck.nix
       ../_mixins/hardware/qmk.nix
       ../_mixins/hardware/platfromio.nix
+      ../_mixins/roles/nfs.nix
     ];
   networking.firewall = {
     enable = true;
