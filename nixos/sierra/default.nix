@@ -36,4 +36,18 @@
   boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
   services.printing.enable = true;
   services.printing.drivers = [ pkgs.hplipWithPlugin ];
+
+  fileSystems."/mnt/photos" = {
+    device = "romeo.b.nel.family:/export/photos";
+    fsType = "nfs";
+    options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" ];
+  };
+
+  users.groups = {
+    photos = {
+      name = "photos";
+      gid = 27000;
+      members = [ "bcnelson" ];
+    };
+  };
 }
