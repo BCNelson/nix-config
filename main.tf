@@ -330,5 +330,9 @@ resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
-
+resource "porkbun_dns_record" "nel_to-CNAME" {
+  domain = "nel.to"
+  type = "CNAME"
+  content = "h.b.nel.family"
+}
 
