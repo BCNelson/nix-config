@@ -41,7 +41,7 @@
   fileSystems."/mnt/photos" = {
     device = "romeo.b.nel.family:/export/photos";
     fsType = "nfs";
-    options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" ];
+    options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" "x-systemd.requires=tailscaled.service" ];
   };
 
   users.groups = {
