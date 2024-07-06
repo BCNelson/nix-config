@@ -39,7 +39,7 @@ in
   });
 
   # Enable sound with pipewire.
-  sound.enable = true;
+  # sound.enable = true; // Removed https://github.com/NixOS/nixpkgs/issues/319809
   hardware.pulseaudio.enable = lib.mkForce false;
 
   security.polkit.enable = true;
