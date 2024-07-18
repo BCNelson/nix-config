@@ -74,6 +74,14 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "eyAuLi4gfToKewogIGltcG9ydHMgPSBbCiAgICAuL2hhcmR3YXJlLWNvbmZpZ3VyYXRpb24ubml4CiAgXTsKfQ== | base64 -d > ./nixos/$TAGET_HOST_PREFIX/default.nix"
     fi
 
+    awk -v TARGET_HOST=$TARGET_HOST -v TARGET_USER=$TARGET_USER '
+{
+    rep = sprintf("\&\n        \"%s\" = libx.mkHost { hostname = \"%s\"; usernames = [ \"%s\" ]; inherit libx; version = \"unstable\"; };", TARGET_HOST, TARGET_HOST, TARGET_USER);
+    sub(/INSERT_HOST_CONFIG/, rep, $0)
+}1
+' flake.nix >> flake.nix.tmp
+    mv flake.nix.tmp flake.nix
+
     git add -A
     git config user.email "admin@nel.family"
     git config user.name "Automated Installer"
