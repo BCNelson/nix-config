@@ -18,4 +18,6 @@
     allowedTCPPorts = [ 22000 ]; # Syncthing
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
+
+  zramSwap.enable = true;
 }
