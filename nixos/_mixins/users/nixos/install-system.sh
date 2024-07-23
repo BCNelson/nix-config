@@ -64,6 +64,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         "$disk_nix" \
         --arg disk "\"$TARGET_DISK\""
 
+    mkdir "./nixos/$TAGET_HOST_PREFIX"
+
     sudo nixos-generate-config --dir "nixos/$TAGET_HOST_PREFIX" --root /mnt
 
     sudo rm -f "./nixos/$TAGET_HOST_PREFIX/configuration.nix"
