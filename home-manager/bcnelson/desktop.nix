@@ -59,6 +59,15 @@
     indicator = true;
   };
 
+  # Workaround for Failed to start unit kdeconnect-indicator.service: Unit tray.target not found.
+  # - https://github.com/nix-community/home-manager/issues/2064
+  systemd.user.targets.tray = {
+    Unit = {
+      Description = "Home Manager System Tray";
+      Requires = [ "graphical-session-pre.target" ];
+    };
+  };
+
   services.syncthing.enable = true;
 
   systemd.user.startServices = "sd-switch";
