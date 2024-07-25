@@ -29,9 +29,6 @@ in
         push = {
           default = "current";
         };
-        pull = {
-          rebase = true;
-        };
         init = {
           defaultBranch = "main";
         };
