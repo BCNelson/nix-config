@@ -28,6 +28,7 @@
           languagetool
           onepassword-password-manager
           react-devtools
+          refined-github
         ];
         search = {
           default = "Google";

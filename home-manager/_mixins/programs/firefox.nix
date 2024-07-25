@@ -16,6 +16,7 @@
           ublock-origin
           i-dont-care-about-cookies
           languagetool
+          refined-github
         ];
         search = {
           default = "Google";
