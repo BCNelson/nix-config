@@ -26,6 +26,8 @@
           ublock-origin
           i-dont-care-about-cookies
           languagetool
+          onepassword-password-manager
+          react-devtools
         ];
         search = {
           default = "Google";
