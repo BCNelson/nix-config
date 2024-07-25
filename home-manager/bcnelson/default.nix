@@ -27,7 +27,7 @@ in
       userEmail = "bradley@nel.family";
       extraConfig = {
         push = {
-          default = "matching";
+          default = "current";
         };
         pull = {
           rebase = true;
@@ -46,6 +46,8 @@ in
     pkgs.just
     pkgs.ldns
     pkgs.nmap
+
+    pkgs.hw-probe
 
     pkgs.lsof
 
