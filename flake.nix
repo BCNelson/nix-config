@@ -81,7 +81,7 @@
         "kilo-1" = libx.mkHost { hostname = "kilo-1"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "delta-1" = libx.mkHost { hostname = "delta-1"; usernames = [ "bcnelson" ]; inherit libx; version = "stable"; };
         # INSERT_HOST_CONFIG
-        "redo-1" = libx.mkHost { hostname = "redo-1"; usernames = [ "bcnelson" ]; desktop="kde6"; inherit libx; version = "unstable"; };
+        "redo-1" = libx.mkHost { hostname = "redo-1"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
       };
 
       # Standalone home-manager configuration entrypoint
