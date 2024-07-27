@@ -54,4 +54,14 @@
     };
   };
 
+  xdg.desktopEntries = {
+    firefox-personal = {
+      name = "Firefox (Personal)";
+      genericName = "Web Browser";
+      exec = "firefox -P \"Personal\"";
+      terminal = false;
+      categories = [ "Application" "Network" "WebBrowser" ];
+    };
+  };
+
 }
