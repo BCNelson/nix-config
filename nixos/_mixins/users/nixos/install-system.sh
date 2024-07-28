@@ -64,7 +64,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         "$disk_nix" \
         --arg disk "\"$TARGET_DISK\""
 
-    mkdir "./nixos/$TAGET_HOST_PREFIX"
+    [ -d "./nixos/$TAGET_HOST_PREFIX" ] || mkdir "./nixos/$TAGET_HOST_PREFIX"
 
     sudo nixos-generate-config --dir "nixos/$TAGET_HOST_PREFIX" --root /mnt
 
@@ -73,7 +73,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     if [ ! -f "./nixos/$TAGET_HOST_PREFIX/default.nix" ]; then
         echo "writing default.nix:"
         # This is a hack to get around bash not handling muilt line strings well.
-        echo "eyAuLi4gfToKewogIGltcG9ydHMgPSBbCiAgICAuL2hhcmR3YXJlLWNvbmZpZ3VyYXRpb24ubml4CiAgXTsKfQ== | base64 -d > ./nixos/$TAGET_HOST_PREFIX/default.nix"
+        echo "eyAuLi4gfToKewogIGltcG9ydHMgPSBbCiAgICAuL2hhcmR3YXJlLWNvbmZpZ3VyYXRpb24ubml4CiAgXTsKfQ==" | base64 -d > ./nixos/"$TAGET_HOST_PREFIX"/default.nix
     fi
 
     awk -v TARGET_HOST="$TARGET_HOST" -v TARGET_USER="$TARGET_USER" '
