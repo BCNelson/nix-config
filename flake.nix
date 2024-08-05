@@ -43,7 +43,7 @@
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs, nixpkgs-unstable, home-manager-unstable, disko, ... }@inputs:
+  outputs = { self, nix-formatter-pack, nixpkgs-unstable, home-manager-unstable, disko, ... }@inputs:
     let
       inherit (self) outputs;
       # This value determines the Home Manager release that your configuration is
@@ -72,8 +72,8 @@
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; };
-        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; inherit libx; };
+        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-05 + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; };
+        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-05 + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde"; inherit libx; };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; username = "bcnelson"; desktop = "kde"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
@@ -96,7 +96,7 @@
 
       formatter = libx.forAllSystems (system:
         nix-formatter-pack.lib.mkFormatter {
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = nixpkgs-unstable.legacyPackages.${system};
           config.tools = {
             alejandra.enable = false;
             deadnix.enable = true;
@@ -108,13 +108,13 @@
 
       # Your custom packages
       # Accessible through 'nix build', 'nix shell', etc
-      packages = libx.forAllSystems (system: import ./pkgs nixpkgs.legacyPackages.${system});
+      packages = libx.forAllSystems (system: import ./pkgs nixpkgs-unstable.legacyPackages.${system});
 
       # Devshell for bootstrapping
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
       devShells = libx.forAllSystems (system:
-        let pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
-        in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs) lib; }
+        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; };
+        in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs-unstable) lib; }
       );
     };
 }

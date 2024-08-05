@@ -177,20 +177,6 @@
         "type": "github"
       }
     },
-    "nixpkgs": {
-      "locked": {
-        "lastModified": 1722141560,
-        "narHash": "sha256-Ul3rIdesWaiW56PS/Ak3UlJdkwBrD4UcagCmXZR9Z7Y=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "038fb464fcfa79b4f08131b07f2d8c9a6bcc4160",
-        "type": "github"
-      },
-      "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
-      }
-    },
     "nixpkgs-unstable": {
       "locked": {
         "lastModified": 1722185531,
@@ -319,7 +305,6 @@
         "nix-formatter-pack": "nix-formatter-pack",
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",
-        "nixpkgs": "nixpkgs",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "nixpkgs23-11": "nixpkgs23-11",
         "nixpkgs24-05": "nixpkgs24-05",

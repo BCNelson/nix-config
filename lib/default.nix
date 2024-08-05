@@ -38,8 +38,8 @@ let
   getSecretWithDefault = path: key: default:
     let
       # This is needed because nix can't import a file that is encrypted https://github.com/NixOS/nix/issues/4329#issuecomment-740787749
-      inherit (inputs.nixpkgs.legacyPackages.x86_64-linux) runCommandNoCCLocal file;
-      inherit (inputs.nixpkgs.lib) hasInfix fileContents;
+      inherit (inputs.nixpkgs-unstable.legacyPackages.x86_64-linux) runCommandNoCCLocal file;
+      inherit (inputs.nixpkgs-unstable.lib) hasInfix fileContents;
       inherit (builtins) pathExists;
 
       isNotEncrypted = f: hasInfix "text" (fileContents (runCommandNoCCLocal "chk-encryption"
@@ -80,7 +80,7 @@ in
 
   getSecret = path: key: getSecretWithDefault path key "";
 
-  forAllSystems = inputs.nixpkgs.lib.genAttrs [
+  forAllSystems = inputs.nixpkgs-unstable.lib.genAttrs [
     "aarch64-linux"
     "i686-linux"
     "x86_64-linux"
@@ -105,7 +105,7 @@ in
         export COMPOSE_PROJECT_NAME=${name}
         docker compose -f %outDir%/docker-compose.yml ''$@
       '';
-      pkgs = inputs.nixpkgs.legacyPackages.${platform};
+      pkgs = inputs.nixpkgs-unstable.legacyPackages.${platform};
     in
     pkgs.stdenv.mkDerivation {
       name = "${name}-docker-stack";
