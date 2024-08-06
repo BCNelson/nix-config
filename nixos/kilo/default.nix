@@ -1,6 +1,6 @@
 { inputs, pkgs, ... }:
 let
-  linodeImage = inputs.nixpkgs + "/nixos/modules/virtualisation/linode-image.nix";
+  linodeImage = inputs.nixpkgs-unstable + "/nixos/modules/virtualisation/linode-image.nix";
 in
 {
   imports = [
