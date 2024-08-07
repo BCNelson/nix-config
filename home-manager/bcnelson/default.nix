@@ -49,6 +49,7 @@ in
     pkgs.lsof
 
     pkgs.usbutils # lsusb
+    pkgs.inotify-info
   ];
 
   home.sessionVariables = {
