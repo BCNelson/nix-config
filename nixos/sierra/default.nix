@@ -44,6 +44,15 @@
     options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" "x-systemd.requires=tailscaled.service" ];
   };
 
+  environment.systemPackages = [
+    pkgs.qemu
+    (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''
+      ${pkgs.qemu}/bin/qemu-system-x86_64 \
+        -bios ${pkgs.OVMF.fd}/FV/OVMF.fd \
+        "$@"
+    '')
+  ];
+
   users.groups = {
     photos = {
       name = "photos";
