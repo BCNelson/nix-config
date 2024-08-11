@@ -336,3 +336,9 @@ resource "porkbun_dns_record" "nel_to-CNAME" {
   content = "h.b.nel.family"
 }
 
+resource "porkbun_dns_record" "git_bcnelson.dev-CNAME" {
+  domain = "git.bcnelson.dev"
+  type = "CNAME"
+  content = "public.whiskey.b.nel.family"
+}
+
