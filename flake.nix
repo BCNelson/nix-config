@@ -84,16 +84,6 @@
         "redo-1" = libx.mkHost { hostname = "redo-1"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
       };
 
-      # Standalone home-manager configuration entrypoint
-      # Available through 'home-manager --flake .#your-username@your-hostname'
-      homeConfigurations = {
-        "bnelson@GX00087" = libx.mkHome { hostname = "GX00087"; usernames = [ "bnelson" ]; platform = "aarch64-darwin"; home-manager = home-manager-unstable; pkgs = nixpkgs-unstable; };
-      };
-
-      darwinConfigurations = {
-        "GX00087" = libx.mkDarwin { hostname = "GX00087"; usernames = [ "bnelson" ]; platform = "aarch64-darwin"; version = "unstable"; };
-      };
-
       formatter = libx.forAllSystems (system:
         nix-formatter-pack.lib.mkFormatter {
           pkgs = nixpkgs-unstable.legacyPackages.${system};
