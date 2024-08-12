@@ -23,6 +23,7 @@ in
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ./backup.nix
+      ./forgejo.nix
     ];
   environment.systemPackages = [
     services.networkBacked
