@@ -60,4 +60,6 @@
       members = [ "bcnelson" ];
     };
   };
+
+  zramSwap.enable = true;
 }
