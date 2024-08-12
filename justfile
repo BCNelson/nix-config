@@ -28,6 +28,7 @@ alias o := update-os
 [linux]
 update-os *additionalArgs:
     #!/usr/bin/env bash
+    git rev-parse HEAD
     if [ "$EUID" -ne 0 ]
     then
         sudo nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
@@ -38,6 +39,7 @@ update-os *additionalArgs:
 [macos]
 update-os *additionalArgs:
     #!/usr/bin/env zsh
+    git rev-parse HEAD
     confilictingFile=("/etc/bashrc" "/etc/zshrc")
     for file in $confilictingFile
     do
