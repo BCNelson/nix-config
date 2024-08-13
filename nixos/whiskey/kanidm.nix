@@ -34,7 +34,7 @@
     serverSettings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
-      tls_key = config.security.acme.certs."idm.nel.family".directory + "/privkey.pem";
+      tls_key = config.security.acme.certs."idm.nel.family".directory + "/key.pem";
       tls_chain = config.security.acme.certs."idm.nel.family".directory + "/fullchain.pem";
       role = "WriteReplica";
       bindaddress = "127.0.0.1:3001";
