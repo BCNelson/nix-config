@@ -66,7 +66,7 @@
   services.kanidm = {
     enableClient = true;
     clientSettings = {
-      uri = "https://127.0.0.1:3001";
+      uri = "https://idm.nel.family";
     };
   };
 }
