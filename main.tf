@@ -357,3 +357,10 @@ resource "porkbun_dns_record" "bcnelson_dev-github-verify" {
   content = "e8a64353bcac28974a44be20b4b899"
 }
 
+resource "porkbun_dns_record" "nel_family-github-verify" {
+  domain = "nel.family"
+  type = "TXT"
+  name = "_github-pages-challenge-BCNelson"
+  content = "fd1501e619123965c3b215277162ad"
+}
+
