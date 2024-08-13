@@ -12,7 +12,7 @@
         '';
         locations = {
           "/" = {
-            proxyPass = "http://localhost:3001";
+            proxyPass = "https://localhost:3001";
           };
         };
       };
