@@ -1,4 +1,4 @@
-args@{ libx, pkgs, ... }:
+_:
 let
   dataDirs = {
     level3 = "/data/level3"; # High
@@ -13,7 +13,7 @@ in
         enableACME = true;
         acmeRoot = null;
         extraConfig = ''
-            client_max_body_size 512M;
+          client_max_body_size 512M;
         '';
         locations = {
           "/" = {
@@ -32,7 +32,7 @@ in
       server = {
         DOMAIN = "git.bcnelson.dev";
         # You need to specify this to remove the port from URLs in the web UI.
-        ROOT_URL = "https://git.bcnelson.dev/"; 
+        ROOT_URL = "https://git.bcnelson.dev/";
         HTTP_PORT = 3000;
       };
       # You can temporarily allow registration to create an admin user.
@@ -44,9 +44,9 @@ in
       };
     };
     dump = {
-        enable = true;
-        type = "tar.zst";
-        backupDir = "${dataDirs.level3}";
+      enable = true;
+      type = "tar.zst";
+      backupDir = "${dataDirs.level3}";
     };
   };
 }
