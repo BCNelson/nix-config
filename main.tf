@@ -350,3 +350,10 @@ resource "porkbun_dns_record" "idm_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+resource "porkbun_dns_record" "bcnelson_dev-github-verify" {
+  domain = "bcnelson.dev"
+  type = "TXT"
+  name = "_github-pages-challenge-BCNelson"
+  content = "e8a64353bcac28974a44be20b4b899"
+}
+
