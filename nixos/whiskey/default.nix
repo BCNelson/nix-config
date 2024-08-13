@@ -24,6 +24,7 @@ in
       ../_mixins/roles/server
       ./backup.nix
       ./forgejo.nix
+      ./kanidm.nix
     ];
   environment.systemPackages = [
     services.networkBacked

@@ -343,3 +343,10 @@ resource "porkbun_dns_record" "git_bcnelson_dev-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+resource "porkbun_dns_record" "idm.nel.family-CNAME" {
+  domain = "nel.family"
+  type = "CNAME"
+  name = "idm"
+  content = "public.whiskey.b.nel.family"
+}
+
