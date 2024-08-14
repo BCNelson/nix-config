@@ -21,6 +21,7 @@
       ../_mixins/hardware/qmk.nix
       ../_mixins/hardware/platfromio.nix
       ../_mixins/roles/nfs.nix
+      ../_mixins/roles/kanidmClient.nix
     ];
   networking.firewall = {
     enable = true;
@@ -62,11 +63,4 @@
   };
 
   zramSwap.enable = true;
-
-  services.kanidm = {
-    enableClient = true;
-    clientSettings = {
-      uri = "https://idm.nel.family";
-    };
-  };
 }
