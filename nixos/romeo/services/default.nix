@@ -27,7 +27,6 @@ let
   authelia = import ./defs/authelia { inherit dataDirs libx pkgs; };
   paperless = import ./defs/paperless.nix { inherit dataDirs libx; };
   tubearchivist = import ./defs/tubearchivist.nix { inherit dataDirs libx; };
-  screeps = import ./defs/screeps.nix { inherit dataDirs libx pkgs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -51,7 +50,6 @@ in
         authelia
         paperless
         tubearchivist
-        screeps
       ];
     };
   };
