@@ -27,7 +27,7 @@ in
     image = "screepers/screeps-launcher";
     container_name = "screep-server";
     volumes = [
-      "${config}/config.yml:/screeps/config.yml:ro"
+      "${config}:/screeps/config.yml:ro"
       "${dataDirs.level3}/screeps/server:/screeps"
     ];
     environment = [
