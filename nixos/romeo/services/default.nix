@@ -16,7 +16,7 @@ let
   jellyfin = import ./defs/jellyfin.nix { inherit dataDirs; };
   audiobooks = import ./defs/audiobooks.nix { inherit dataDirs; };
   nextcloud = import ./defs/nextcloud.nix { inherit dataDirs libx; };
-  vikunja = import ./defs/vikunja.nix { inherit dataDirs libx; };
+  vikunja = import ./defs/vikunja.nix { inherit dataDirs libx pkgs; };
   mealie = import ./defs/mealie.nix { inherit dataDirs libx; };
   syncthing = import ./defs/syncthing.nix { inherit dataDirs; };
   foundryvtt = import ./defs/foundryvtt.nix { inherit dataDirs libx; };

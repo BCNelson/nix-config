@@ -1,7 +1,85 @@
-{ dataDirs, libx }:
+{ dataDirs, libx, pkgs }:
 let
   sensitiveData = libx.getSecret ../../../sensitive.nix;
-  config = ".";
+  config = pkgs.writeText "config.yaml" (builtins.toJSON {
+    cache = {
+      enabled = false;
+    };
+    cors = {
+      enabled = true;
+      allowed_origins = [ "*" ];
+    };
+    mailer = {
+      enabled = true;
+      host = "smtp.migadu.com";
+      port = 465;
+      username = "admin@nel.family";
+      password = "${sensitiveData "smtp_password"}";
+      skiptlsverify = false;
+      fromemail = "admin@nel.family";
+      queuelength = 100;
+      queuetimeout = 30;
+      forcessl = true;
+    };
+    log = {
+      enabled = true;
+      path = "<rootpath>logs";
+      standard = "stdout";
+      level = "INFO";
+      database = "off";
+      databaselevel = "WARNING";
+      http = "stdout";
+      echo = "off";
+      events = "stdout";
+      eventslevel = "INFO";
+    };
+    ratelimit = {
+      enabled = false;
+    };
+    files = {
+      enabled = true;
+      path = "./files";
+      maxsize = "50MB";
+    };
+    avatar = {
+      gravatarexpiration = 3600;
+    };
+    backgrounds = {
+      enabled = true;
+      providers = {
+        upload = {
+          enabled = true;
+        };
+        unsplash = {
+          enabled = false;
+        };
+      };
+    };
+    keyvalue = {
+      type = "memory";
+    };
+    metrics = {
+      enabled = false;
+    };
+    defaultsettings = {
+      avatar_provider = "initials";
+      avatar_file_id = 0;
+      email_reminders_enabled = false;
+      discoverable_by_name = true;
+      discoverable_by_email = true;
+      overdue_tasks_reminders_enabled = true;
+      overdue_tasks_reminders_time = "9:00";
+      default_list_id = 0;
+      week_start = 0;
+      language = "en";
+      timezone = "<time zone set at service.timezone>";
+    };
+    auth = {
+      local = {
+        enabled = true;
+      };
+    };
+  });
 in
 {
   vikunja_db = {
@@ -28,7 +106,7 @@ in
     ];
     volumes = [
       "${dataDirs.level5}/vikunja/files:/app/vikunja/files"
-      "${config}/vikunja/config.yml:/app/vikunja/config.yml"
+      "${config}:/app/vikunja/config.yml"
     ];
     depends_on = [ "vikunja_db" ];
     restart = "unless-stopped";
