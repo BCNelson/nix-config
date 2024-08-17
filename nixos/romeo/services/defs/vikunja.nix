@@ -3,7 +3,7 @@ let
   sensitiveData = libx.getSecret ../../../sensitive.nix;
   config = pkgs.writeText "config.yaml" (builtins.toJSON {
     service = {
-      timezone = "america/denver";
+      timezone = "America/Denver";
     };
     cache = {
       enabled = false;
