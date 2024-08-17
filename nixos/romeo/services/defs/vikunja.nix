@@ -79,7 +79,7 @@ let
         enabled = true;
       };
       openid = {
-        enabled = false;
+        enabled = true;
         redirecturl = "https://todo.nel.family/auth/openid/";
         providers = [
           {
