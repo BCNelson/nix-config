@@ -85,7 +85,7 @@ let
           {
             name = "Kanidm";
             authurl = "https://idm.nel.family/oauth2/openid/vikunja";
-            clientid = "kanidm";
+            clientid = "vikunja";
             clientsecret = "${sensitiveData "kanidm_vikunja_client_secret"}";
           }
         ];
