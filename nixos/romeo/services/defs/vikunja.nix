@@ -84,6 +84,7 @@ let
         providers = [
           {
             name = "Kanidm";
+            authurl = "https://idm.example.com/oauth2/openid/vikunja/.well-known/oauth-authorization-server";
             clientid = "kanidm";
             clientsecret = "${sensitiveData "kanidm_vikunja_client_secret"}";
           }
