@@ -2,6 +2,9 @@
 let
   sensitiveData = libx.getSecret ../../../sensitive.nix;
   config = pkgs.writeText "config.yaml" (builtins.toJSON {
+    service = {
+      timezone = "america/denver";
+    };
     cache = {
       enabled = false;
     };
@@ -72,7 +75,6 @@ let
       default_list_id = 0;
       week_start = 0;
       language = "en";
-      timezone = "<time zone set at service.timezone>";
     };
     auth = {
       local = {
