@@ -24,6 +24,13 @@ in
       "SMTP_AUTH_STRATEGY=SSL"
       "SMTP_FROM_EMAIL=admin@nel.family"
       "SMTP_PASSWORD=${smtp_password}"
+      "OIDC_AUTH_ENABLED=true"
+      "OIDC_SIGNUP_ENABLED=true"
+      "OIDC_CONFIGURATION_URL=https://idm.nel.family/oauth2/openid/mealie/.well-known/openid-configuration"
+      "OIDC_CLIENT_ID=mealie"
+      "OIDC_PROVIDER_NAME=Kanidm"
+      "OIDC_SIGNING_ALGORITHM=ES256"
+      "OIDC_ADMIN_GROUP=service_admins@nel.family"
     ];
     restart = "unless-stopped";
   };
