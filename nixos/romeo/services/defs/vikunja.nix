@@ -78,6 +78,17 @@ let
       local = {
         enabled = true;
       };
+      openid = {
+        enabled = false;
+        redirecturl = "https://todo.nel.family/auth/openid/";
+        providers = [
+          {
+            name = "Kanidm";
+            clientid = "kanidm";
+            clientsecret = "${sensitiveData "kanidm_vikunja_client_secret"}";
+          }
+        ];
+      };
     };
   });
 in
