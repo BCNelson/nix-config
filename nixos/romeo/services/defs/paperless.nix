@@ -1,6 +1,21 @@
 { dataDirs, libx }:
 let
   SECRET_KEY = libx.getSecret ../../../sensitive.nix "paperless_secret_key";
+  paperAuthConfig = builtins.toJSON {
+    openid_connect = {
+      APPS = [
+        {
+          provider_id = "kanidm";
+          name = "Kanidm";
+          client_id = "paperless";
+          secret = "${libx.getSecret ../../../sensitive.nix "kanidm_paperless_client_secret"}";
+          settings = {
+            server_url = "https://idm.nel.family/oauth2/openid/paperless/.well-known/openid-configuration";
+          };
+        }
+      ];
+    };
+  };
 in
 {
   broker = {
@@ -38,6 +53,8 @@ in
       PAPERLESS_CONSUMPTION_DIR = "/usr/src/paperless/consume";
       PAPERLESS_DATA_DIR = "/usr/src/paperless/data";
       PAPERLESS_MEDIA_ROOT = "/usr/src/paperless/media";
+      PAPERLESS_APPS="allauth.socialaccount.providers.openid_connect";
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS="${paperAuthConfig}";
     };
   };
 
