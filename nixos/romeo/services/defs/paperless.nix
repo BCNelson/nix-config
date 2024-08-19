@@ -3,6 +3,7 @@ let
   SECRET_KEY = libx.getSecret ../../../sensitive.nix "paperless_secret_key";
   paperAuthConfig = builtins.toJSON {
     openid_connect = {
+      OAUTH_PKCE_ENABLED = true;
       APPS = [
         {
           provider_id = "kanidm";
