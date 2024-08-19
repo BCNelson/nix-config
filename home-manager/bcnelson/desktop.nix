@@ -27,7 +27,6 @@
     pkgs.libsForQt5.kate
 
     # Chat
-    pkgs.neochat
     pkgs.unstable.signal-desktop
     pkgs.unstable.discord
     pkgs.beeper
