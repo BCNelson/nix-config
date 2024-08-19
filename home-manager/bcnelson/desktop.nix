@@ -15,8 +15,8 @@
   home.packages = [
     pkgs.yakuake
 
-    pkgs.quickemu
-    pkgs.quickgui
+    # pkgs.quickemu
+    # pkgs.quickgui
 
     pkgs.helvum
 
