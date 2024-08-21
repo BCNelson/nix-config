@@ -33,6 +33,12 @@ provider "porkbun" {
   secret_key = var.porkbun_secret_key
 }
 
+resource "porkbun_dns_record" "CAA_nel_family" {
+  domain  = "nel.family"
+  type    = "CAA"
+  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
+}
+
 resource "porkbun_dns_record" "mx10_nel_family" {
   domain  = "nel.family"
   type    = "MX"
@@ -330,10 +336,22 @@ resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+resource "porkbun_dns_record" "nel_to-CAA" {
+  domain = "nel.to"
+  type = "CAA"
+  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
+}
+
 resource "porkbun_dns_record" "nel_to-CNAME" {
   domain = "nel.to"
   type = "CNAME"
   content = "h.b.nel.family"
+}
+
+resource "porkbun_dns_record" "bcnelson_dev-CAA" {
+  domain = "bcnelson.dev"
+  type = "CAA"
+  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
 
 resource "porkbun_dns_record" "git_bcnelson_dev-CNAME" {
