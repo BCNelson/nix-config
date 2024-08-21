@@ -17,6 +17,8 @@
           i-dont-care-about-cookies
           languagetool
           refined-github
+          firefox-color
+          stylus
         ];
         search = {
           default = "Google";

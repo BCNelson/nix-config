@@ -16,4 +16,5 @@
     };
     configFile = { };
   };
+  qt.style.catppuccin.enable = true;
 }

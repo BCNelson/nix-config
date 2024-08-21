@@ -60,6 +60,7 @@ in
     modules = [
       ../nixos
       versions.${version}.home-manager.nixosModules.home-manager
+      inputs.catppuccin.nixosModules.catppuccin
       (mkHome { inherit hostname usernames desktop; })
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
   };
@@ -70,7 +71,7 @@ in
     };
     modules = [
       ../darwin
-      { nixpkgs.hostPlatform = platform; }
+      { nixpkgs.hostPlatform = platform; }  
       versions.${version}.home-manager.darwinModules.home-manager
       (mkHome { inherit hostname usernames platform; })
     ];

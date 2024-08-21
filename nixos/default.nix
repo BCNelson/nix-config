@@ -28,4 +28,5 @@ in
       allowUnfree = true;
     };
   };
+  catppuccin.enable = true;
 }

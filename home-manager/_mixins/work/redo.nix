@@ -30,6 +30,8 @@
           onepassword-password-manager
           react-devtools
           refined-github
+          firefox-color
+          stylus
         ];
         search = {
           default = "Google";

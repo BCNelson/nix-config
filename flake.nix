@@ -38,6 +38,8 @@
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs24-05";
     };
+    
+    catppuccin.url = "github:catppuccin/nix";
 
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
