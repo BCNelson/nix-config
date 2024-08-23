@@ -58,6 +58,14 @@
           }
         ];
       }
+      {
+        job_name = "homeassistant";
+        static_configs = [
+          {
+            targets = [ "homeassistant.b.nel.family:9100" ];
+          }
+        ];
+      }
     ];
   };
 }
