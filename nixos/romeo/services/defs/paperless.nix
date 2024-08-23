@@ -54,8 +54,8 @@ in
       PAPERLESS_CONSUMPTION_DIR = "/usr/src/paperless/consume";
       PAPERLESS_DATA_DIR = "/usr/src/paperless/data";
       PAPERLESS_MEDIA_ROOT = "/usr/src/paperless/media";
-      PAPERLESS_APPS="allauth.socialaccount.providers.openid_connect";
-      PAPERLESS_SOCIALACCOUNT_PROVIDERS="${paperAuthConfig}";
+      PAPERLESS_APPS = "allauth.socialaccount.providers.openid_connect";
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS = "${paperAuthConfig}";
     };
   };
 
