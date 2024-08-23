@@ -25,6 +25,7 @@ in
       ./backup.nix
       ./forgejo.nix
       ./kanidm.nix
+      ./monitoring.nix
     ];
   environment.systemPackages = [
     services.networkBacked

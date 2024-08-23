@@ -336,6 +336,13 @@ resource "porkbun_dns_record" "vault_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+resource "porkbun_dns_record" "grafana_b_nel_family-CNAME" {
+  domain = "nel.family"
+  name = "grafana.b"
+  type = "CNAME"
+  content = "public.whiskey.b.nel.family"
+}
+
 resource "porkbun_dns_record" "nel_to-CAA" {
   domain = "nel.to"
   type = "CAA"
