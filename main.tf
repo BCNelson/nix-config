@@ -201,6 +201,20 @@ resource "porkbun_dns_record" "romeo_b_nel_family-AAAA" {
   type    = "AAAA"
   content = "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8"
 }
+
+resource "porkbun_dns_record" "homeassistant_b_nel_family-A" {
+  domain = "nel.family"
+  name = "homeassistant.b"
+  type = "A"
+  content = "100.66.76.95"
+}
+
+resource "porkbun_dns_record" "homeassistant_b_nel_family-AAAA" {
+  domain = "nel.family"
+  name = "homeassistant.b"
+  type = "AAAA"
+  content = "fd7a:115c:a1e0:ab12:4843:cd96:6242:4c5f"
+}
 # ryuu.llp      A  100.90.206.28
 resource "porkbun_dns_record" "ryuu_llp_nel_family-A" {
   domain  = "nel.family"
