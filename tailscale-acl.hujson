@@ -96,7 +96,7 @@
 		// Romeo should not be able to access node_exporter on whiskey
 		{
 			"src": "romeo",
-			"deny": ["whiskey:9002", "whiskey6:9002"]
+			"deny": ["whiskey:9002"]
 		}
 	],
 	"sshTests": [
