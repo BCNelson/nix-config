@@ -2,13 +2,13 @@
   # grafana configuration
   services.grafana = {
     enable = true;
-    domain = "grafana.b.nel.family";
-    port = 2342;
-    addr = "127.0.0.1";
     settings.server = {
       root_url = "https://grafana.b.nel.family";
       enable_gzip = true;
       enforce_domain = true;
+      domain = "grafana.b.nel.family";
+      http_port = 2342;
+      http_addr = "127.0.0.1";
     };
   };
 
@@ -18,7 +18,7 @@
     enableACME = true;
     acmeRoot = null;
     locations."/" = {
-      proxyPass = "http://127.0.0.1:${toString config.services.grafana.port}";
+      proxyPass = "http://127.0.0.1:${toString config.services.grafana.settings.server.http_port}";
       proxyWebsockets = true;
     };
   };
