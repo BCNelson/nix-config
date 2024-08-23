@@ -50,6 +50,14 @@
           }
         ];
       }
+      {
+        job_name = "vor";
+        static_configs = [
+          {
+            targets = [ "vor.ck.nel.family:9002" ];
+          }
+        ];
+      }
     ];
   };
 }
