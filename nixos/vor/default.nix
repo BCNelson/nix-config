@@ -11,7 +11,7 @@ in
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
-      ../_mixins/server/monitoring.nix
+      ../_mixins/roles/server/monitoring.nix
       ./samba.nix
       ./backups.nix
     ];
