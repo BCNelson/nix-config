@@ -42,6 +42,14 @@
           }
         ];
       }
+      {
+        job_name = "romeo";
+        static_configs = [
+          {
+            targets = [ "romeo.b.nel.family:9002" ];
+          }
+        ];
+      }
     ];
   };
 }
