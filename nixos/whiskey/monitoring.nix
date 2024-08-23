@@ -30,7 +30,7 @@
       node = {
         enable = true;
         enabledCollectors = [ "systemd" ];
-        port = 9002;
+        port = 9100;
       };
     };
     scrapeConfigs = [
@@ -38,7 +38,7 @@
         job_name = "whiskey";
         static_configs = [
           {
-            targets = [ "127.0.0.1:9002" ];
+            targets = [ "127.0.0.1:9100" ];
           }
         ];
       }
@@ -46,7 +46,7 @@
         job_name = "romeo";
         static_configs = [
           {
-            targets = [ "romeo.b.nel.family:9002" ];
+            targets = [ "romeo.b.nel.family:9100" ];
           }
         ];
       }
@@ -54,7 +54,7 @@
         job_name = "vor";
         static_configs = [
           {
-            targets = [ "vor.ck.nel.family:9002" ];
+            targets = [ "vor.ck.nel.family:9100" ];
           }
         ];
       }

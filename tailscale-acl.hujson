@@ -48,7 +48,7 @@
 		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:22"]},
 		{"action": "accept", "src": ["group:gaming"], "dst": ["sierra:52450"]},
 		// Prometheus node exporter
-		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9002"]}
+		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]}
 	],
 	"ssh": [
 		{

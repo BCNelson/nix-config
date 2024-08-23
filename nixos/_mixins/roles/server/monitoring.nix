@@ -4,7 +4,7 @@
       node = {
         enable = true;
         enabledCollectors = [ "systemd" ];
-        port = 9002;
+        port = 9100;
         openFirewall = true;
         firewallFilter = "-i tailscale0 -p tcp --dport 9002 -j ACCEPT";
       };
