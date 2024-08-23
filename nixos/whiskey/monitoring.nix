@@ -5,6 +5,11 @@
     domain = "grafana.b.nel.family";
     port = 2342;
     addr = "127.0.0.1";
+    settings.server = {
+      root_url = "https://grafana.b.nel.family";
+      enable_gzip = true;
+      enforce_domain = true;
+    };
   };
 
   # nginx reverse proxy
