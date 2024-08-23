@@ -14,10 +14,10 @@ in
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
       ../_mixins/roles/figurine.nix
+      ../_mixins/roles/server/monitoring.nix
       ./unbound.nix
       ./backups.nix
       ./nfs.nix
-      ./monitoring.nix
     ];
 
   environment.systemPackages = [
