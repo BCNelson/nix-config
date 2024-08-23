@@ -90,13 +90,13 @@
 		// Whiskey should be able to access romeo:9002 for prometheus node exporter
 		{
 			"src": "whiskey",
-			"accept": ["romeo:9002", "vor:9002", "tag:server:9002"],
+			"accept": ["romeo:9100", "vor:9100", "tag:server:9100"],
 			"deny": ["xray:22", "porter-pc:22"]
 		},
 		// Romeo should not be able to access node_exporter on whiskey
 		{
 			"src": "romeo",
-			"deny": ["whiskey:9002"]
+			"deny": ["whiskey:9100"]
 		}
 	],
 	"sshTests": [
