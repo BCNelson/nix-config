@@ -17,6 +17,7 @@ in
       ./unbound.nix
       ./backups.nix
       ./nfs.nix
+      ./monitoring.nix
     ];
 
   environment.systemPackages = [
