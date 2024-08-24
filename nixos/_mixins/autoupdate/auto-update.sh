@@ -22,7 +22,7 @@ exit() {
     else
         curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
     fi
-    exit 0
+    trap - EXIT
 }
 
 trap exit EXIT
