@@ -96,7 +96,7 @@
             from = "2020-09-07";
             store = "boltdb-shipper";
             object_store = "filesystem";
-            schema = "v12";
+            schema = "v13";
             index = {
               prefix = "loki_index_";
               period = "24h";
