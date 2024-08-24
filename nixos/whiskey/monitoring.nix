@@ -94,13 +94,9 @@
         configs = [
           {
             from = "2020-09-07";
-            store = "boltdb-shipper";
+            store = "tsdb";
             object_store = "filesystem";
             schema = "v13";
-            index = {
-              prefix = "loki_index_";
-              period = "24h";
-            };
           }
         ];
       };
