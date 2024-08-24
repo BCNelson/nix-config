@@ -11,7 +11,7 @@
     };
   };
 
-  
+
   services.promtail = {
     enable = true;
     configuration = {
@@ -25,20 +25,45 @@
       clients = [{
         url = "http://whiskey.b.nel.family:3100/loki/api/v1/push";
       }];
-      scrape_configs = [{
-        job_name = "journal";
-        journal = {
-          max_age = "12h";
-          labels = {
-            job = "systemd-journal";
-            host = config.networking.hostName;
+      scrape_configs = [
+        {
+          job_name = "journal";
+          journal = {
+            max_age = "12h";
+            labels = {
+              job = "systemd-journal";
+              host = config.networking.hostName;
+            };
           };
-        };
-        relabel_configs = [{
-          source_labels = [ "__journal__systemd_unit" ];
-          target_label = "unit";
-        }];
-      }];
+          relabel_configs = [{
+            source_labels = [ "__journal__systemd_unit" ];
+            target_label = "unit";
+          }];
+        }
+        {
+          job_name = "docker";
+          docker_sd_configs = [{
+            host = "unix:///var/run/docker.sock";
+            host_networking_host = config.networking.hostName;
+          }];
+          refresh_interval = "10s";
+          relabel_configs = [
+            {
+              source_labels = [ "__meta_docker_container_name" ];
+              regex = "/(.*)";
+              target_label = "container";
+            }
+            {
+              source_labels = [ "__meta_docker_container_log_stream" ];
+              target_label = "logstream";
+            }
+            {
+              source_labels = [ "__meta_docker_container_label_logging_jobname" ];
+              target_label = "job";
+            }
+          ];
+        }
+      ];
     };
   };
 

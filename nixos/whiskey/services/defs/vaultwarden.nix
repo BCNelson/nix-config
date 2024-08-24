@@ -35,6 +35,10 @@ in
     ports = [
       "127.0.0.1:8080:80"
     ];
+    labels = {
+      logging = "promtail";
+      logging_jobname = "vaultwarden";
+    };
     restart = "unless-stopped";
   };
 }

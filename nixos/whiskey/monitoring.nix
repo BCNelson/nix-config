@@ -109,4 +109,41 @@
   networking.firewall.interfaces.tailscale0 = {
     allowedTCPPorts = [ 3100 ];
   };
+
+  services.promtail = {
+    enable = true;
+    configuration = {
+      server = {
+        http_listen_port = 3031;
+        grpc_listen_port = 0;
+      };
+      positions = {
+        filename = "/tmp/positions.yaml";
+      };
+      clients = [{
+        url = "http://127.0.0.1:3100/loki/api/v1/push";
+      }];
+      scrape_configs = [{
+        job_name = "journal";
+        journal = {
+          max_age = "12h";
+          labels = {
+            job = "systemd-journal";
+            host = config.networking.hostName;
+          };
+        };
+        relabel_configs = [{
+          source_labels = [ "__journal__systemd_unit" ];
+          target_label = "unit";
+        }];
+      }
+        {
+          job_name = "docker";
+          docker_sd_configs = [{
+            host = "unix:///var/run/docker.sock";
+            host_networking_host = config.networking.hostName;
+          }];
+        }];
+    };
+  };
 }
