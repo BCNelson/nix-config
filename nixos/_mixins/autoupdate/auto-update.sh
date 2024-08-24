@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 tempfile=$(mktemp)
+complete=0
 
 log() {
     echo "$1" | tee -a "$tempfile"
@@ -9,12 +10,22 @@ if ! curl "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"; then
     log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
 fi
 
-fail() {
-    curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
-    exit 1
+exit() {
+    if [ "$complete" -eq 0 ]; then
+        curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
+        if [ -n "$NTFY_TOPIC" ]; then
+            log "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
+            curl -H "X-Title: $(hostname) failed to update" \
+              -d "$(hostname) failed to update" \
+              "https://ntfy.sh/$NTFY_TOPIC"
+        fi
+    else
+        curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
+    fi
+    exit 0
 }
 
-trap fail INT
+trap exit EXIT
 
 cd /config || exit 1
 
@@ -24,14 +35,26 @@ then
     fail
 fi
 
-
-# Fail if sync returns an error
-tempfile=$(mktemp)
-just --unstable sync | tee -a "$tempfile"
-
-if ! just --unstable sync | tee "$tempfile"; then
-    fail
+hashBefore=$(git rev-parse HEAD)
+git pull --rebase | tee -a "$tempfile"
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    log "Failed to pull"
+    exit
 fi
+hashAfter=$(git rev-parse HEAD)
+
+if [ "$hashBefore" == "$hashAfter" ]; then
+    log "No changes"
+    complete=1
+    exit
+fi
+
+nixos-rebuild switch --flake ".#$(hostname)" | tee -a "$tempfile"
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    log "Failed to rebuild"
+    exit
+fi
+
 
 # Check if a reboot is required
 
@@ -61,5 +84,4 @@ then
     fi
 fi
 
-# Success no logs needed
-curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
+complete=1
