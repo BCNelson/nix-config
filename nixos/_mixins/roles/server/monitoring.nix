@@ -31,7 +31,7 @@
           max_age = "12h";
           labels = {
             job = "systemd-journal";
-            host = "pihole";
+            host = config.networking.hostName;
           };
         };
         relabel_configs = [{
