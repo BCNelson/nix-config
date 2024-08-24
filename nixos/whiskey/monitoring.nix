@@ -97,6 +97,9 @@
             store = "tsdb";
             object_store = "filesystem";
             schema = "v13";
+            index = {
+              period = "24h";
+            };
           }
         ];
       };
