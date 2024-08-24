@@ -48,7 +48,9 @@
 		{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:22"]},
 		{"action": "accept", "src": ["group:gaming"], "dst": ["sierra:52450"]},
 		// Prometheus node exporter
-		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]}
+		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]},
+		//Loki
+		{"action": "accept", "src": ["tag:server"], "dst": ["whiskey:3100", "whiskey6:3100"]}
 	],
 	"ssh": [
 		{
@@ -97,6 +99,10 @@
 		{
 			"src": "romeo",
 			"deny": ["whiskey:9100"]
+		},
+		{
+			"src": "tag:server",
+			"accept": ["whiskey:3100", "whiskey6:3100"]
 		}
 	],
 	"sshTests": [
