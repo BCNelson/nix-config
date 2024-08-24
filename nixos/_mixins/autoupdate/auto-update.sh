@@ -13,12 +13,6 @@ fi
 exit() {
     if [ "$complete" -eq 0 ]; then
         curl --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
-        if [ -n "$NTFY_TOPIC" ]; then
-            log "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
-            curl -H "X-Title: $(hostname) failed to update" \
-              -d "$(hostname) failed to update" \
-              "https://ntfy.sh/$NTFY_TOPIC"
-        fi
     else
         curl --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
     fi
