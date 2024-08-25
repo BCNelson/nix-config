@@ -1,8 +1,8 @@
-{ pkgs, libx, healthcheckUuid, ... }:
+{ pkgs, libx, healthcheckUuid, reboot ? "false" ... }:
 let
   updateScript = pkgs.writeShellApplication {
     name = "auto-update";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname ];
+    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify];
     text = builtins.readFile ./auto-update.sh;
   };
   ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
@@ -23,6 +23,7 @@ in
     environment = {
       NTFY_TOPIC = ntfy_topic;
       HEALTHCHECK_UUID = healthcheckUuid;
+      REBOOT = "true";
     };
     serviceConfig = {
       Type = "oneshot";

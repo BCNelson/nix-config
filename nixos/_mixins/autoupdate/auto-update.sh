@@ -66,15 +66,22 @@ if [ "$current_system_initrd" != "$booted_system_initrd" ] ||
    [ "$current_system_kernel_modules" != "$booted_system_kernel_modules" ];
 then
     log "Reboot required"
-    shutdown -r +1 "Rebooting for updates in 1 minute"
-    # check if NTFY_TOPIC is set
-    if [ -n "$NTFY_TOPIC" ]; then
-        log "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
-        curl --silent --show-error--retry 5 -H "X-Title: $(hostname) rebooting in 1 min" \
-          -d "$(hostname) is rebooting in 1 min as necessary for updates" \
-          "https://ntfy.sh/$NTFY_TOPIC"
-        curl --silent --show-error--retry 5 --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/log" \
-          --data-raw "Rebooting for updates in 1 minute"
+    if [ "$REBOOT" == "no" ] || [ "$REBOOT" == "n" ]  || [ "$REBOOT" == "false" ] || [ "$REBOOT" == "0" ]; then
+        log "Reboot skipped"
+        notify-send -u critical "Updates Complete" "Reboot required to complete updates"
+        complete=1
+        exit
+    else
+        shutdown -r +1 "Rebooting for updates in 1 minute"
+        # check if NTFY_TOPIC is set
+        if [ -n "$NTFY_TOPIC" ]; then
+            log "Sending notification to https://ntfy.sh/$NTFY_TOPIC"
+            curl --silent --show-error--retry 5 -H "X-Title: $(hostname) rebooting in 1 min" \
+            -d "$(hostname) is rebooting in 1 min as necessary for updates" \
+            "https://ntfy.sh/$NTFY_TOPIC"
+            curl --silent --show-error--retry 5 --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/log" \
+            --data-raw "Rebooting for updates in 1 minute"
+        fi
     fi
 fi
 
