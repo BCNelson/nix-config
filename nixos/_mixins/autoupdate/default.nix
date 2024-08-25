@@ -1,4 +1,4 @@
-{ pkgs, libx, healthcheckUuid, reboot ? "false" ... }:
+{ pkgs, libx, healthcheckUuid, reboot ? "false", ... }:
 let
   updateScript = pkgs.writeShellApplication {
     name = "auto-update";
