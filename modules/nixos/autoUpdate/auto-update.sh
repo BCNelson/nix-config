@@ -5,16 +5,19 @@ complete=0
 log() {
     echo "$1" |& tee -a "$tempfile"
 }
-
-if ! curl --silent --show-error --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"; then
-    log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
+if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+    if ! curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/start"; then
+        log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
+    fi
 fi
 
 exit() {
-    if [ "$complete" -eq 0 ]; then
-        curl --silent --show-error --retry 5 --data-raw "$(cat "$tempfile")" "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/fail"
-    else
-        curl --silent --show-error --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID"
+    if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+        if [ "$complete" -eq 0 ]; then
+            curl --silent --show-error --retry 5 --data-raw "$(cat "$tempfile")" "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/fail"
+        else
+            curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID"
+        fi
     fi
     trap - EXIT
 }
@@ -79,8 +82,10 @@ then
             curl --silent --show-error --retry 5 -H "X-Title: $(hostname) rebooting in 1 min" \
             -d "$(hostname) is rebooting in 1 min as necessary for updates" \
             "https://ntfy.sh/$NTFY_TOPIC"
-            curl --silent --show-error --retry 5 --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/log" \
-            --data-raw "Rebooting for updates in 1 minute"
+        fi
+        if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+            curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/log" \
+                --data-raw "Rebooting for updates in 1 minute"
         fi
     fi
 fi

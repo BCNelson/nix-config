@@ -19,10 +19,26 @@ in
         default = "";
         description = "Health check configuration";
       };
-      ntfyTopic = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = "Ntfy topic";
+      healthCheck = {
+        enable = lib.mkEnableOption "Enable health check";
+        url = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Health check URL";
+        };
+        interval = lib.mkOption {
+          type = lib.types.str;
+          default = "5m";
+          description = "Health check interval";
+        };
+      };
+      ntfy = {
+        enable = lib.mkEnableOption "Enable ntfy";
+        topic = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Ntfy topic";
+        };
       };
       reboot = lib.mkOption {
         type = lib.types.bool;
@@ -51,8 +67,9 @@ in
     systemd.services.auto-update = {
       enable = true;
       environment = {
-        NTFY_TOPIC = cfg.ntfyTopic;
-        HEALTHCHECK_UUID = cfg.healthCheckUuid;
+        NTFY_TOPIC = if cfg.ntfy.enable then cfg.ntfy.topic else "";
+        HEALTHCHECK_UUID = if cfg.healthCheck.enable then cfg.healthCheckUuid else "";
+        HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
       };
       serviceConfig = {
