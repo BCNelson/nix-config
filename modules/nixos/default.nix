@@ -2,5 +2,5 @@
 # These should be stuff you would like to share with others, not your personal configurations.
 
 {
-  autoUpdate = import ./auto-update;
+  autoUpdate = import ./autoUpdate;
 }

@@ -63,7 +63,7 @@ in
       inputs.catppuccin.nixosModules.catppuccin
       (mkHome { inherit hostname usernames desktop; })
     ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
-    ++ versions.${version}.nixpkgs.lib.attrsets.attrVals outputs.homeManagerModules;
+    ++ versions.${version}.nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
   };
 
   mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {
