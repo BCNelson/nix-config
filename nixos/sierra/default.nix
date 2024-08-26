@@ -64,9 +64,10 @@
 
   services.bcnelson.autoUpdate = {
     enable = true;
-    retboot = false;
+    path = /home/bcnelson/nix-config;
+    reboot = false;
     refreshInterval = "15m";
-  }
+  };
 
   zramSwap.enable = true;
 }

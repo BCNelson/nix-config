@@ -14,6 +14,11 @@ in
   options = {
     services.bcnelson.autoUpdate = {
       enable = lib.mkEnableOption "Enable autostarting of applications";
+      path = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Path to the git repository";
+      };
       healthCheckUuid = lib.mkOption {
         type = lib.types.str;
         default = "";
@@ -64,6 +69,21 @@ in
       wantedBy = [ "timers.target" ];
     };
 
+    assertions = [
+      {
+        assertion = !cfg.healthCheck.enable || cfg.healthCheck.url != "";
+        message = "Health check URL must be set if health check is enabled";
+      }
+      {
+        assertion = !cfg.ntfy.enable || cfg.ntfy.topic != "";
+        message = "Ntfy topic must be set if ntfy is enabled";
+      }
+      {
+        assertion = cfg.path != null && cfg.path != "";
+        message = "Path must be set";
+      }
+    ];
+
     systemd.services.auto-update = {
       enable = true;
       environment = {
@@ -71,6 +91,7 @@ in
         HEALTHCHECK_UUID = if cfg.healthCheck.enable then cfg.healthCheckUuid else "";
         HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
+        CONFIG_PATH = cfg.path;
       };
       serviceConfig = {
         Type = "oneshot";
@@ -81,7 +102,7 @@ in
       restartIfChanged = false;
     };
 
-    systemd.services.startup-notify = {
+    systemd.services.startup-notify = lib.mkIf cfg.ntfy.enable {
       enable = true;
       wantedBy = [ "multi-user.target" ];
       wants = [ "network-online.target" ];

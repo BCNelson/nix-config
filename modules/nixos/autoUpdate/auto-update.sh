@@ -24,7 +24,7 @@ exit() {
 
 trap exit EXIT
 
-cd /config || exit 1
+cd "$CONFIG_PATH" || exit 1
 
 if ! git config --local --get filter.git-crypt.smudge > /dev/null;
 then
