@@ -3,7 +3,7 @@ tempfile=$(mktemp)
 complete=0
 
 log() {
-    echo "$1" | tee -a "$tempfile"
+    echo "$1" |& tee -a "$tempfile"
 }
 
 if ! curl --silent --show-error --retry 5 "https://health.b.nel.family/ping/$HEALTHCHECK_UUID/start"; then
@@ -30,7 +30,7 @@ then
 fi
 
 hashBefore=$(git rev-parse HEAD)
-git pull --rebase | tee -a "$tempfile"
+git pull --rebase |& tee -a "$tempfile"
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     log "Failed to pull"
     exit
@@ -43,7 +43,7 @@ if [ "$hashBefore" == "$hashAfter" ]; then
     exit
 fi
 
-nixos-rebuild switch --flake ".#$(hostname)" | tee -a "$tempfile"
+nixos-rebuild switch --flake ".#$(hostname)" |& tee -a "$tempfile"
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     log "Failed to rebuild"
     exit
