@@ -1,8 +1,8 @@
-{ pkgs, libx, healthcheckUuid, reboot ? "false", ... }:
+{ pkgs, libx, healthcheckUuid, ... }:
 let
   updateScript = pkgs.writeShellApplication {
     name = "auto-update";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify];
+    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify ];
     text = builtins.readFile ./auto-update.sh;
   };
   ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";

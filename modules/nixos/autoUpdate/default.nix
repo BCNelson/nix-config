@@ -5,7 +5,7 @@ let
   cfg = config.services.bcnelson.autoUpdate;
   autoUpdateScript = pkgs.writeShellApplication {
     name = "auto-update";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify];
+    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify ];
     text = builtins.readFile ./auto-update.sh;
   };
 
@@ -24,16 +24,16 @@ in
         default = "";
         description = "Ntfy topic";
       };
-        reboot = lib.mkOption {
-            type = lib.types.bool;
-            default = false;
-            description = "Reboot after update";
-        };
-        refreshInterval = lib.mkOption {
-            type = lib.types.str;
-            default = "15m";
-            description = "Refresh interval";
-        };
+      reboot = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Reboot after update";
+      };
+      refreshInterval = lib.mkOption {
+        type = lib.types.str;
+        default = "15m";
+        description = "Refresh interval";
+      };
     };
   };
 

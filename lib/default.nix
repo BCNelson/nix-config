@@ -62,7 +62,8 @@ in
       versions.${version}.home-manager.nixosModules.home-manager
       inputs.catppuccin.nixosModules.catppuccin
       (mkHome { inherit hostname usernames desktop; })
-    ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ]);
+    ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
+    ++ versions.${version}.nixpkgs.lib.attrsets.attrVals outputs.homeManagerModules;
   };
 
   mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {
@@ -71,7 +72,7 @@ in
     };
     modules = [
       ../darwin
-      { nixpkgs.hostPlatform = platform; }  
+      { nixpkgs.hostPlatform = platform; }
       versions.${version}.home-manager.darwinModules.home-manager
       (mkHome { inherit hostname usernames platform; })
     ];
