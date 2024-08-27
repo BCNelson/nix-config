@@ -19,6 +19,7 @@
     # pkgs.quickgui
 
     pkgs.helvum
+    pkgs.easyeffects
 
     pkgs.unstable.obsidian
 
