@@ -35,4 +35,11 @@
       members = [ "bcnelson" "hlnelson" ];
     };
   };
+
+  services.bcnelson.autoUpdate = {
+    enable = true;
+    path = /config;
+    reboot = false;
+    refreshInterval = "1h";
+  };
 }
