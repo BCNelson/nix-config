@@ -38,7 +38,7 @@
 
   services.bcnelson.autoUpdate = {
     enable = true;
-    path = /home/config;
+    path = "/home/config";
     reboot = false;
     refreshInterval = "1h";
   };
