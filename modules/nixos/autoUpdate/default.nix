@@ -15,7 +15,7 @@ in
     services.bcnelson.autoUpdate = {
       enable = lib.mkEnableOption "Enable autostarting of applications";
       path = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
+        type = lib.types.nullOr lib.types.str;
         default = null;
         description = "Path to the git repository";
       };

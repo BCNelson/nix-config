@@ -64,7 +64,7 @@
 
   services.bcnelson.autoUpdate = {
     enable = true;
-    path = /home/bcnelson/nix-config;
+    path = "/home/bcnelson/nix-config";
     reboot = false;
     refreshInterval = "15m";
   };
