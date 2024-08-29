@@ -24,12 +24,14 @@ exit() {
 
 trap exit EXIT
 
+log "Switching to $CONFIG_PATH"
+
 cd "$CONFIG_PATH" || exit 1
 
 if ! git config --local --get filter.git-crypt.smudge > /dev/null;
 then
     log "Locked and must be unlocked before update"
-    fail
+    exit
 fi
 
 hashBefore=$(git rev-parse HEAD)
