@@ -3,6 +3,7 @@
   imports = [
     ./hardware-configuration.nix
     ../_mixins/roles/docker.nix
+    ../_mixins/roles/tailscale.nix
   ];
 
   networking.firewall = {
