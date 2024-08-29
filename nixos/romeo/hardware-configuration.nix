@@ -25,8 +25,7 @@
       device = "/dev/disk/by-uuid/6D58-A60D";
       fsType = "vfat";
     };
-  boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
-  boot.supportedFilesystems = [ "zfs" ];
+
   boot.zfs = {
     extraPools = [ "vault" "scary" ];
     forceImportRoot = false;
