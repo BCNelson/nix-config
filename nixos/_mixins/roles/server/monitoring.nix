@@ -45,8 +45,8 @@
           docker_sd_configs = [{
             host = "unix:///var/run/docker.sock";
             host_networking_host = config.networking.hostName;
+            refresh_interval = "10s";
           }];
-          refresh_interval = "10s";
           relabel_configs = [
             {
               source_labels = [ "__meta_docker_container_name" ];
