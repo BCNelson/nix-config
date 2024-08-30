@@ -1,16 +1,19 @@
 { dataDirs, libx }:
 let
   immich_postgres_password = libx.getSecret ../../../sensitive.nix "immich_postgres_password";
+  commonVolumes = [
+    "${dataDirs.level2}/immich/photos:/usr/src/app/upload"
+    "${dataDirs.level6}/immich/encoded-video:/usr/src/app/upload/encoded-video"
+    "${dataDirs.level6}/immich/thumbs:/usr/src/app/upload/thumbs"
+    "/etc/localtime:/etc/localtime:ro"
+  ];
 in
 {
   immich-server = {
     image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_server";
     command = [ "start.sh" "immich" ];
-    volumes = [
-      "${dataDirs.level2}/immich/photos:/usr/src/app/upload"
-      "/etc/localtime:/etc/localtime:ro"
-    ];
+    volumes = commonVolumes;
     environment = [
       "DB_HOSTNAME=immich_postgres"
       "DB_USERNAME=postgres"
@@ -26,10 +29,7 @@ in
     image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_microservices";
     command = [ "start.sh" "microservices" ];
-    volumes = [
-      "${dataDirs.level2}/immich/photos:/usr/src/app/upload"
-      "/etc/localtime:/etc/localtime:ro"
-    ];
+    volumes = commonVolumes;
     environment = [
       "DB_HOSTNAME=immich_postgres"
       "DB_USERNAME=postgres"
