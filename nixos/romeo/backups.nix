@@ -8,7 +8,7 @@ let
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
     startAt = "daily";
-    prune = lib.mkif (prune != null) prune;
+    prune = lib.mkIf (prune != null) prune;
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
@@ -111,7 +111,7 @@ in
     level1 = basicBorgJob {
       repo = borgReposSecrets.level1;
       paths = "/mnt/vault/data/level1";
-      prune = {
+      prune.keep = {
         within = "7d";
         daily = 31;
         weekly = -1;
@@ -120,7 +120,7 @@ in
     level2 = basicBorgJob {
       repo = borgReposSecrets.level2;
       paths = "/mnt/vault/data/level2";
-      prune = {
+      prune.keep = {
         within = "7d";
         daily = 7;
         weekly = 4;
@@ -131,7 +131,7 @@ in
     level3 = basicBorgJob {
       repo = borgReposSecrets.level3;
       paths = "/mnt/vault/data/level3";
-      prune = {
+      prune.keep = {
         within = "7d";
         daily = 7;
         weekly = 4;
