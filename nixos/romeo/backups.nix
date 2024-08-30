@@ -1,6 +1,6 @@
 { lib, pkgs, libx, ... }:
 let
-  basicBorgJob = { repo, paths }: {
+  basicBorgJob = { repo, paths, prune ? null }: {
     inherit repo paths;
     encryption.mode = "none";
     environment.BORG_RSH = "ssh -o 'StrictHostKeyChecking=no' -i /root/.ssh/id_ed25519";
@@ -8,6 +8,7 @@ let
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
     startAt = "daily";
+    prune = lib.mkif (prune != null) prune;
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
@@ -110,14 +111,32 @@ in
     level1 = basicBorgJob {
       repo = borgReposSecrets.level1;
       paths = "/mnt/vault/data/level1";
+      prune = {
+        within = "7d";
+        daily = 31;
+        weekly = -1;
+      };
     };
     level2 = basicBorgJob {
       repo = borgReposSecrets.level2;
       paths = "/mnt/vault/data/level2";
+      prune = {
+        within = "7d";
+        daily = 7;
+        weekly = 4;
+        monthly = 12;
+        yearly = 5;
+      };
     };
     level3 = basicBorgJob {
       repo = borgReposSecrets.level3;
       paths = "/mnt/vault/data/level3";
+      prune = {
+        within = "7d";
+        daily = 7;
+        weekly = 4;
+        monthly = 6;
+      };
     };
     # level4 = basicBorgJob {
     #   repo = borgReposSecrets.level4;
