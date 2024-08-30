@@ -46,7 +46,6 @@ in
         homebox
         immich
         dashy
-        authelia
         paperless
         tubearchivist
       ];
