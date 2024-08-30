@@ -24,7 +24,6 @@ let
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
   immich = import ./defs/immich.nix { inherit dataDirs libx; };
   dashy = import ./defs/dashy { inherit pkgs; };
-  authelia = import ./defs/authelia { inherit dataDirs libx pkgs; };
   paperless = import ./defs/paperless.nix { inherit dataDirs libx; };
   tubearchivist = import ./defs/tubearchivist.nix { inherit dataDirs libx; };
 in
