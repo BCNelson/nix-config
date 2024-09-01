@@ -4,7 +4,7 @@ let
 
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeText "wgConfig" wgConfig;
-  peerPort = libx.getSecret ./sensitive.nix "airdnsPeerPort";
+  peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
 in
 {
     imports =
