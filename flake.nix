@@ -43,6 +43,8 @@
 
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
+
+    nixarr.url = "github:rasmus-kirk/nixarr";
   };
 
   outputs = { self, nix-formatter-pack, nixpkgs-unstable, disko, ... }@inputs:

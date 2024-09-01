@@ -1,4 +1,4 @@
-args@{ pkgs, libx, ... }:
+args@{ pkgs, libx, inputs, ... }:
 let
   dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };
@@ -18,6 +18,7 @@ in
       ./unbound.nix
       ./backups.nix
       ./nfs.nix
+      ./nixarr.nix
     ];
 
   environment.systemPackages = [
