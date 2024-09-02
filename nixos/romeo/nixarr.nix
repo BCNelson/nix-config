@@ -3,7 +3,7 @@ let
   dataDirs = import ./dataDirs.nix;
 
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
-  wgConfigText = pkgs.writeText "wg.conf" wgConfig;
+  wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
 in
 {
@@ -17,7 +17,7 @@ in
 
     vpn = {
         enable = true;
-        wgConf = "${wgConfigText}";
+        wgConf = "${wgConfigText}/wg.conf";
     };
 
     stateDir = "${dataDirs.level4}/nixarr";
