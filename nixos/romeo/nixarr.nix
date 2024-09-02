@@ -27,6 +27,7 @@ in
       enable = true;
       vpn.enable = true;
       peerPort = peerPort;
+      flood.enable = true;
     };
 
     bazarr.enable = true;
