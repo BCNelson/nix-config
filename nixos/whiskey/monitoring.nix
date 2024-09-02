@@ -13,7 +13,7 @@
   };
 
   # nginx reverse proxy
-  services.nginx.virtualHosts.${config.services.grafana.domain} = {
+  services.nginx.virtualHosts.${config.services.grafana.settings.server.domain} = {
     forceSSL = true;
     enableACME = true;
     acmeRoot = null;

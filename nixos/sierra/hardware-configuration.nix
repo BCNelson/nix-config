@@ -47,9 +47,9 @@
   # networking.interfaces.wlp5s0.useDHCP = lib.mkDefault true;
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
-    driSupport32Bit = true;
+    enable32Bit = true;
     extraPackages = with pkgs; [
       vaapiVdpau
       libvdpau-va-gl
