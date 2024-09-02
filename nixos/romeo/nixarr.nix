@@ -28,6 +28,7 @@ in
       vpn.enable = true;
       peerPort = peerPort;
       flood.enable = true;
+      extraAllowedIps = [ "100.*.*.*" ];
     };
 
     bazarr.enable = true;
