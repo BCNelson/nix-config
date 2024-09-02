@@ -32,10 +32,14 @@ in
     };
 
     bazarr.enable = true;
-    lidarr.enable = true;
     prowlarr.enable = true;
     radarr.enable = true;
     readarr.enable = true;
     sonarr.enable = true;
+  };
+
+  services.jackett = {
+    enable = true;
+    dataDir = "${dataDirs.level6}/jackett";
   };
 }
