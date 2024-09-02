@@ -41,5 +41,6 @@ in
   services.jackett = {
     enable = true;
     dataDir = "${dataDirs.level6}/jackett";
+    openFirewall = true;
   };
 }
