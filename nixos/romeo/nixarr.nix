@@ -3,7 +3,7 @@ let
   dataDirs = import ./dataDirs.nix;
 
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
-  wgConfigText = pkgs.writeText "airDns.conf" wgConfig;
+  wgConfigText = pkgs.writeText "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
 in
 {
