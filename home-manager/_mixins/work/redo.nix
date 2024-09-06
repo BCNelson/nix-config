@@ -8,6 +8,7 @@
     pkgs.bazelisk
     pkgs.mongodb-compass
     pkgs.hoppscotch
+    pkgs.dive
   ];
 
   programs.firefox = {
