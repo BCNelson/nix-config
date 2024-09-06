@@ -65,6 +65,13 @@
 			"dst":    ["tag:client"],
 			"users":  ["autogroup:nonroot", "root"]
 		},
+		{ // any user can use Tailscale SSH to connect to their own devices
+			// in check mode as a root or non-root user
+			"action": "check",
+			"src": ["autogroup:member"],
+			"dst": ["autogroup:self"],
+			"users": ["autogroup:nonroot"]
+		},
 		{
 			"action": "accept",
 			"src":    ["tag:server"],
