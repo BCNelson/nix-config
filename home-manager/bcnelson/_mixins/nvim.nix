@@ -24,7 +24,7 @@
         };
     };
 
-    preformance = {
+    performance = {
       combinePlugins = {
         enable = true;
       };
