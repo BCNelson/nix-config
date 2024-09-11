@@ -23,5 +23,16 @@
             enable = true;
         };
     };
+
+    preformance = {
+      combinePlugins = {
+        enable = true;
+      };
+      byteCompleLua = {
+        enable = true;
+      };
+    };
+
+    clipboard.providers.wl-copy.enable = true;
   };
 }
