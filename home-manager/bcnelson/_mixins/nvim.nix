@@ -28,7 +28,7 @@
       combinePlugins = {
         enable = true;
       };
-      byteCompleLua = {
+      byteCompileLua = {
         enable = true;
       };
     };
