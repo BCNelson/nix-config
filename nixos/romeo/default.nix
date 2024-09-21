@@ -1,4 +1,4 @@
-args@{ pkgs, libx, inputs, ... }:
+args@{ pkgs, libx, ... }:
 let
   dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };

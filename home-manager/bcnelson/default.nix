@@ -5,12 +5,12 @@ let
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ 
-    ../_mixins/console.nix 
+  imports = [
+    ../_mixins/console.nix
     ./_mixins/nvim.nix
   ]
-    ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
-    ++ lib.optional (builtins.isString desktop) ./desktop.nix;
+  ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
+  ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";

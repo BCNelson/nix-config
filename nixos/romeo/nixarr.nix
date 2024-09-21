@@ -1,4 +1,4 @@
-args@{ pkgs, libx, inputs, ... }:
+{ pkgs, libx, inputs, ... }:
 let
   dataDirs = import ./dataDirs.nix;
 
@@ -7,7 +7,7 @@ let
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
 in
 {
-    imports =
+  imports =
     [
       inputs.nixarr.nixosModules.default
     ];
@@ -16,8 +16,8 @@ in
     enable = true;
 
     vpn = {
-        enable = true;
-        wgConf = "${wgConfigText}/wg.conf";
+      enable = true;
+      wgConf = "${wgConfigText}/wg.conf";
     };
 
     stateDir = "${dataDirs.level4}/nixarr";
@@ -26,7 +26,7 @@ in
     transmission = {
       enable = true;
       vpn.enable = true;
-      peerPort = peerPort;
+      inherit peerPort;
       flood.enable = true;
       extraAllowedIps = [ "100.*.*.*" ];
     };

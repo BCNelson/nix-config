@@ -18,8 +18,8 @@
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
     nixvim = {
-        url = "github:nix-community/nixvim";
-        inputs.nixpkgs.follows = "nixpkgs-unstable";
+      url = "github:nix-community/nixvim";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
     plasma-manager = {
