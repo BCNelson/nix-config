@@ -28,6 +28,7 @@ in
       enable = true;
       userName = "Bradley Nelson";
       userEmail = "bradley@nel.family";
+      lfs.enable = true;
       extraConfig = {
         push = {
           default = "current";
