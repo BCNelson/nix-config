@@ -104,11 +104,19 @@ alias fmt := format
 format:
     nix fmt
 
-iso:
+isoCreate:
     #!/usr/bin/env bash
     set -euo pipefail
     shopt -s extglob
     nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{ justfile_directory() }}/../result
+
+isoTest: isoCreate
+    #!/usr/bin/env bash
+    ISO=$(head -n1 {{ justfile_directory() }}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
+    qemu-system-x86_64 -cdrom {{ justfile_directory() }}/../result/iso/$ISO
+
+isoInstall: isoCreate
+    #!/usr/bin/env bash
     ISO=$(head -n1 {{ justfile_directory() }}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
     if test -e /dev/disk/by-label/@(v|V)entoy; then
         ventoy_Mount=$(findmnt -n -o TARGET /dev/disk/by-label/@(v|V)entoy)
