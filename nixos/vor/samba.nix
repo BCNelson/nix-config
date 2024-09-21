@@ -11,18 +11,18 @@ _:
     enable = true;
     securityType = "user";
     openFirewall = true;
-    extraConfig = ''
-      workgroup = WORKGROUP
-      server string = vor
-      netbios name = vor
-      security = user 
-      #use sendfile = yes
-      min protocol = smb3
-      hosts allow = 100.64.0.0/10 192.168.138.0/24
-      hosts deny = 0.0.0.0/0
-      guest account = nobody
-      map to guest = bad user
-    '';
+    settings.global = {
+      "workgroup" = "WORKGROUP";
+      "server string" = "vor";
+      "netbios name" = "vor";
+      "security" = "user";
+      "#use sendfile" = "yes";
+      "min protocol" = "smb3";
+      "hosts allow" = "100.64.0.0/10 192.168.138.0/24";
+      "hosts deny" = "0.0.0.0/0";
+      "guest account" = "nobody";
+      "map to guest" = "bad user";
+    };
     shares = {
       family = {
         path = "/liveData/NelsonData/Nelson Family Files";
