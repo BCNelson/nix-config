@@ -39,6 +39,13 @@ resource "porkbun_dns_record" "CAA_nel_family" {
   content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
 
+resource "porkbun_dns_record" "CAA_nel_family" {
+  domain  = "nel.family"
+  name    = "check"
+  type    = "CAA"
+  content = "0 issue \"sectigo.com\""
+}
+
 resource "porkbun_dns_record" "mx10_nel_family" {
   domain  = "nel.family"
   type    = "MX"
