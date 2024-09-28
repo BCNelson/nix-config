@@ -29,6 +29,10 @@ in
       inherit peerPort;
       flood.enable = true;
       extraAllowedIps = [ "100.*.*.*" ];
+      extraSettings = {
+        "rpc-host-whitelist" = "romeo.b.nel.family";
+        "rpc-host-whitelist-enabled" = true;
+      };
     };
 
     bazarr.enable = true;
