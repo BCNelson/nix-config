@@ -1,0 +1,4 @@
+{
+    "nix.enableLanguageServer": true, // Enable LSP.
+    "nix.serverPath": "nixd" // The path to the LSP server executable.
+}
