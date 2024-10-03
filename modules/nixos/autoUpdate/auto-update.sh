@@ -24,6 +24,10 @@ exit() {
 
 trap exit EXIT
 
+log "setting git safe directory"
+
+git config --global --add safe.directory "$CONFIG_PATH"
+
 log "Switching to $CONFIG_PATH"
 
 cd "$CONFIG_PATH" || exit 1
