@@ -6,7 +6,6 @@
     ../_mixins/programs/libreOffice.nix
     ../_mixins/programs/emulator.nix
     ../_mixins/programs/handbrake.nix
-    ../_mixins/work/guidecx/k2.nix
   ];
 
   home.packages = [
