@@ -14,5 +14,6 @@
     pkgs.android-tools
     pkgs.nixpkgs-review
     pkgs.ventoy-full
+    pkgs.libation
   ];
 }
