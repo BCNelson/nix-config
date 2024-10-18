@@ -102,5 +102,7 @@ in
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
+  zramSwap.enable = true;
+
   networking.hostId = "9a637b7f";
 }
