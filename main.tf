@@ -39,7 +39,7 @@ resource "porkbun_dns_record" "CAA_nel_family" {
   content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
 
-resource "porkbun_dns_record" "CAA_nel_family" {
+resource "porkbun_dns_record" "CAA_check_nel_family" {
   domain  = "nel.family"
   name    = "check"
   type    = "CAA"
