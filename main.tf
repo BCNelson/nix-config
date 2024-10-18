@@ -399,14 +399,14 @@ resource "porkbun_dns_record" "idm_nel_family-CNAME" {
 resource "porkbun_dns_record" "bcnelson_dev-github-verify" {
   domain = "bcnelson.dev"
   type = "TXT"
-  name = "_github-pages-challenge-BCNelson"
+  name = "_github-pages-challenge-bcnelson"
   content = "e8a64353bcac28974a44be20b4b899"
 }
 
 resource "porkbun_dns_record" "nel_family-github-verify" {
   domain = "nel.family"
   type = "TXT"
-  name = "_github-pages-challenge-BCNelson"
+  name = "_github-pages-challenge-bcnelson"
   content = "fd1501e619123965c3b215277162ad"
 }
 
