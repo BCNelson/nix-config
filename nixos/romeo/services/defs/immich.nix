@@ -12,7 +12,6 @@ in
   immich-server = {
     image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_server";
-    command = [ "start.sh" "immich" ];
     volumes = commonVolumes;
     environment = [
       "DB_HOSTNAME=immich_postgres"
@@ -21,23 +20,6 @@ in
       "DB_PASSWORD=${immich_postgres_password}"
       "REDIS_HOSTNAME=immich_redis"
     ];
-    depends_on = [ "immich_redis" "immich_postgres" ];
-    restart = "unless-stopped";
-  };
-
-  immich-microservices = {
-    image = "ghcr.io/immich-app/immich-server:release";
-    container_name = "immich_microservices";
-    command = [ "start.sh" "microservices" ];
-    volumes = commonVolumes;
-    environment = [
-      "DB_HOSTNAME=immich_postgres"
-      "DB_USERNAME=postgres"
-      "DB_DATABASE_NAME=immich"
-      "DB_PASSWORD=${immich_postgres_password}"
-      "REDIS_HOSTNAME=immich_redis"
-    ];
-    devices = [ "/dev/dri:/dev/dri" ];
     depends_on = [ "immich_redis" "immich_postgres" ];
     restart = "unless-stopped";
   };
