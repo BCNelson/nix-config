@@ -57,6 +57,13 @@
     };
   };
 
+  programs.fish = {
+      enable = true;
+      shellAliases = {
+        bazelisk = "distrobox enter redo -- bazelisk";
+    };
+  };
+
   xdg.desktopEntries = {
     firefox-personal = {
       name = "Firefox (Personal)";
