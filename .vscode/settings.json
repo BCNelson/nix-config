@@ -1,4 +1,7 @@
 {
     "nix.enableLanguageServer": true, // Enable LSP.
-    "nix.serverPath": "nixd" // The path to the LSP server executable.
+    "nix.serverPath": "nixd", // The path to the LSP server executable.
+    "nixpkgs": {
+        "expr": "import <nixpkgs> {}",
+    }
 }
