@@ -53,22 +53,20 @@ let
 in
 {
   # Helper function for generating host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable" }: versions.${version}.nixpkgs.lib.nixosSystem: let
-    usedVersion = versions.${version};
-  in {
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable" }: versions.${version}.nixpkgs.lib.nixosSystem {
     specialArgs = {
       inherit inputs outputs desktop hostname usernames stateVersion libx;
     };
     modules = [
       ../nixos
-      usedVersion.home-manager.nixosModules.home-manager
+      versions.${version}.home-manager.nixosModules.home-manager
       inputs.catppuccin.nixosModules.catppuccin
       (mkHome { inherit hostname usernames desktop; })
       {
-        nix.nixPath = [ "nixpkgs=${usedVersion.nixpkgs}" ];
+        nix.nixPath = [ "nixpkgs=${versions.${version}.nixpkgs}" ];
       }
-    ] ++ (usedVersion.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
-    ++ usedVersion.nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
+    ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
+    ++ versions.${version}.nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
   };
 
   mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {
