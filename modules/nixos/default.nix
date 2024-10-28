@@ -3,4 +3,5 @@
 
 {
   autoUpdate = import ./autoUpdate;
+  recovery = import ./recovery;
 }

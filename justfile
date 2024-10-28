@@ -139,3 +139,9 @@ setup:
 
 build machine='vm_test' type='vm':
     nix build .#nixosConfigurations.{{ machine }}.config.system.build.{{ type }} -o {{ justfile_directory() }}/result
+
+test machine='vm_test' type='vm':
+    nix build .#nixosConfigurations.{{ machine }}.config.system.build.{{ type }} -o {{ justfile_directory() }}/result
+    mkdir -p {{ justfile_directory() }}/test_vm
+    NIX_DISK_IMAGE={{ justfile_directory() }}/test_vm/{{ machine }}.qcow2 ./result/bin/run-{{ machine }}-{{ type }}
+    rm -rf {{ justfile_directory() }}/test_vm
