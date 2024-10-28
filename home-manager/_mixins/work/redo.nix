@@ -9,6 +9,7 @@
     pkgs.mongodb-compass
     pkgs.hoppscotch
     pkgs.dive
+    pkgs.bazel-buildtools
   ];
 
   programs.firefox = {
@@ -73,5 +74,4 @@
       categories = [ "Application" "Network" "WebBrowser" ];
     };
   };
-
 }
