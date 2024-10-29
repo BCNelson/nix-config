@@ -10,6 +10,7 @@
     pkgs.hoppscotch
     pkgs.dive
     pkgs.bazel-buildtools
+    pkgs.zed-editor
   ];
 
   programs.firefox = {
