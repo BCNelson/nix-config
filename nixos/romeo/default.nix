@@ -271,7 +271,6 @@ in
             proxyWebsockets = true;
             proxyPass = "http://192.168.3.8:8123";
             extraConfig = ''
-              proxy_http_version 1.1;
               proxy_set_header Host $host;
               proxy_set_header Upgrade $http_upgrade;
               proxy_set_header Connection "upgrade";
