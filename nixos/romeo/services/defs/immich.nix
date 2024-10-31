@@ -13,7 +13,7 @@ in
     image = "ghcr.io/immich-app/immich-server:release";
     container_name = "immich_server";
     volumes = commonVolumes;
-    ports = [ "2283:2283" ];
+    ports = [ "127.0.0.1:2283:2283" ];
     environment = [
       "DB_HOSTNAME=immich_postgres"
       "DB_USERNAME=postgres"

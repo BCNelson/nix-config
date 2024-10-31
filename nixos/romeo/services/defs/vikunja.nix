@@ -123,7 +123,7 @@ in
       "${config}:/app/vikunja/config.yml"
     ];
     depends_on = [ "vikunja_db" ];
-    ports = [ "3456:3456" ];
+    ports = [ "127.0.0.1:3456:3456" ];
     restart = "unless-stopped";
   };
 }

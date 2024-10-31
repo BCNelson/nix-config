@@ -40,7 +40,7 @@ in
       "${dataDirs.level3}/paperless/export:/usr/src/paperless/export"
       "${dataDirs.level3}/paperless/consume:/usr/src/paperless/consume"
     ];
-    ports = [ "8000:8000" ];
+    ports = [ "127.0.0.1:8000:8000" ];
     environment = {
       PAPERLESS_REDIS = "redis://broker:6379";
       PAPERLESS_TIKA_ENABLED = "1";

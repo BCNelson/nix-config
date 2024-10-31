@@ -13,6 +13,6 @@
     volumes = [
       "${dataDirs.level3}/homeBox:/data/"
     ];
-    ports = [ "7745:7745" ];
+    ports = [ "127.0.0.1:7745:7745" ];
   };
 }

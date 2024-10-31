@@ -9,7 +9,7 @@ in
     volumes = [
       "${dataDirs.level2}/mealie:/app/data"
     ];
-    ports = [ "9000:9000" ];
+    ports = [ "127.0.0.1:9000:9000" ];
     environment = [
       "ALLOW_SIGNUP=false"
       "PUID=1000"

@@ -11,7 +11,7 @@ in
       "${dataDirs.level6}/media/youtube:/youtube"
       "${dataDirs.level7}/tubearchivist:/cache"
     ];
-    ports = [ "8001:8000" ];
+    ports = [ "127.0.0.1:8001:8000" ];
     restart = "unless-stopped";
     environment = [
       "ES_URL=http://archivist-es:9200"

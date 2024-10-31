@@ -15,7 +15,7 @@
       "${dataDirs.level5}/audiobookshelf/config:/config"
       "${dataDirs.level5}/audiobookshelf/metadata:/metadata"
     ];
-    ports = [ "8080:80" ];
+    ports = [ "127.0.0.1:8080:80" ];
     container_name = "audiobookshelf";
     restart = "unless-stopped";
   };
