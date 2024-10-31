@@ -15,17 +15,8 @@
       "${dataDirs.level5}/audiobookshelf/config:/config"
       "${dataDirs.level5}/audiobookshelf/metadata:/metadata"
     ];
-    container_name = "audiobookshelf";
-    restart = "unless-stopped";
-  };
-  openAudible = {
-    image = "openaudible/openaudible:latest";
-    container_name = "openaudible";
-    volumes = [
-      "${dataDirs.level5}/openAudible:/config/OpenAudible"
-      "${dataDirs.level6}/media/audible:/media/audiobooks"
-    ];
     ports = [ "8080:80" ];
+    container_name = "audiobookshelf";
     restart = "unless-stopped";
   };
 }
