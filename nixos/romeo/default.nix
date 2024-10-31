@@ -256,7 +256,7 @@ in
           };
         };
       };
-      "homeassistant.romeo.b.nel.family" = {
+      "homeassistant.h.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
