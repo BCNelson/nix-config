@@ -25,6 +25,7 @@
       "${dataDirs.level5}/openAudible:/config/OpenAudible"
       "${dataDirs.level6}/media/audible:/media/audiobooks"
     ];
+    ports = [ "8080:80" ];
     restart = "unless-stopped";
   };
 }

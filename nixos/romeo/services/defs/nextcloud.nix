@@ -16,6 +16,7 @@ in
       "${dataDirs.level5}/nextcloud/data:/data"
     ];
     links = [ "nextcloud_db:db" ];
+    ports = [ "8443:443" ];
     restart = "unless-stopped";
   };
   nextcloud_db = {

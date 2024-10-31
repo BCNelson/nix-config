@@ -24,6 +24,7 @@ in
     volumes = [
       "${dataDirs.level4}/foundryvtt/data:/data"
     ];
+    ports = [ "30000:30000" ];
     restart = "unless-stopped";
   };
 }

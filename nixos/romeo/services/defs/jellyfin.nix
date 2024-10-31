@@ -12,6 +12,7 @@
     group_add = [ "303" ];
     devices = [ "/dev/dri:/dev/dri" ];
     restart = "unless-stopped";
+    ports = [ "8096:8096" ];
     environment = [
       "JELLYFIN_PublishedServerUrl=https://media.nel.family"
     ];
