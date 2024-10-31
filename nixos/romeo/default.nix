@@ -256,6 +256,29 @@ in
           };
         };
       };
+      "homeassistant.romeo.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://192.168.3.8:8123";
+          };
+          "/api/websocket" = {
+            proxyWebsockets = true;
+            proxyPass = "http://192.168.3.8:8123";
+            extraConfig = ''
+              proxy_http_version 1.1;
+              proxy_set_header Host $host;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+            '';
+          };
+        };
+      };
     };
   };
 
