@@ -29,5 +29,4 @@ in
     };
   };
   catppuccin.enable = true;
-  services.displayManager.sddm.catppuccin.enable = if (builtins.length usernames) > 1 then false else true;
 }
