@@ -5,7 +5,6 @@
     ../_mixins/programs/deckmaster
     ../_mixins/programs/libreOffice.nix
     ../_mixins/programs/emulator.nix
-    ../_mixins/programs/handbrake.nix
   ];
 
   home.packages = [
