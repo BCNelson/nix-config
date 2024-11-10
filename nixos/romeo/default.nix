@@ -104,6 +104,11 @@ in
         locations = {
           "/" = {
             proxyPass = "http://localhost:8080";
+            extraConfig = ''
+              proxy_set_header Host $host;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+            '';
           };
         };
       };
