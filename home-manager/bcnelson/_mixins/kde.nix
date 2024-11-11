@@ -15,6 +15,38 @@
       "yakuake"."toggle-window-state" = "F12";
     };
     configFile = { };
+    panels = [{
+      floating = true;
+      height = 42;
+      alignment = "center";
+      hiding = "none";
+      lengthMode = "fill";
+      location = "bottom";
+      screen = "all";
+      widgets = [
+        {
+          name = "org.kde.plasma.taskmanager";
+          config = {
+            showOnlyCurrentScreen = true;
+            showOnlyCurrentDesktop = true;
+            showOnlyCurrentActivity = true;
+            launchers = ["preferred://browser"];
+          };
+        }
+        "org.kde.plasma.marginsseparator"
+        "org.kde.plasma.systemtray"
+        {
+          name = "org.kde.plasma.digitalclock";
+          config = {
+            showSeconds = 2; # 0 = never, 1 = on hover, 2 = always
+          };
+        }
+      ];
+    }];
+    input.keyboard.numlockOnStartup = "on";
+    kwin = {
+      edgeBarrier = 0;
+    };
   };
   qt.style.catppuccin.enable = true;
 }
