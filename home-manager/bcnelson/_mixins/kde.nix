@@ -47,6 +47,12 @@
     kwin = {
       edgeBarrier = 0;
     };
+    fonts = {
+      fixedWidth = {
+        family = "Monaspace Neon";
+        pointSize = 10;
+      };
+    };
   };
   qt.style.catppuccin.enable = true;
 }
