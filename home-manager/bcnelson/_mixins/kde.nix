@@ -14,6 +14,7 @@
       "services/org.kde.krunner.desktop"."_launch" = "Meta+Space";
       "yakuake"."toggle-window-state" = "F12";
     };
+    workspace.theme = "breeze-dark";
     configFile = { };
     panels = [{
       floating = true;
