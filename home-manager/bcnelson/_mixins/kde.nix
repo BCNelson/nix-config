@@ -35,7 +35,11 @@
           };
         }
         "org.kde.plasma.marginsseparator"
-        "org.kde.plasma.systemtray"
+        {
+          systemTray = {
+            items.hidden = [ "Yakuake" ];
+          };
+        }
         {
           name = "org.kde.plasma.digitalclock";
           config = {
