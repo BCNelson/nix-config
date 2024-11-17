@@ -258,8 +258,6 @@ in
         acmeRoot = null;
         extraConfig = ''
           client_max_body_size 0;
-          allow 100.64.0.0/10; # Tailscale
-          deny all;
         '';
         locations = {
           "/" = {
@@ -295,8 +293,6 @@ in
         acmeRoot = null;
         extraConfig = ''
           client_max_body_size 0;
-          allow 100.64.0.0/10; # Tailscale
-          deny all;
         '';
         locations = {
           "/" = {
