@@ -153,7 +153,7 @@ in
           };
         };
       };
-      "syncthing.nel.family" = {
+      "syncthing.h.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
