@@ -12,6 +12,7 @@ let
   immich = import ./defs/immich.nix { inherit dataDirs libx; };
   paperless = import ./defs/paperless.nix { inherit dataDirs libx; };
   tubearchivist = import ./defs/tubearchivist.nix { inherit dataDirs libx; };
+  actual = import ./defs/actual.nix { inherit dataDirs; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -31,6 +32,7 @@ in
         immich
         paperless
         tubearchivist
+        actual
       ];
     };
   };
