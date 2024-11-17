@@ -28,7 +28,6 @@ in
   environment.systemPackages = [
     pkgs.zfs
     services.networkBacked
-    pkgs.gparted
   ];
 
   systemd.timers.auto-update-services = {
