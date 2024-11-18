@@ -124,26 +124,6 @@ in
           "--sshoption=StrictHostKeyChecking=off"
         ];
       };
-      "vor/vault/Backups/level3" = {
-        source = "vault/data/level3";
-        target = "syncoid@vor.ck.nel.family:vault/Backups/bcnelson/level3";
-        extraArgs = [
-          "--compress=zstd-slow"
-          "--source-bwlimit=15m"
-          "--debug"
-          "--sshoption=StrictHostKeyChecking=off"
-        ];
-      };
-      "vor/vault/Backups/level4" = {
-        source = "vault/data/level4";
-        target = "syncoid@vor.ck.nel.family:vault/Backups/bcnelson/level4";
-        extraArgs = [
-          "--compress=zstd-slow"
-          "--source-bwlimit=15m"
-          "--debug"
-          "--sshoption=StrictHostKeyChecking=off"
-        ];
-      };
     };
   };
 
