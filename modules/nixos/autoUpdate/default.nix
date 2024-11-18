@@ -5,8 +5,32 @@ let
   cfg = config.services.bcnelson.autoUpdate;
   autoUpdateScript = pkgs.writeShellApplication {
     name = "auto-update";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils just bash nix nixos-rebuild systemd curl hostname libnotify ];
+    runtimeInputs = with pkgs; [ 
+      git 
+      gnupg 
+      git-crypt 
+      coreutils 
+      just 
+      bash 
+      nix 
+      nixos-rebuild 
+      systemd 
+      curl 
+      hostname 
+      libnotify 
+      openssh];
     text = builtins.readFile ./auto-update.sh;
+  };
+
+  ntfy-refresh-client = pkgs.writeShellApplication {
+    name = "ntfy-refresh-client";
+    runtimeInputs = with pkgs; [ bash ntfy-sh systemd ];
+    text = ''
+      #!/usr/bin/env bash
+      echo "Starting ntfy-refresh-client"
+      # shellcheck disable=SC2016
+      ntfy subscribe "$NTFY_REFRESH_TOPIC" 'echo "Starting Update"; systemctl start auto-update.service'
+    '';
   };
 
 in
@@ -39,6 +63,14 @@ in
       };
       ntfy = {
         enable = lib.mkEnableOption "Enable ntfy";
+        topic = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Ntfy topic";
+        };
+      };
+      ntfy-refresh = {
+        enable = lib.mkEnableOption "Enable ntfy pushed based refresh";
         topic = lib.mkOption {
           type = lib.types.str;
           default = "";
@@ -118,6 +150,21 @@ in
             https://ntfy.sh/${cfg.ntfyTopic}
       '';
       restartIfChanged = false;
+    };
+
+    systemd.services.autoupdate-ntfy-client = lib.mkIf cfg.ntfy-refresh.enable {
+      enable = true;
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      environment = {
+        NTFY_REFRESH_TOPIC = cfg.ntfy-refresh.topic;
+      };
+      serviceConfig = {
+        Type = "simple";
+        User = "root";
+        ExecStart = "${ntfy-refresh-client}/bin/ntfy-refresh-client";
+      };
+      restartIfChanged = true;
     };
   };
 }

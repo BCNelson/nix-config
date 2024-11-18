@@ -67,6 +67,10 @@
     path = "/home/bcnelson/nix-config";
     reboot = false;
     refreshInterval = "15m";
+    ntfy-refresh = {
+      enable = true;
+      topic = "bcnelson_nix-config-update";
+    };
   };
 
   zramSwap.enable = true;
