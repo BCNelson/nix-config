@@ -64,7 +64,7 @@
     serviceConfig = {
       Type = "oneshot";
       User = "root";
-      ExecStart = "${pkgs.zfs}/bin/zfs allow -u syncoid send,hold,mount,snapshot,destroy vault";
+      ExecStart = "${pkgs.zfs}/bin/zfs allow -u syncoid send,hold,mount,snapshot,destroy,create vault";
     };
     restartIfChanged = false;
   };
