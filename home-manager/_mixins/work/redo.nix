@@ -10,7 +10,7 @@
     pkgs.hoppscotch
     pkgs.dive
     pkgs.bazel-buildtools
-    pkgs.zed-editor
+    # pkgs.zed-editor
     pkgs.cloudflared
   ];
 
