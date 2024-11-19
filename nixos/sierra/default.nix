@@ -72,7 +72,6 @@
       topic = "bcnelson_nix-config-update";
     };
     user = "bcnelson";
-    group = "users";
   };
 
   zramSwap.enable = true;

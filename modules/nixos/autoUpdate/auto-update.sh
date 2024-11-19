@@ -39,8 +39,16 @@ then
 fi
 
 hashBefore=$(git rev-parse HEAD)
+
+sudo -u "$USER" bash <<EOF
 git pull --rebase |& tee -a "$tempfile"
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    log "Failed to pull"
+    exit
+fi
+EOF
+
+if [[ -n $? ]]; then
     log "Failed to pull"
     exit
 fi

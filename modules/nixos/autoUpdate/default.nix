@@ -92,11 +92,6 @@ in
         default = "root";
         description = "User to run the service as";
       };
-      group = lib.mkOption {
-        type = lib.types.str;
-        default = "root";
-        description = "Group to run the service as";
-      };
     };
   };
 
@@ -136,11 +131,11 @@ in
         CONFIG_PATH = cfg.path;
         GIT_COMMITTER_EMAIL = "admin@nel.family";
         GIT_COMMITTER_NAME = "Admin";
+        USER = cfg.user;
       };
       serviceConfig = {
         Type = "oneshot";
-        User = cfg.user;
-        Group = cfg.group;
+        User = "root";
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
       };
