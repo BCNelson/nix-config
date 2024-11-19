@@ -44,7 +44,7 @@ sudo -u "$USER" bash <<EOF
 git pull --rebase |& tee -a "$tempfile"
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     log "Failed to pull"
-    exit
+    exit 1
 fi
 EOF
 
