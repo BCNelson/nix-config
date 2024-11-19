@@ -87,6 +87,16 @@ in
         default = "15m";
         description = "Refresh interval";
       };
+      user = lib.mkOption {
+        type = lib.types.str;
+        default = "root";
+        description = "User to run the service as";
+      };
+      group = lib.mkOption {
+        type = lib.types.str;
+        default = "root";
+        description = "Group to run the service as";
+      };
     };
   };
 
@@ -124,10 +134,13 @@ in
         HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
         CONFIG_PATH = cfg.path;
+        GIT_COMMITTER_EMAIL = "admin@nel.family";
+        GIT_COMMITTER_NAME = "Admin";
       };
       serviceConfig = {
         Type = "oneshot";
-        User = "root";
+        User = cfg.user;
+        Group = cfg.group;
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
       };
