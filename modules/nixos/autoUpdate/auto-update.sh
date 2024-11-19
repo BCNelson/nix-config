@@ -1,5 +1,6 @@
 #!/bin/bash
 tempfile=$(mktemp)
+chmod 777 "$tempfile"
 complete=0
 
 log() {
