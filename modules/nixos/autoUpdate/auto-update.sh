@@ -43,12 +43,13 @@ hashBefore=$(git rev-parse HEAD)
 sudo -u "$USER" bash <<EOF
 git pull --rebase |& tee -a "$tempfile"
 if [ "${PIPESTATUS[0]}" -ne 0 ]; then
-    log "Failed to pull"
+    log "Failed to pull changes"
     exit 1
 fi
 EOF
-
-if [[ -n $? ]]; then
+PULL_EXIT_CODE=$?
+echo "PULL_EXIT_CODE: $PULL_EXIT_CODE"
+if [[ $PULL_EXIT_CODE -ne 0 ]]; then
     log "Failed to pull"
     exit
 fi
