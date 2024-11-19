@@ -11,6 +11,7 @@
     pkgs.dive
     pkgs.bazel-buildtools
     pkgs.zed-editor
+    pkgs.cloudflared
   ];
 
   programs.firefox = {
@@ -25,7 +26,6 @@
         id = 1;
         extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           darkreader
-          enhancer-for-youtube
           google-cal-event-merge
           ublock-origin
           i-dont-care-about-cookies

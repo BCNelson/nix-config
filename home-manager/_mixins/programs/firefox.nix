@@ -10,7 +10,6 @@
         extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           bitwarden
           darkreader
-          enhancer-for-youtube
           pay-by-privacy
           google-cal-event-merge
           ublock-origin
