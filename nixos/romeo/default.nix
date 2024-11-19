@@ -239,7 +239,7 @@ in
           };
         };
       };
-      "docs.nel.family" = {
+      "docs.h.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
