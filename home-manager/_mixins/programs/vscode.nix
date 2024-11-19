@@ -11,6 +11,7 @@
       "github.copilot.enable" = {
         "*" = true;
       };
+      "editor.fontFamily" = "'Monaspace Neon', 'monospace', monospace";
       "update.mode" = "none";
     };
   };
