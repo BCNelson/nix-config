@@ -88,7 +88,7 @@ then
     if [ "$REBOOT" == "no" ] || [ "$REBOOT" == "n" ]  || [ "$REBOOT" == "false" ] || [ "$REBOOT" == "0" ]; then
         log "Reboot skipped"
         # check if display is available
-        if [ -n "$DISPLAY" ]; then
+        if test -v DISPLAY; then
             notify-send -u critical "Updates Complete" "Reboot required to complete updates"
         fi
         complete=1
