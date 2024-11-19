@@ -18,7 +18,9 @@ let
       curl 
       hostname 
       libnotify 
-      openssh];
+      openssh
+      sudo
+    ];
     text = builtins.readFile ./auto-update.sh;
   };
 
