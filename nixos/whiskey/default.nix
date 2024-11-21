@@ -1,4 +1,4 @@
-args@{ libx, pkgs, ... }:
+{ libx, pkgs, ... }:
 let
   dataDirs = {
     level1 = "/data/level1"; # Critical
@@ -14,6 +14,7 @@ let
   porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
   porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
+  ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
 in
 {
   imports =
@@ -114,6 +115,10 @@ in
     ntfy = {
       enable = true;
       topic = ntfy_topic;
+    };
+    ntfy-refresh = {
+      enable = true;
+      topic = ntfy_autoUpdate_topic;
     };
     healthCheck = {
       enable = true;

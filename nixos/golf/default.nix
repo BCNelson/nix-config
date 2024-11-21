@@ -1,4 +1,7 @@
-{ lib, ... }:
+{ lib, libx, ... }:
+let
+  ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
+in
 {
   imports = [
     ../_mixins/roles/docker.nix
@@ -17,6 +20,17 @@
     ];
     allowedTCPPorts = [ 22000 ]; # Syncthing
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
+  };
+
+  services.bcnelson.autoUpdate = {
+    enable = true;
+    path = "/config";
+    reboot = true;
+    refreshInterval = "5m";
+    ntfy-refresh = {
+      enable = true;
+      topic = ntfy_autoUpdate_topic;
+    };
   };
 
   zramSwap.enable = true;
