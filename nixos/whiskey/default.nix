@@ -13,13 +13,13 @@ let
   healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
   porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
   porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
+  ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
 in
 {
   imports =
     [
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      (import ../_mixins/autoupdate (args // { inherit pkgs healthcheckUuid; }))
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ./backup.nix
@@ -105,4 +105,20 @@ in
   zramSwap.enable = true;
 
   networking.hostId = "9a637b7f";
+
+  services.bcnelson.autoUpdate = {
+    enable = true;
+    path = "/config";
+    reboot = true;
+    refreshInterval = "5m";
+    ntfy = {
+      enable = true;
+      topic = ntfy_topic;
+    };
+    healthCheck = {
+      enable = true;
+      url = "https://health.b.nel.family";
+      uuid = healthcheckUuid;
+    };
+  };
 }

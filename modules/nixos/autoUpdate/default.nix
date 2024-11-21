@@ -45,11 +45,6 @@ in
         default = null;
         description = "Path to the git repository";
       };
-      healthCheckUuid = lib.mkOption {
-        type = lib.types.str;
-        default = "";
-        description = "Health check configuration";
-      };
       healthCheck = {
         enable = lib.mkEnableOption "Enable health check";
         url = lib.mkOption {
@@ -57,10 +52,10 @@ in
           default = "";
           description = "Health check URL";
         };
-        interval = lib.mkOption {
+        uuid = lib.mkOption {
           type = lib.types.str;
-          default = "5m";
-          description = "Health check interval";
+          default = "";
+          description = "Health check configuration";
         };
       };
       ntfy = {
@@ -114,6 +109,10 @@ in
         message = "Health check URL must be set if health check is enabled";
       }
       {
+        assertion = !cfg.healthCheck.enable || cfg.healthCheck.uuid != "";
+        message = "Health check UUID must be set if health check is enabled";
+      }
+      {
         assertion = !cfg.ntfy.enable || cfg.ntfy.topic != "";
         message = "Ntfy topic must be set if ntfy is enabled";
       }
@@ -127,7 +126,7 @@ in
       enable = true;
       environment = {
         NTFY_TOPIC = if cfg.ntfy.enable then cfg.ntfy.topic else "";
-        HEALTHCHECK_UUID = if cfg.healthCheck.enable then cfg.healthCheckUuid else "";
+        HEALTHCHECK_UUID = if cfg.healthCheck.enable then cfg.healthCheck.uuid else "";
         HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
         CONFIG_PATH = cfg.path;
