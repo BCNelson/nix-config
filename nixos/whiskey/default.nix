@@ -10,10 +10,10 @@ let
     level7 = "/data/level6"; # Ephemeral
   };
   services = import ./services { inherit libx dataDirs pkgs; };
-  healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
+  healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
   porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
   porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
-  ntfy_topic = libx.getSecret ../sensitive.nix "ntfy_topic";
+  ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
 in
 {
   imports =
