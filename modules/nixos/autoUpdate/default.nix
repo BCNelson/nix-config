@@ -156,7 +156,7 @@ in
         ${pkgs.curl}/bin/curl -H "X-Title: $HOSTNAME has Started" \
             -H "X-Priority: 2" \
             -d "$HOSTNAME Has Booted!" \
-            https://ntfy.sh/${cfg.ntfyTopic}
+            https://ntfy.sh/${cfg.ntfy.topic}
       '';
       restartIfChanged = false;
     };

@@ -13,7 +13,7 @@ let
   healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
   porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
   porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
-  ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
+  ntfy_topic = libx.getSecret ../sensitive.nix "ntfy_topic";
 in
 {
   imports =
