@@ -2,7 +2,7 @@
 let
   dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };
-  healthcheckUuid = libx.getSecret ./sensitive.nix "auto_update_healthCheck_uuid";
+  healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
   porkbun_api_creds = libx.getSecretWithDefault ./sensitive.nix "porkbun_api" {
     api_key = "";
     secret_key = "";
