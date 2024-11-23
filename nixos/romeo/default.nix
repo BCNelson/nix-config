@@ -230,6 +230,8 @@ in
         acmeRoot = null;
         extraConfig = ''
           client_max_body_size 0;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "upgrade";
         '';
         locations = {
           "/" = {
