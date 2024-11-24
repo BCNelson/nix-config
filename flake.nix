@@ -17,6 +17,10 @@
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
+    agenix.url = "github:ryantm/agenix";
+    agenix-rekey.url = "github:oddlama/agenix-rekey";
+    agenix-rekey.inputs.nixpkgs.follows = "nixpkgs-unstable";
+
     nixvim = {
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -105,6 +109,13 @@
         }
       );
 
+      agenix-rekey = inputs.agenix-rekey.configure {
+        userFlake = self;
+        nodes = self.nixosConfigurations;
+        # Example for colmena:
+        # inherit ((colmena.lib.makeHive self.colmena).introspect (x: x)) nodes;
+      };
+
       # Your custom packages
       # Accessible through 'nix build', 'nix shell', etc
       packages = libx.forAllSystems (system: import ./pkgs nixpkgs-unstable.legacyPackages.${system});
@@ -112,7 +123,7 @@
       # Devshell for bootstrapping
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
       devShells = libx.forAllSystems (system:
-        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; };
+        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; overlays = [ inputs.agenix-rekey.overlays.default ]; };
         in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs-unstable) lib; }
       );
     };

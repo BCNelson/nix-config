@@ -61,6 +61,8 @@ in
       ../nixos
       versions.${version}.home-manager.nixosModules.home-manager
       inputs.catppuccin.nixosModules.catppuccin
+      inputs.agenix.nixosModules.default
+      inputs.agenix-rekey.nixosModules.default
       (mkHome { inherit hostname usernames desktop; })
       {
         nix.nixPath = [ "nixpkgs=${versions.${version}.nixpkgs}" ];

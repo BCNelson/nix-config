@@ -9,7 +9,7 @@ let
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ ./common.nix ]
+  imports = [ ./common.nix ./secrets.nix ]
     # ++ lib.optional common ./common.nix # Common configuration but ones that can be turned off
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
     ++ builtins.filter builtins.pathExists (map (username: ./_mixins/users/${username}) usernames)
