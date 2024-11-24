@@ -16,7 +16,7 @@ in
       ./samba.nix
       ./backups.nix
     ];
-  
+
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/config";

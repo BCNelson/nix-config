@@ -31,7 +31,7 @@
             showOnlyCurrentScreen = true;
             showOnlyCurrentDesktop = true;
             showOnlyCurrentActivity = true;
-            launchers = ["preferred://browser"];
+            launchers = [ "preferred://browser" ];
           };
         }
         "org.kde.plasma.marginsseparator"

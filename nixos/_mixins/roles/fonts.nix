@@ -1,6 +1,6 @@
 { pkgs, ... }:
 {
-  fonts= {
+  fonts = {
     enableDefaultPackages = false;
     packages = [
       pkgs.nerdfonts
@@ -11,11 +11,11 @@
       pkgs.monaspace
     ];
     fontconfig = {
-    defaultFonts = {
-      serif = [  "Ubuntu Serif" ];
-      sansSerif = [ "Ubuntu" ];
-      monospace = [ "Monaspace Neon" ];
+      defaultFonts = {
+        serif = [ "Ubuntu Serif" ];
+        sansSerif = [ "Ubuntu" ];
+        monospace = [ "Monaspace Neon" ];
+      };
     };
-  };
   };
 }

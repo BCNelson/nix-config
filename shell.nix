@@ -7,18 +7,18 @@
     NIX_CONFIG = "experimental-features = nix-command flakes";
     JUST_UNSTABLE = "true"; #Must be enabled for just modules to work
     nativeBuildInputs = with pkgs; [
-      nix 
-      home-manager 
-      git 
-      git-crypt 
-      gnupg 
-      pinentry 
-      just 
-      qemu 
-      zstd 
-      terraform 
-      nixd 
-      nil 
+      nix
+      home-manager
+      git
+      git-crypt
+      gnupg
+      pinentry
+      just
+      qemu
+      zstd
+      terraform
+      nixd
+      nil
       agenix-rekey
       age-plugin-yubikey
       age-plugin-fido2-hmac

@@ -9,7 +9,7 @@ in
   foundryvtt = {
     image = "felddy/foundryvtt:12";
     container_name = "foundryvtt";
-    hostname="pathfinder.h.b.nel.family";
+    hostname = "pathfinder.h.b.nel.family";
     environment = [
       "FOUNDRY_USERNAME=bcnelson"
       "FOUNDRY_PASSWORD=${sensitiveData.account_password}"

@@ -5,19 +5,19 @@ let
   cfg = config.services.bcnelson.autoUpdate;
   autoUpdateScript = pkgs.writeShellApplication {
     name = "auto-update";
-    runtimeInputs = with pkgs; [ 
-      git 
-      gnupg 
-      git-crypt 
-      coreutils 
-      just 
-      bash 
-      nix 
-      nixos-rebuild 
-      systemd 
-      curl 
-      hostname 
-      libnotify 
+    runtimeInputs = with pkgs; [
+      git
+      gnupg
+      git-crypt
+      coreutils
+      just
+      bash
+      nix
+      nixos-rebuild
+      systemd
+      curl
+      hostname
+      libnotify
       openssh
       sudo
     ];

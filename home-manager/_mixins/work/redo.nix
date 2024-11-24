@@ -60,9 +60,9 @@
   };
 
   programs.fish = {
-      enable = true;
-      shellAliases = {
-        bazelisk = "distrobox enter redo -- bazelisk";
+    enable = true;
+    shellAliases = {
+      bazelisk = "distrobox enter redo -- bazelisk";
     };
   };
 

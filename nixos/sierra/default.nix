@@ -6,7 +6,6 @@
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ../_mixins/roles/desktop
-      # ../_mixins/roles/desktop/hyperland.nix
       ../_mixins/roles/gaming.nix
       ../_mixins/roles/docker.nix
       ../_mixins/roles/tailscale.nix
@@ -14,7 +13,6 @@
       ../_mixins/roles/fonts.nix
       ../_mixins/roles/appimage.nix
       ../_mixins/roles/nixified-ai.nix
-      # ../_mixins/roles/figurine.nix
       ../_mixins/roles/emulator.nix
       ../_mixins/roles/weylus.nix
       ../_mixins/hardware/streamdeck.nix
@@ -22,6 +20,7 @@
       ../_mixins/hardware/platfromio.nix
       ../_mixins/roles/nfs.nix
       ../_mixins/roles/kanidmClient.nix
+      ../_mixins/roles/workstation.nix
     ];
   networking.firewall = {
     enable = true;
