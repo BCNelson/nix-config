@@ -23,14 +23,13 @@
 
     pkgs.unstable.obsidian
 
-    pkgs.libsForQt5.filelight
+    pkgs.kdePackages.filelight
 
-    pkgs.libsForQt5.kate
+    pkgs.kdePackages.kate
 
     # Chat
     pkgs.unstable.signal-desktop
     pkgs.unstable.discord
-    pkgs.beeper
 
     pkgs.newsflash
 
