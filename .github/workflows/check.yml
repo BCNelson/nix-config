@@ -38,3 +38,4 @@ jobs:
         with:
           fetch-depth: 0
       - run: git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f
+      - run: curl -d "Github Actions Update" ntfy.sh/{{ secrets.NTFY_UPDATE_TOPIC }}
