@@ -23,5 +23,11 @@
         ];
       };
     };
+    stable = import inputs.nixpkgs24-05 {
+      inherit (final) system;
+      config = {
+        allowUnfree = true;
+      };
+    };
   };
 }

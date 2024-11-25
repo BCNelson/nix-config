@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   services.nginx = {
     enable = true;
@@ -31,6 +31,7 @@
 
   services.kanidm = {
     enableServer = true;
+    package = pkgs.stable.kanidm;
     serverSettings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
