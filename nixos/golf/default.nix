@@ -24,13 +24,14 @@ in
 
   services.bcnelson.autoUpdate = {
     enable = true;
-    path = "/config";
-    reboot = true;
-    refreshInterval = "5m";
+    path = "/home/bcnelson/nix-config";
+    reboot = false;
+    refreshInterval = "6h";
     ntfy-refresh = {
       enable = true;
       topic = ntfy_autoUpdate_topic;
     };
+    user = "bcnelson";
   };
 
   zramSwap.enable = true;
