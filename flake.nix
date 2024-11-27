@@ -110,10 +110,8 @@
       );
 
       agenix-rekey = inputs.agenix-rekey.configure {
+        inherit (self) nixosConfigurations;
         userFlake = self;
-        nodes = self.nixosConfigurations;
-        # Example for colmena:
-        # inherit ((colmena.lib.makeHive self.colmena).introspect (x: x)) nodes;
       };
 
       # Your custom packages

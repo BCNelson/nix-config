@@ -23,4 +23,6 @@
         "$@"
     '')
   ];
+
+  services.pcscd.enable = true;
 }

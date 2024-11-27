@@ -1,4 +1,4 @@
-{ libx, pkgs, ... }:
+{ libx, pkgs, config, ... }:
 let
   dataDirs = {
     level1 = "/data/level1"; # Critical
@@ -54,15 +54,16 @@ in
     restartIfChanged = false;
   };
 
+  age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoNd3NpbrmNofVDkrxbn4dSWwE0yiFlf9CCxGGA0Y32";
+
+  age.secrets.porkbun_api_creds.rekeyFile = ../../secrets/store/porkbun_api_creds.age;
+
   security.acme = {
     acceptTerms = true;
     defaults = {
       email = "admin@nel.family";
       dnsProvider = "porkbun";
-      environmentFile = "${pkgs.writeText "porkbun-creds" ''
-        PORKBUN_SECRET_API_KEY=${porkbun_api_secret}
-        PORKBUN_API_KEY=${porkbun_api_key}
-      ''}";
+      environmentFile = config.age.secrets.porkbun_api_creds.path;
     };
   };
 

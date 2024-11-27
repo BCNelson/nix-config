@@ -1,7 +1,7 @@
 { hostname, pkgs, ... }: {
   age.rekey = {
     storageMode = "local";
-    localStorageDir = ./secrets/hosts/${hostname};
+    localStorageDir = ../secrets/hosts/${hostname};
     masterIdentities = [
       {
         identity = ../secrets/masterKeys/yubikey5cblack.pub;
