@@ -28,6 +28,7 @@ in
     dataDir = "${dataDirs.level3}/healthchecks";
     settings = {
         ALLOWED_HOSTS = [ "https://health.b.nel.family" ];
+        SITE_ROOT = "https://health.b.nel.family";
         REGISTRATION_OPEN = false;
     };
     settingsFile = config.age.secrets.healthchecks.path;
