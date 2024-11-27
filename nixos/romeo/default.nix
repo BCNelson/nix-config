@@ -49,6 +49,8 @@ in
     restartIfChanged = false;
   };
 
+  age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJoAO+MRf73hWxT2N/ZHsQDAdi+DYrQyB1zb8MxHzgY";
+
   age.secrets.porkbun_api_creds.rekeyFile = ../../secrets/store/porkbun_api_creds.age;
 
   security.acme = {
