@@ -11,8 +11,6 @@ let
   };
   services = import ./services { inherit libx dataDirs pkgs; };
   healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
-  porkbun_api_key = libx.getSecret ./sensitive.nix "porkbun_api_key";
-  porkbun_api_secret = libx.getSecret ./sensitive.nix "porkbun_api_secret";
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
   ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
 in
@@ -28,6 +26,7 @@ in
       ./kanidm.nix
       ./monitoring.nix
     ];
+
   environment.systemPackages = [
     services.networkBacked
   ];

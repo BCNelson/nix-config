@@ -3,10 +3,6 @@ let
   dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };
   healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
-  porkbun_api_creds = libx.getSecretWithDefault ./sensitive.nix "porkbun_api" {
-    api_key = "";
-    secret_key = "";
-  };
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
   ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
 in
@@ -53,15 +49,14 @@ in
     restartIfChanged = false;
   };
 
+  age.secrets.porkbun_api_creds.rekeyFile = ../../secrets/store/porkbun_api_creds.age;
+
   security.acme = {
     acceptTerms = true;
     defaults = {
       email = "admin@nel.family";
       dnsProvider = "porkbun";
-      environmentFile = "${pkgs.writeText "porkbun-creds" ''
-        PORKBUN_API_KEY=${porkbun_api_creds.api_key}
-        PORKBUN_SECRET_API_KEY=${porkbun_api_creds.secret_key}
-      ''}";
+      environmentFile = config.age.secrets.porkbun_api_creds.path;
     };
   };
 
