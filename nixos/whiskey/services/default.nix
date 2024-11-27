@@ -1,7 +1,6 @@
 { libx, dataDirs, ... }:
 let
   vaultwarden = import ./defs/vaultwarden.nix { inherit dataDirs libx; };
-  healthchecks = import ./defs/healthchecks.nix { inherit dataDirs libx; };
 in
 {
   networkBacked = libx.createDockerComposeStackPackage {
@@ -11,7 +10,6 @@ in
       version = "3.8";
       services = builtins.foldl' (a: b: a // b) { } [
         vaultwarden
-        healthchecks
       ];
     };
   };

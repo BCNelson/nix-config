@@ -23,6 +23,7 @@ in
       ../_mixins/roles/server
       ./backup.nix
       ./forgejo.nix
+      ./healthchecks.nix
       ./kanidm.nix
       ./monitoring.nix
     ];
@@ -85,16 +86,6 @@ in
           "/" = {
             proxyWebsockets = true;
             proxyPass = "http://localhost:8080";
-          };
-        };
-      };
-      "health.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:8000";
           };
         };
       };

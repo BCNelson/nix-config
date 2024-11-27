@@ -1,4 +1,4 @@
-{ pkgs, libx, ... }:
+{ pkgs, libx, config, ... }:
 let
   dataDirs = import ./dataDirs.nix;
   services = import ./services { inherit libx dataDirs pkgs; };
