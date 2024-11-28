@@ -48,22 +48,6 @@ in
     recommendedTlsSettings = true;
     recommendedProxySettings = true;
     recommendedOptimisation = true;
-    virtualHosts = {
-      "vault.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 525M;
-        '';
-        locations = {
-          "/" = {
-            proxyWebsockets = true;
-            proxyPass = "http://localhost:8080";
-          };
-        };
-      };
-    };
   };
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];
