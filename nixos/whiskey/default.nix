@@ -9,7 +9,6 @@ let
     level6 = "/data/level6"; # Replaceable
     level7 = "/data/level6"; # Ephemeral
   };
-  services = import ./services { inherit libx dataDirs pkgs; };
   healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
   ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
@@ -24,35 +23,10 @@ in
       ./backup.nix
       ./forgejo.nix
       ./healthchecks.nix
+      ./vaultwarden.nix
       ./kanidm.nix
       ./monitoring.nix
     ];
-
-  environment.systemPackages = [
-    services.networkBacked
-  ];
-
-  systemd.timers.auto-update-services = {
-    enable = true;
-    timerConfig = {
-      OnBootSec = "30min";
-      OnUnitActiveSec = "60m";
-      Persistent = true;
-    };
-    wantedBy = [ "timers.target" ];
-  };
-
-  systemd.services.auto-update-services = {
-    enable = true;
-    path = [ pkgs.docker ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "root";
-      ExecStart = "${services.networkBacked}/bin/dockerStack-general up -d --remove-orphans --pull always --quiet-pull";
-    };
-    restartTriggers = [ services.networkBacked ];
-    restartIfChanged = false;
-  };
 
   age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoNd3NpbrmNofVDkrxbn4dSWwE0yiFlf9CCxGGA0Y32";
 
