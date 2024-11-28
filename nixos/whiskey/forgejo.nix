@@ -46,7 +46,7 @@ in
     dump = {
       enable = true;
       type = "tar.zst";
-      backupDir = "${dataDirs.level3}";
+      backupDir = "${dataDirs.level3}/forgejo";
     };
   };
 }
