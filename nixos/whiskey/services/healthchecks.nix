@@ -21,7 +21,7 @@ in
     };
   };
 
-  age.secrets.healthchecks.rekeyFile = ../../secrets/store/healthchecks.age;
+  age.secrets.healthchecks.rekeyFile = ../../../secrets/store/healthchecks.age;
 
   services.healthchecks = {
     enable = true;

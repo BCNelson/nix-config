@@ -20,35 +20,16 @@ in
       ./hardware-configuration.nix
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
+      ../_mixins/roles/server/nginx.nix
       ./backup.nix
-      ./forgejo.nix
-      ./healthchecks.nix
-      ./vaultwarden.nix
-      ./kanidm.nix
-      ./monitoring.nix
+      ./services/forgejo.nix
+      ./services/healthchecks.nix
+      ./services/vaultwarden.nix
+      ./services/kanidm.nix
+      ./services/monitoring.nix
     ];
 
   age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoNd3NpbrmNofVDkrxbn4dSWwE0yiFlf9CCxGGA0Y32";
-
-  age.secrets.porkbun_api_creds.rekeyFile = ../../secrets/store/porkbun_api_creds.age;
-
-  security.acme = {
-    acceptTerms = true;
-    defaults = {
-      email = "admin@nel.family";
-      dnsProvider = "porkbun";
-      environmentFile = config.age.secrets.porkbun_api_creds.path;
-    };
-  };
-
-  services.nginx = {
-    enable = true;
-    recommendedGzipSettings = true;
-    recommendedZstdSettings = true;
-    recommendedTlsSettings = true;
-    recommendedProxySettings = true;
-    recommendedOptimisation = true;
-  };
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 

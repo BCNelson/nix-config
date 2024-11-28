@@ -32,7 +32,7 @@ in
     };
   };
 
-  age.secrets.vaultwarden.rekeyFile = ../../secrets/store/vaultwarden.age;
+  age.secrets.vaultwarden.rekeyFile = ../../../secrets/store/vaultwarden.age;
 
   services.vaultwarden = {
     enable = true;
