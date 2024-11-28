@@ -20,6 +20,13 @@ in
             proxyWebsockets = true;
             proxyPass = "http://localhost:8080";
           };
+          "/admin" = {
+            extraConfig = ''
+                allow 100.64.0.0/10;
+                deny all;
+            '';
+            proxyPass = "http://localhost:8080";
+          };
         };
       };
     };
