@@ -67,7 +67,7 @@
     enable = true;
     path = "/home/bcnelson/nix-config";
     reboot = false;
-    refreshInterval = "15m";
+    refreshInterval = "6h";
     ntfy-refresh = {
       enable = true;
       topicFile = config.age.secrets.ntfy_refresh_topic.path;

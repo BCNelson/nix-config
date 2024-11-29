@@ -25,7 +25,7 @@ in
     enable = true;
     path = "/config";
     reboot = true;
-    refreshInterval = "5m";
+    refreshInterval = "1h";
     ntfy = {
       enable = true;
       topicFile = config.age.secrets.ntfy_topic.path;
