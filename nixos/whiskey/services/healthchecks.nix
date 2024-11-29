@@ -27,10 +27,10 @@ in
     enable = true;
     dataDir = "${dataDirs.level3}/healthchecks";
     settings = {
-        ALLOWED_HOSTS = [ "health.b.nel.family" ];
-        SITE_ROOT = "https://health.b.nel.family";
-        REGISTRATION_OPEN = false;
-        DEBUG = true;
+      ALLOWED_HOSTS = [ "health.b.nel.family" ];
+      SITE_ROOT = "https://health.b.nel.family";
+      REGISTRATION_OPEN = false;
+      DEBUG = true;
     };
     settingsFile = config.age.secrets.healthchecks.path;
     listenAddress = "localhost";

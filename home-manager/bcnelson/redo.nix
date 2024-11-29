@@ -11,7 +11,7 @@
   programs.plasma = {
     enable = true;
     kwin.virtualDesktops = {
-      names = ["Left" "Main" "Right"];
+      names = [ "Left" "Main" "Right" ];
       rows = 1;
     };
   };

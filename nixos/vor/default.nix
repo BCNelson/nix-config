@@ -1,8 +1,6 @@
 { config, libx, ... }:
 let
-  healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
-  ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
 in
 {
   imports =

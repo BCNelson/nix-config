@@ -1,4 +1,4 @@
-{ config, lib, libx, ... }:
+{ config, lib, ... }:
 {
   imports = [
     ../_mixins/roles/docker.nix

@@ -1,6 +1,8 @@
-{ hostname, pkgs, lib, ... }: let
+{ hostname, pkgs, lib, ... }:
+let
   hosts = import ./hosts.nix;
-in {
+in
+{
   services.openssh = {
     enable = lib.mkDefault true;
   };

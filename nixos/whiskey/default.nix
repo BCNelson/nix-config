@@ -1,17 +1,6 @@
-{ libx, pkgs, config, ... }:
+{ libx, config, ... }:
 let
-  dataDirs = {
-    level1 = "/data/level1"; # Critical
-    level2 = "/data/level2"; # Important
-    level3 = "/data/level3"; # High
-    level4 = "/data/level4"; # Medium
-    level5 = "/data/level5"; # Low
-    level6 = "/data/level6"; # Replaceable
-    level7 = "/data/level6"; # Ephemeral
-  };
-  healthcheckUuid = libx.getSecretWithDefault ./sensitive.nix "auto_update_healthCheck_uuid" "00000000-0000-0000-0000-000000000000";
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
-  ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
 in
 {
   imports =

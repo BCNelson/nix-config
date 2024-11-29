@@ -1,8 +1,8 @@
 { pkgs, libx, ... }:
-  let
-    hostKey = libx.getSecret ../sensitive.nix "isoAgePrivateKey";
-    hostKeyFile = pkgs.writeText "hostKey" hostKey;
-  in
+let
+  hostKey = libx.getSecret ../sensitive.nix "isoAgePrivateKey";
+  hostKeyFile = pkgs.writeText "hostKey" hostKey;
+in
 {
   imports =
     [

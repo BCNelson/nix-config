@@ -1,6 +1,4 @@
-{ config, pkgs, libx, ... }: let
-
-in {
+{ config, pkgs, ... }: {
   environment.systemPackages = with pkgs; [
     tailscale
     jq # Needed for parsing tailscale status in the setup script
