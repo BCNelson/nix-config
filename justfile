@@ -145,3 +145,6 @@ test machine='vm_test' type='vm':
     mkdir -p {{ justfile_directory() }}/test_vm
     NIX_DISK_IMAGE={{ justfile_directory() }}/test_vm/{{ machine }}.qcow2 ./result/bin/run-{{ machine }}-{{ type }}
     rm -rf {{ justfile_directory() }}/test_vm
+
+rekey:
+    agenix rekey -a
