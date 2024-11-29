@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   imports =
@@ -61,6 +61,8 @@
     };
   };
 
+  age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/home/bcnelson/nix-config";
@@ -68,7 +70,7 @@
     refreshInterval = "15m";
     ntfy-refresh = {
       enable = true;
-      topic = "bcnelson_nix-config-update";
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
     };
     user = "bcnelson";
   };

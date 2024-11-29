@@ -30,6 +30,7 @@ let
     text = ''
       #!/usr/bin/env bash
       echo "Starting ntfy-refresh-client"
+      NTFY_REFRESH_TOPIC = "$(cat $NTFY_REFRESH_TOPIC_FILE)"
       # shellcheck disable=SC2016
       ntfy subscribe "$NTFY_REFRESH_TOPIC" 'echo "Starting Update"; systemctl start auto-update.service'
     '';
@@ -52,7 +53,7 @@ in
           default = "";
           description = "Health check URL";
         };
-        uuid = lib.mkOption {
+        uuidFile = lib.mkOption {
           type = lib.types.str;
           default = "";
           description = "Health check configuration";
@@ -60,7 +61,7 @@ in
       };
       ntfy = {
         enable = lib.mkEnableOption "Enable ntfy";
-        topic = lib.mkOption {
+        topicFile = lib.mkOption {
           type = lib.types.str;
           default = "";
           description = "Ntfy topic";
@@ -68,7 +69,7 @@ in
       };
       ntfy-refresh = {
         enable = lib.mkEnableOption "Enable ntfy pushed based refresh";
-        topic = lib.mkOption {
+        topicFile = lib.mkOption {
           type = lib.types.str;
           default = "";
           description = "Ntfy topic";
@@ -125,8 +126,8 @@ in
     systemd.services.auto-update = {
       enable = true;
       environment = {
-        NTFY_TOPIC = if cfg.ntfy.enable then cfg.ntfy.topic else "";
-        HEALTHCHECK_UUID = if cfg.healthCheck.enable then cfg.healthCheck.uuid else "";
+        NTFY_TOPIC_FILE = if cfg.ntfy.enable then cfg.ntfy.topicFile else "";
+        HEALTHCHECK_UUID_FILE = if cfg.healthCheck.enable then cfg.healthCheck.uuidFile else "";
         HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
         CONFIG_PATH = cfg.path;
@@ -166,7 +167,7 @@ in
       wantedBy = [ "multi-user.target" ];
       wants = [ "network-online.target" ];
       environment = {
-        NTFY_REFRESH_TOPIC = cfg.ntfy-refresh.topic;
+        NTFY_REFRESH_TOPIC_FILE = cfg.ntfy-refresh.topicFile;
       };
       serviceConfig = {
         Type = "simple";

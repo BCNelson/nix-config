@@ -1,7 +1,4 @@
-{ lib, libx, ... }:
-let
-  ntfy_autoUpdate_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_autoUpdate_topic" "null";
-in
+{ config, lib, libx, ... }:
 {
   imports = [
     ../_mixins/roles/docker.nix
@@ -22,6 +19,8 @@ in
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
 
+  age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/home/bcnelson/nix-config";
@@ -29,7 +28,7 @@ in
     refreshInterval = "6h";
     ntfy-refresh = {
       enable = true;
-      topic = ntfy_autoUpdate_topic;
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
     };
     user = "bcnelson";
   };

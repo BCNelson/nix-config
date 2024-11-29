@@ -29,13 +29,15 @@ in
       ./services/monitoring.nix
     ];
 
-  age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoNd3NpbrmNofVDkrxbn4dSWwE0yiFlf9CCxGGA0Y32";
-
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
   zramSwap.enable = true;
 
   networking.hostId = "9a637b7f";
+
+  age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;
+  age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+  age.secrets.auto_update_healthCheck_uuid.rekeyFile = ../../secrets/store/whiskey/auto_update_healthCheck_uuid.age;
 
   services.bcnelson.autoUpdate = {
     enable = true;
@@ -44,16 +46,16 @@ in
     refreshInterval = "5m";
     ntfy = {
       enable = true;
-      topic = ntfy_topic;
+      topicFile = config.age.secrets.ntfy_topic.path;
     };
     ntfy-refresh = {
       enable = true;
-      topic = ntfy_autoUpdate_topic;
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
     };
     healthCheck = {
       enable = true;
       url = "https://health.b.nel.family";
-      uuid = healthcheckUuid;
+      uuidFile = config.age.secrets.auto_update_healthCheck_uuid.path;
     };
   };
 }

@@ -16,6 +16,7 @@ in
       ../_mixins/roles/server/zfs.nix
       ../_mixins/roles/figurine.nix
       ../_mixins/roles/server/monitoring.nix
+      ../_mixins/roles/server/nginx.nix
       ./unbound.nix
       ./backups.nix
       ./nfs.nix
@@ -49,26 +50,8 @@ in
     restartIfChanged = false;
   };
 
-  age.rekey.hostPubkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOJoAO+MRf73hWxT2N/ZHsQDAdi+DYrQyB1zb8MxHzgY";
-
-  age.secrets.porkbun_api_creds.rekeyFile = ../../secrets/store/porkbun_api_creds.age;
-
-  security.acme = {
-    acceptTerms = true;
-    defaults = {
-      email = "admin@nel.family";
-      dnsProvider = "porkbun";
-      environmentFile = config.age.secrets.porkbun_api_creds.path;
-    };
-  };
-
   services.nginx = {
     enable = true;
-    recommendedGzipSettings = true;
-    recommendedZstdSettings = true;
-    recommendedTlsSettings = true;
-    recommendedProxySettings = true;
-    recommendedOptimisation = true;
     virtualHosts = {
       "media.nel.family" = {
         forceSSL = true;
@@ -303,6 +286,10 @@ in
     };
   };
 
+  age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;
+  age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+  age.secrets.auto_update_healthCheck_uuid.rekeyFile = ../../secrets/store/romeo/auto_update_healthCheck_uuid.age;
+
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/config";
@@ -310,16 +297,16 @@ in
     refreshInterval = "5m";
     ntfy = {
       enable = true;
-      topic = ntfy_topic;
+      topicFile = config.age.secrets.ntfy_topic.path;
     };
     ntfy-refresh = {
       enable = true;
-      topic = ntfy_autoUpdate_topic;
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
     };
     healthCheck = {
       enable = true;
       url = "https://health.b.nel.family";
-      uuid = healthcheckUuid;
+      uuidFile = config.age.secrets.auto_update_healthCheck_uuid.path;
     };
   };
 

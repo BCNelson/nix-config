@@ -6,6 +6,13 @@ complete=0
 log() {
     echo "$1" |& tee -a "$tempfile"
 }
+
+if [ -z "$$HEALTHCHECK_UUID_FILE" ]; then
+    HEALTHCHECK_UUID = $(cat "$HEALTHCHECK_UUID_FILE")
+    log "HEALTHCHECK_UUID: $HEALTHCHECK_UUID"
+fi
+
+
 if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
     if ! curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/start"; then
         log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"

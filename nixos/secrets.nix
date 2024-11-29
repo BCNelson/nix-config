@@ -1,7 +1,10 @@
-{ hostname, pkgs, ... }: {
+{ hostname, pkgs, ... }: let
+  hosts = import ./hosts.nix;
+in {
   age.rekey = {
     storageMode = "local";
     localStorageDir = ../secrets/hosts/${hostname};
+    hostPubkey = hosts.${hostname};
     masterIdentities = [
       {
         identity = ../secrets/masterKeys/yubikey5cblack.pub;
