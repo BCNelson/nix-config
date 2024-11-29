@@ -1,6 +1,10 @@
-{ hostname, pkgs, ... }: let
+{ hostname, pkgs, lib, ... }: let
   hosts = import ./hosts.nix;
 in {
+  services.openssh = {
+    enable = lib.mkDefault true;
+  };
+
   age.rekey = {
     storageMode = "local";
     localStorageDir = ../secrets/hosts/${hostname};

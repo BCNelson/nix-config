@@ -1,9 +1,6 @@
-{ pkgs, libx, ... }:
+{ config, pkgs, libx, ... }: let
 
-let
-  ntfy_topic = libx.getSecret ../../sensitive.nix "ntfy_topic";
-in
-{
+in {
   environment.systemPackages = with pkgs; [
     tailscale
     jq # Needed for parsing tailscale status in the setup script
@@ -12,6 +9,9 @@ in
     enable = true;
     package = pkgs.unstable.tailscale;
   };
+
+  age.secrets.ntfy_topic.rekeyFile = ../../../secrets/store/ntfy_topic.age;
+
   systemd.services.tailscale-autoconnect = {
     description = "Automatic connection to Tailscale";
 
@@ -42,6 +42,8 @@ in
       auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r .AuthURL)"
       kill $tail_pid
 
+      NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
+
       echo "Sending notification to ntfy channel $auth_url"
       ${curl}/bin/curl -H "X-Title: Tailscale Login: $HOSTNAME" \
           -H "X-Priority: 4" \
@@ -49,7 +51,7 @@ in
           -H "X-Click: $auth_url" \
           -H "X-Icon: https://tailscale.com/favicon.ico" \
           -d "There has been a Request to login to your tailscale network: $auth_url" \
-          https://ntfy.sh/${ntfy_topic}
+          https://ntfy.sh/$NTFY_TOKEN
     '';
   };
   # Network manager should not manage tailscale0 interface

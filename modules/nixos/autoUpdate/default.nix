@@ -110,11 +110,11 @@ in
         message = "Health check URL must be set if health check is enabled";
       }
       {
-        assertion = !cfg.healthCheck.enable || cfg.healthCheck.uuid != "";
+        assertion = !cfg.healthCheck.enable || cfg.healthCheck.uuidFile != "";
         message = "Health check UUID must be set if health check is enabled";
       }
       {
-        assertion = !cfg.ntfy.enable || cfg.ntfy.topic != "";
+        assertion = !cfg.ntfy.enable || cfg.ntfy.topicFile != "";
         message = "Ntfy topic must be set if ntfy is enabled";
       }
       {
@@ -154,10 +154,11 @@ in
       };
       script = ''
         #!/usr/bin/env bash
+        NTFY_TOPIC=$(cat ${cfg.ntfy.topicFile})
         ${pkgs.curl}/bin/curl -H "X-Title: $HOSTNAME has Started" \
             -H "X-Priority: 2" \
             -d "$HOSTNAME Has Booted!" \
-            https://ntfy.sh/${cfg.ntfy.topic}
+            https://ntfy.sh/$NTFY_TOPIC
       '';
       restartIfChanged = false;
     };
