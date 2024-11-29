@@ -1,9 +1,9 @@
-{ lib, pkgs, libx, ... }:
+{ config, lib, pkgs, libx, ... }:
 let
   basicBorgJob = { repo, paths, prune ? null }: {
     inherit repo paths;
     encryption.mode = "none";
-    environment.BORG_RSH = "ssh -o 'StrictHostKeyChecking=no' -i /root/.ssh/id_ed25519";
+    environment.BORG_RSH = "ssh -o 'StrictHostKeyChecking=no' -i ${config.age.secrets.borgbaseSshKey.path}";
     environment.BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK = "yes";
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
@@ -126,6 +126,8 @@ in
       };
     };
   };
+
+  age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
 
   services.borgbackup.jobs = {
     level1 = basicBorgJob {
