@@ -1,6 +1,6 @@
-{ pkgs, libx, inputs, ... }:
+{ config, pkgs, libx, inputs, ... }:
 let
-  dataDirs = import ./dataDirs.nix;
+  dataDirs = config.data.dirs;
 
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;

@@ -1,7 +1,7 @@
 { pkgs, libx, config, ... }:
 let
-  dataDirs = import ./dataDirs.nix;
-  services = import ./services { inherit libx dataDirs pkgs; };
+  dataDirs = config.data.dirs;
+  services = import ./docker-services { inherit libx dataDirs pkgs; };
   ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
 in
 {
@@ -19,6 +19,8 @@ in
       ./backups.nix
       ./nfs.nix
       ./nixarr.nix
+      ./services
+      ./dataDirs.nix
     ];
 
   environment.systemPackages = [
