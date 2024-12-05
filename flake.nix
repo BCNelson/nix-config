@@ -21,6 +21,11 @@
     agenix-rekey.url = "github:oddlama/agenix-rekey";
     agenix-rekey.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     nixvim = {
       url = "github:nix-community/nixvim";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -120,7 +125,7 @@
       # Devshell for bootstrapping
       # Acessible through 'nix develop' or 'nix-shell' (legacy)
       devShells = libx.forAllSystems (system:
-        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; overlays = [ inputs.agenix-rekey.overlays.default ]; };
+        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; overlays = [ inputs.agenix-rekey.overlays.default inputs.rust-overlay.overlays.default ]; };
         in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs-unstable) lib; }
       );
     };

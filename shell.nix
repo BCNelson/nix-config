@@ -1,7 +1,17 @@
 # Shell for bootstrapping flake-enabled nix and home-manager
 # You can enter it through 'nix develop' or (legacy) 'nix-shell'
 
-{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }: {
+{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }: let 
+  rustPackages = with pkgs; [
+    rust-bin.stable.latest.default
+    openssl
+    pkg-config
+    cargo-deny
+    cargo-edit
+    cargo-watch
+    rust-analyzer
+  ];
+in {
   default = pkgs.mkShell {
     # Enable experimental features without having to specify the argument
     NIX_CONFIG = "experimental-features = nix-command flakes";
@@ -25,6 +35,6 @@
     ] ++ lib.optional (lib.hasInfix system == "linux") [
       pkgs.quickemu
       pkgs.qemu
-    ];
+    ] ++ rustPackages;
   };
 }

@@ -845,7 +845,28 @@
         "nixpkgs24-05": "nixpkgs24-05",
         "nixvim": "nixvim",
         "nur": "nur",
-        "plasma-manager": "plasma-manager"
+        "plasma-manager": "plasma-manager",
+        "rust-overlay": "rust-overlay"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs-unstable"
+        ]
+      },
+      "locked": {
+        "lastModified": 1733366051,
+        "narHash": "sha256-Zlas3LFqrW8bVVrZYgkzS4VNkZgtZ/hsbYhO0GtKLys=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "ba5ed0362eaae83fe8925a2d5cfcf356ff22f70f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "systems": {

@@ -9,3 +9,6 @@ test/working
 disk-config.nix
 
 .terraform
+
+# Rust based packages
+pkgs/*/target
