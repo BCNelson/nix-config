@@ -1,9 +1,12 @@
 # Shell for bootstrapping flake-enabled nix and home-manager
 # You can enter it through 'nix develop' or (legacy) 'nix-shell'
 
-{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }: let 
+{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }: let
+  rustpkg = pkgs.rust-bin.stable.latest.default.override {
+    extensions = [ "rust-src" ];
+  };
   rustPackages = with pkgs; [
-    rust-bin.stable.latest.default
+    rustpkg
     openssl
     pkg-config
     cargo-deny
@@ -16,6 +19,10 @@ in {
     # Enable experimental features without having to specify the argument
     NIX_CONFIG = "experimental-features = nix-command flakes";
     JUST_UNSTABLE = "true"; #Must be enabled for just modules to work
+    env = {
+      # Required by rust-analyzer
+      RUST_SRC_PATH = "${rustpkg}/lib/rustlib/src/rust/library";
+    };
     nativeBuildInputs = with pkgs; [
       nix
       home-manager
