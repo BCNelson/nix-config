@@ -1,7 +1,7 @@
 { rustPlatform }: let
-    cargoToml = builtins.fromTOML ./Cargo.toml;
+    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
 in rustPlatform.buildRustPackage{
-  name = cargoToml.package.name;
+  pname = cargoToml.package.name;
     version = cargoToml.package.version;
   src = ./.;
   cargoLock = {
