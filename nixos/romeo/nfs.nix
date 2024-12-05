@@ -1,6 +1,6 @@
-_:
+{ config, ... }:
 let
-  dataDirs = import ./dataDirs.nix;
+  dataDirs = config.data.dirs;
 in
 {
   imports = [
