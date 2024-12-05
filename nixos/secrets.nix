@@ -1,6 +1,6 @@
 { hostname, pkgs, lib, ... }:
 let
-  hosts = import ./hosts.nix;
+  GetHostsData = import ../hosts;
 in
 {
   services.openssh = {
@@ -10,7 +10,7 @@ in
   age.rekey = {
     storageMode = "local";
     localStorageDir = ../secrets/hosts/${hostname};
-    hostPubkey = hosts.${hostname};
+    hostPubkey = (GetHostsData hostname).hostKey;
     masterIdentities = [
       {
         identity = ../secrets/masterKeys/yubikey5cblack.pub;
