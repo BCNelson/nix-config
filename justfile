@@ -104,16 +104,22 @@ alias fmt := format
 format:
     nix fmt
 
-isoCreate:
+isoCreate version='iso_desktop':
     #!/usr/bin/env bash
     set -euo pipefail
     shopt -s extglob
-    nix build .#nixosConfigurations.iso_desktop.config.system.build.isoImage -o {{ justfile_directory() }}/../result
+    nix build .#nixosConfigurations.{{version}}.config.system.build.isoImage -o {{ justfile_directory() }}/result
 
-isoTest: isoCreate
+isoTest version='iso_desktop': (isoCreate version)
     #!/usr/bin/env bash
+    DISK_IMAGE={{ justfile_directory() }}/test/working/{{version}}/iso.qcow2
+    mkdir -p $(dirname $DISK_IMAGE)
+    if test -n $DISK_IMAGE && ! test -e $DISK_IMAGE; then
+        mkdir -p {{ justfile_directory() }}/test_vm
+        qemu-img create -f qcow2 "$DISK_IMAGE" "4096M"
+    fi
     ISO=$(head -n1 {{ justfile_directory() }}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
-    qemu-system-x86_64 -cdrom {{ justfile_directory() }}/../result/iso/$ISO
+    qemu-system-x86_64 -enable-kvm -m 4096 -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk
 
 isoInstall: isoCreate
     #!/usr/bin/env bash
@@ -122,7 +128,7 @@ isoInstall: isoCreate
         ventoy_Mount=$(findmnt -n -o TARGET /dev/disk/by-label/@(v|V)entoy)
         if [ -n "$ventoy_Mount" ]; then
             echo "Copying iso to ventoy drive"
-            cp {{ justfile_directory() }}/../result/iso/$ISO $ventoy_Mount/Nixos_Install_Desktop.iso
+            cp {{ justfile_directory() }}/result/iso/$ISO $ventoy_Mount/Nixos_Install_Desktop.iso
         else
             echo "Ventoy drive not mounted"
         fi

@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, cmake }: stdenv.mkDerivation rec {
+{ stdenv, fetchFromGitHub, cmake }: stdenv.mkDerivation {
   pname = "mdns-reflector";
   version = "4b4cd3b196f09b507d9a32c7488491bbd5071ba6";
   src = fetchFromGitHub {

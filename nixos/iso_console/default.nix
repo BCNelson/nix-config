@@ -9,6 +9,13 @@ in
       # Include the results of the hardware scan.
       ../_mixins/roles/tailscale.nix
     ];
+  
+  environment.systemPackages = [ pkgs.pinentry ];
+
+  programs.gnupg.agent = {
+    enable = true;
+    pinentryPackage = pkgs.pinentry;
+  };
 
   age.identityPaths = [ hostKeyFile ];
 
