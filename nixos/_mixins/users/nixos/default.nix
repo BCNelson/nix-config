@@ -1,11 +1,6 @@
-{ config, desktop, lib, pkgs, ... }:
+{ outputs ,config, desktop, lib, pkgs, ... }:
 let
   ifExists = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
-  install-system = pkgs.writeShellApplication {
-    name = "install-system";
-    runtimeInputs = with pkgs; [ git gnupg git-crypt coreutils ];
-    text = builtins.readFile ./install-system.sh;
-  };
 in
 {
   # Only include desktop components if one is supplied.
@@ -29,6 +24,6 @@ in
   };
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;
-  config.environment.systemPackages = [ install-system ];
+  config.environment.systemPackages = [ pkgs.install-system ];
   config.services.kmscon.autologinUser = "nixos";
 }

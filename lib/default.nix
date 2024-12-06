@@ -22,16 +22,16 @@ let
       home-manager = inputs.home-manager-unstable;
     };
     stable = {
-      nixpkgs = inputs.nixpkgs24-05;
-      home-manager = inputs.home-manager24-05;
-    };
-    "23.11" = {
-      nixpkgs = inputs.nixpkgs23-11;
-      home-manager = inputs.home-manager23-11;
+      nixpkgs = inputs.nixpkgs24-11;
+      home-manager = inputs.home-manager24-11;
     };
     "24.05" = {
       nixpkgs = inputs.nixpkgs24-05;
       home-manager = inputs.home-manager24-05;
+    };
+    "24.11" = {
+      nixpkgs = inputs.nixpkgs24-11;
+      home-manager = inputs.home-manager24-11;
     };
   };
 

@@ -3,16 +3,16 @@
 
   inputs = {
     # Nixpkgs
-    nixpkgs23-11.url = "github:nixos/nixpkgs/nixos-23.11";
     nixpkgs24-05.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs24-11.url = "github:nixos/nixpkgs/nixos-24.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Home manager
-    home-manager23-11.url = "github:nix-community/home-manager/release-23.11";
-    home-manager23-11.inputs.nixpkgs.follows = "nixpkgs23-11";
-
     home-manager24-05.url = "github:nix-community/home-manager/release-24.05";
     home-manager24-05.inputs.nixpkgs.follows = "nixpkgs24-05";
+
+    home-manager24-11.url = "github:nix-community/home-manager/release-24.11";
+    home-manager24-11.inputs.nixpkgs.follows = "nixpkgs24-11";
 
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -90,8 +90,8 @@
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-05 + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; };
-        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-05 + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde6"; inherit libx; };
+        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; };
+        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde6"; inherit libx; };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
