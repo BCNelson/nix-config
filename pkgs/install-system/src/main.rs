@@ -140,6 +140,7 @@ fn main() -> Result<()> {
 
     run_cmd!(
         just fmt;
+        git checkout -b "install-$target_host";
         git add -A;
         git config user.email "admin@nel.family";
         git config user.name "Automated Installer";
