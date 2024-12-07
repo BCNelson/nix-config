@@ -7,8 +7,8 @@ log() {
     echo "$1" |& tee -a "$tempfile"
 }
 
-if [ -z "$$HEALTHCHECK_UUID_FILE" ]; then
-    HEALTHCHECK_UUID = $(cat "$HEALTHCHECK_UUID_FILE")
+if [ -z "$HEALTHCHECK_UUID_FILE" ]; then
+    HEALTHCHECK_UUID="$(cat "$HEALTHCHECK_UUID_FILE")"
     log "HEALTHCHECK_UUID: $HEALTHCHECK_UUID"
 fi
 
