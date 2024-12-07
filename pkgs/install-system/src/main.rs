@@ -56,6 +56,14 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    print!("Would you like automatic updates enabled? [y/N] ");
+    std::io::Write::flush(&mut std::io::stdout())?;
+
+    input.clear();
+    std::io::stdin().read_line(&mut input)?;
+
+    let auto_updates = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+
     run_cmd!(sudo true)?;
 
     let disk_nix = if PathBuf::from(format!("nixos/{}/disks.nix", target_host_prefix)).exists() {
@@ -76,7 +84,13 @@ fn main() -> Result<()> {
 
     let default_nix_path = format!("{}/default.nix", host_dir);
     let default_nix_config = include_str!("../templates/default-host.nix");
-    std::fs::write(&default_nix_path, default_nix_config)?;
+    let default_with_autoupdates_nix_config = include_str!("../templates/default-host-autoupdate.nix");
+
+    if auto_updates {
+        std::fs::write(&default_nix_path, default_with_autoupdates_nix_config)?;
+    } else {
+        std::fs::write(&default_nix_path, default_nix_config)?;
+    }
 
     let new_host_config = format!(
         "&\n        \"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
@@ -89,8 +103,12 @@ fn main() -> Result<()> {
     
     std::fs::write("flake.nix", flake_content)?;
 
+    let target_host = format!("{}", args.target_host);
+
+    let ssh_ket_comment = format!("{}@nix-config", target_host);
+
     // Generate SSH keys
-    run_cmd!(ssh-keygen -t ed25519 -N "\"\"" -f "$home/id_ed25519")?;
+    run_cmd!(ssh-keygen -t ed25519 -N "\"\"" -f "$home/id_ed25519" -C $ssh_ket_comment)?;
 
     // read the public key
     let public_key = std::fs::read_to_string(format!("{}/id_ed25519.pub", home))?;
@@ -102,6 +120,13 @@ fn main() -> Result<()> {
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
+    if auto_updates {
+        run_cmd!(
+            git add -A;
+            nix run ".#agenix-rekey.x86_64-linux.rekey";
+        )?;
+    }
+
     run_cmd!(
         git add -A;
         git config user.email "admin@nel.family";
@@ -110,8 +135,6 @@ fn main() -> Result<()> {
         git config --unset "user.email";
         git config --unset "user.name";
     )?;
-
-    let target_host = format!("{}", args.target_host);
 
     run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
 

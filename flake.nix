@@ -74,7 +74,7 @@
       stateVersion = "23.05";
       libx = import ./lib { inherit inputs outputs stateVersion; };
     in
-    rec {
+    {
       # Your custom packages and modifications, exported as overlays
       overlays = import ./overlays { inherit inputs; };
       # Reusable nixos modules you might want to export

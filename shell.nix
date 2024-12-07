@@ -1,7 +1,8 @@
 # Shell for bootstrapping flake-enabled nix and home-manager
 # You can enter it through 'nix develop' or (legacy) 'nix-shell'
 
-{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }: let
+{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }:
+let
   rustpkg = pkgs.rust-bin.stable.latest.default.override {
     extensions = [ "rust-src" ];
   };
@@ -14,7 +15,8 @@
     cargo-watch
     rust-analyzer
   ];
-in {
+in
+{
   default = pkgs.mkShell {
     # Enable experimental features without having to specify the argument
     NIX_CONFIG = "experimental-features = nix-command flakes";
@@ -42,6 +44,11 @@ in {
     ] ++ lib.optional (lib.hasInfix system == "linux") [
       pkgs.quickemu
       pkgs.qemu
+      (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''
+        ${pkgs.qemu}/bin/qemu-system-x86_64 \
+          -bios ${pkgs.OVMF.fd}/FV/OVMF.fd \
+          "$@"
+      '')
     ] ++ rustPackages;
   };
 }

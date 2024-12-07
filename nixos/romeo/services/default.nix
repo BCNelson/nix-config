@@ -1,5 +1,5 @@
-{ ... }:{
-    imports = [
-        ./audiobookshelf.nix
-    ];
+{ ... }: {
+  imports = [
+    ./audiobookshelf.nix
+  ];
 }

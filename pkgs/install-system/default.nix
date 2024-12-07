@@ -1,13 +1,20 @@
-{ rustPlatform, pkgs }: let
-    cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-in rustPlatform.buildRustPackage{
+{ rustPlatform, pkgs }:
+let
+  cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+in
+rustPlatform.buildRustPackage {
   pname = cargoToml.package.name;
-    version = cargoToml.package.version;
+  inherit (cargoToml.package) version;
   src = ./.;
   cargoLock = {
     lockFile = ./Cargo.lock;
   };
   buildInputs = with pkgs; [
-    git gnupg git-crypt coreutils
+    git
+    gnupg
+    git-crypt
+    coreutils
+    age-plugin-yubikey
+    age-plugin-fido2-hmac
   ];
 }

@@ -119,7 +119,7 @@ isoTest version='iso_desktop': (isoCreate version)
         qemu-img create -f qcow2 "$DISK_IMAGE" "32G"
     fi
     ISO=$(head -n1 {{ justfile_directory() }}/result/nix-support/hydra-build-products | cut -d'/' -f6)
-    qemu-system-x86_64 -enable-kvm -m 8192 -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk
+    qemu-system-x86_64-uefi -enable-kvm -m 8192 -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk
 
 isoInstall: isoCreate
     #!/usr/bin/env bash
