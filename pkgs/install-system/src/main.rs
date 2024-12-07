@@ -93,7 +93,7 @@ fn main() -> Result<()> {
     }
 
     let new_host_config = format!(
-        "&\n        \"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
+        "\n        \"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
         args.target_host, args.target_host, args.target_user
     );
     let mut flake_content = std::fs::read_to_string("flake.nix")?;
