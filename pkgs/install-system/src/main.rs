@@ -36,6 +36,9 @@ fn main() -> Result<()> {
 
     std::env::set_current_dir(&nix_config)?;
 
+    println!("Decrypting Repository");
+    run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
+
     let target_host_prefix = args.target_host.split('-').next().unwrap();
 
     println!("WARNING! The disk {} in {} is about to get wiped", 
@@ -87,15 +90,17 @@ fn main() -> Result<()> {
     std::fs::write("flake.nix", flake_content)?;
 
     // Generate SSH keys
-    run_cmd!(ssh-keygen -t ed25519 -f "$home/id_ed25519" -N "")?;
+    run_cmd!(ssh-keygen -t ed25519 -N "\"\"" -f "$home/id_ed25519")?;
 
     // read the public key
     let public_key = std::fs::read_to_string(format!("{}/id_ed25519.pub", home))?;
 
-    let host_def = include_str!("../templates/host.nix")
+    let host_def_contents = include_str!("../templates/host.nix")
         .replace("INSERT_PUBLIC_KEY", &public_key);
     // write the host definition
-    std::fs::write(format!("hosts/data/{}.nix", args.target_host), host_def)?;
+    let host_def_path = format!("{}/hosts/data/{}.nix", nix_config.display(), args.target_host);
+    println!("Writing host definition to {}", host_def_path);
+    std::fs::write(host_def_path, host_def_contents)?;
 
     run_cmd!(
         git add -A;
@@ -114,10 +119,11 @@ fn main() -> Result<()> {
 
     println!("Copying nix-config to /config and /mnt/home/{}", target_user);
     run_cmd!(
-        cp $home/id_ed25519 " /mnt/etc/ssh/ssh_host_ed25519_key"
-        cp $home/id_ed25519.pub "/mnt/etc/ssh/ssh_host_ed25519_key.pub"
+        mkdir -p /mnt/etc/ssh;
+        sudo cp $home/id_ed25519 "/mnt/etc/ssh/ssh_host_ed25519_key";
+        sudo cp $home/id_ed25519.pub "/mnt/etc/ssh/ssh_host_ed25519_key.pub";
         sudo rsync -a "$home/nix-config" "/mnt/config/";
-        sudo rsync -a --delete "$home/nix-config" "/mnt/home/$target_user"
+        sudo rsync -a --delete "$home/nix-config" "/mnt/home/$target_user";
     )?;
 
     run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
