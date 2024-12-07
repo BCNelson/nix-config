@@ -14,6 +14,7 @@ rustPlatform.buildRustPackage {
     gnupg
     git-crypt
     coreutils
+    just
     age-plugin-yubikey
     age-plugin-fido2-hmac
   ];

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use anyhow::{Result, bail, anyhow};
 use cmd_lib::run_cmd;
+use regex::Regex;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,6 +36,13 @@ fn main() -> Result<()> {
     }
 
     std::env::set_current_dir(&nix_config)?;
+
+    let mut flake_content = std::fs::read_to_string("flake.nix")?;
+    
+    //check if the host is already in the flake
+    if flake_content.contains(args.target_host.as_str()) {
+        bail!("Host already exists in flake.nix");
+    }
 
     println!("Decrypting Repository");
     run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
@@ -93,13 +101,16 @@ fn main() -> Result<()> {
     }
 
     let new_host_config = format!(
-        "\n        \"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
+        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
         args.target_host, args.target_host, args.target_user
     );
-    let mut flake_content = std::fs::read_to_string("flake.nix")?;
-    // find end of INSERT_HOST_CONFIG
-    let postition = flake_content.find("INSERT_HOST_CONFIG").ok_or_else(|| anyhow!("INSERT_HOST_CONFIG not found"))? + 18;
-    flake_content.insert_str(postition, &new_host_config);
+
+    let nixos_configurations_regex = Regex::new(r"(?m)(nixosConfigurations = \{\n)").unwrap();
+    
+    flake_content = nixos_configurations_regex.replace(&flake_content, |caps: &regex::Captures| {
+        format!("{}{}\n", &caps[0], new_host_config)
+    }).to_string();
+    
     
     std::fs::write("flake.nix", flake_content)?;
 
@@ -128,6 +139,7 @@ fn main() -> Result<()> {
     }
 
     run_cmd!(
+        just fmt;
         git add -A;
         git config user.email "admin@nel.family";
         git config user.name "Automated Installer";
@@ -137,6 +149,8 @@ fn main() -> Result<()> {
     )?;
 
     run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
+
+    run_cmd!(just push)?;
 
     let target_user = format!("{}", args.target_user);
 

@@ -193,6 +193,7 @@ dependencies = [
  "anyhow",
  "clap",
  "cmd_lib",
+ "regex",
 ]
 
 [[package]]
