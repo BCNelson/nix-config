@@ -93,6 +93,13 @@ resource "porkbun_dns_record" "h_b_nel_family-A" {
   ttl     = 600
 }
 
+resource "porkbun_dns_record" "nixcache_nel_family-CNAME" {
+  domain = "nel.family"
+  name = "nixcache"
+  type = "CNAME"
+  content = "h.b.nel.family"
+}
+
 # atlas.b      A  100.75.145.94
 resource "porkbun_dns_record" "atlas_b_nel_family-A" {
   domain  = "nel.family"
