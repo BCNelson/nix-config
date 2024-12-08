@@ -4,7 +4,7 @@ let
 in
 {
   virtualisation.oci-containers.containers.audiobookshelf = {
-    image = "docker.io/audiobookshelf/audiobookshelf:latest";
+    image = "ghcr.io/advplyr/audiobookshelf:latest";
     environment = {
       "AUDIOBOOKSHELF_UID" = "99";
       "AUDIOBOOKSHELF_GID" = "100";
