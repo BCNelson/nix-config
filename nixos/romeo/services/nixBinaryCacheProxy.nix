@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
   dataDirs = config.data.dirs;
 in
@@ -9,5 +9,5 @@ in
       cachePath = "${dataDirs.level7}/nixBinaryCacheProxy";
     };
 
-  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+  nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
 }

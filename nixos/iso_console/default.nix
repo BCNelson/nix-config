@@ -1,4 +1,4 @@
-{ pkgs, libx, ... }:
+{ pkgs, libx, lib, ... }:
 let
   hostKey = libx.getSecret ../sensitive.nix "isoAgePrivateKey";
   hostKeyFile = pkgs.writeText "hostKey" hostKey;
@@ -19,7 +19,7 @@ in
 
   age.identityPaths = [ hostKeyFile ];
 
-  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+  nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
 
   # If ephemeral is true, then tailscale will be removed on next reboot
   systemd.services.tailscaled = {

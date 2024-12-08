@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   imports =
@@ -17,7 +17,7 @@
     pinentry-qt
   ];
 
-  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+  nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
 
   programs.gnupg.agent = {
     enable = true;
