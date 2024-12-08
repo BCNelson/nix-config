@@ -10,17 +10,19 @@ log() {
 if [ -z "$HEALTHCHECK_UUID_FILE" ]; then
     HEALTHCHECK_UUID="$(cat "$HEALTHCHECK_UUID_FILE")"
     log "HEALTHCHECK_UUID: $HEALTHCHECK_UUID"
+else
+    HEALTHCHECK_UUID=""
 fi
 
 
-if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+if [ -n "${HEALTHCHECK_UUID++}" ] && [ -n "${HEALTHCHECK_URL++}" ]; then
     if ! curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/start"; then
         log "Failed to start healthcheck ping uuid: $HEALTHCHECK_UUID"
     fi
 fi
 
 exit() {
-    if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+    if [ -n "${HEALTHCHECK_UUID++}" ] && [ -n "${HEALTHCHECK_URL++}" ]; then
         if [ "$complete" -eq 0 ]; then
             curl --silent --show-error --retry 5 --data-raw "$(cat "$tempfile")" "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/fail"
         else
@@ -109,7 +111,7 @@ then
             -d "$(hostname) is rebooting in 1 min as necessary for updates" \
             "https://ntfy.sh/$NTFY_TOPIC"
         fi
-        if [ -n "$HEALTHCHECK_UUID" ] && [ -n "$HEALTHCHECK_URL" ]; then
+        if [ -n "${HEALTHCHECK_UUID++}" ] && [ -n "${HEALTHCHECK_URL++}" ]; then
             curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/log" \
                 --data-raw "Rebooting for updates in 1 minute"
         fi
