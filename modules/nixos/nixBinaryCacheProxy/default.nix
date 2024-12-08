@@ -54,8 +54,9 @@ in
         }
       '';
       virtualHosts."${cfg.domain}" = {
+        forceSSL = true;
         enableACME = true;
-
+        acmeRoot = null;
         locations."/" = {
           root = "/var/public-nix-cache";
           extraConfig = ''
