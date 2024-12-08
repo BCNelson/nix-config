@@ -18,6 +18,9 @@ on:
 jobs:
   get-hosts:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       hosts: ${{ steps.set-hosts.outputs.hosts }}
     steps:
@@ -35,6 +38,9 @@ jobs:
       matrix:
         host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
       fail-fast: false
+    permissions:
+      contents: read
+      id-token: write
     
     steps:
       - uses: actions/checkout@v4
