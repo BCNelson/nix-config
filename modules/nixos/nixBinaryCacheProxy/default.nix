@@ -115,7 +115,7 @@ in
     };
     systemd.services.nginx = {
       serviceConfig = {
-         StateDirectory = "${cfg.cachePath}";
+         ReadWritePaths = "${cfg.cachePath}";
       };
     };
   };
