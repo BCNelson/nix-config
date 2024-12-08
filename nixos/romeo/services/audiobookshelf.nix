@@ -20,4 +20,28 @@ in
     ];
     ports = [ "127.0.0.1:8080:80" ];
   };
+
+  services.nginx = {
+    enable = true;
+    virtualHosts = {
+      "audiobooks.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:8080";
+            extraConfig = ''
+              proxy_set_header Host $host;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+            '';
+          };
+        };
+      };
+    };
+  };
 }

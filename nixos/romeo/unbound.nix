@@ -1,7 +1,7 @@
 { pkgs, lib, ... }:
 let
   zonefile = pkgs.writeTextFile {
-    name = "linode-dns-config";
+    name = "dns-zonefile";
     text = ''
       todo.nel.family A 192.168.3.7
       recipes.nel.family A 192.168.3.7
@@ -11,6 +11,7 @@ let
       changedetection.nel.family A 192.168.3.7
       auth.nel.family A 192.168.3.7
       nel.to A 192.168.3.7
+      nixcache.nel.family A 192.168.3.7
     '';
     destination = "/localOverride";
   };

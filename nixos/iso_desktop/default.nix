@@ -17,6 +17,8 @@
     pinentry-qt
   ];
 
+  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+
   programs.gnupg.agent = {
     enable = true;
     pinentryPackage = pkgs.pinentry-qt;

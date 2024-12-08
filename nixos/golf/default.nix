@@ -19,6 +19,8 @@
     allowedUDPPorts = [ 22000 21027 ]; # Syncthing
   };
 
+  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+
   age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
 
   services.bcnelson.autoUpdate = {

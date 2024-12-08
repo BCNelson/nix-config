@@ -5,4 +5,5 @@
   autoUpdate = import ./autoUpdate;
   recovery = import ./recovery;
   dataDirs = import ./dataDirs;
+  nixBinaryCacheProxy = import ./nixBinaryCacheProxy;
 }

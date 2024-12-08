@@ -28,6 +28,8 @@
     options = [ "noauto" "x-systemd.automount" "x-systemd.idle-timeout=600" "noatime" "x-systemd.requires=network.target" ];
   };
 
+  nix.binaryCaches = [ "https://nixcache.nel.family/" "http://cache.nixos.org/" ];
+
   users.groups = {
     photos = {
       name = "photos";
