@@ -113,7 +113,7 @@ in
         };
       };
     };
-    systemd.services.niginx = {
+    systemd.services.nginx = {
       seriveConfig = {
         WorkingDirectory = "${cfg.cachePath}";
       };
