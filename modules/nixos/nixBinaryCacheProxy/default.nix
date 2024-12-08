@@ -115,7 +115,7 @@ in
     };
     systemd.services.nginx = {
       serviceConfig = {
-        WorkingDirectory = "${cfg.cachePath}";
+         StateDirectory = "${cfg.cachePath}";
       };
     };
   };
