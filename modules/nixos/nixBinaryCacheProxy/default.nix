@@ -52,8 +52,6 @@ in
           302     "public";
           default "no-cache";
         }
-
-        access_log logs/access.log;
       '';
       virtualHosts."${cfg.domain}" = {
         enableACME = true;
