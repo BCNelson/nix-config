@@ -16,23 +16,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  check:
+  get-hosts:
     runs-on: ubuntu-latest
-
+    outputs:
+      hosts: ${{ steps.set-hosts.outputs.hosts }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+      - id: set-hosts
+        run: echo "hosts=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)" >> $GITHUB_OUTPUT
 
+  check-hosts:
+    needs: get-hosts
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
-      
-      - run: nix flake check
-
+      - name: Check host ${{ matrix.host }}
+        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run
+  
   auto-update:
     runs-on: ubuntu-latest
-    needs: check
-
+    needs: check-hosts
     if: github.ref == 'refs/heads/main'
 
     steps:
