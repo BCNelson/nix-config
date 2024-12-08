@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use clap::Parser;
-use anyhow::{Result, bail, anyhow};
+use anyhow::{Result, bail};
 use cmd_lib::run_cmd;
 use regex::Regex;
 
@@ -131,6 +131,8 @@ fn main() -> Result<()> {
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
+    run_cmd!(ignore sudo nix format)?;
+
     if auto_updates {
         run_cmd!(
             git add -A;
@@ -139,7 +141,6 @@ fn main() -> Result<()> {
     }
 
     run_cmd!(
-        just fmt;
         git checkout -b "install-$target_host";
         git add -A;
         git config user.email "admin@nel.family";
@@ -151,7 +152,11 @@ fn main() -> Result<()> {
 
     run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
 
-    run_cmd!(just push)?;
+    run_cmd!(
+        git config push.autoSetupRemote true;
+        just push;
+        git config --unset push.autoSetupRemote;
+    )?;
 
     let target_user = format!("{}", args.target_user);
 

@@ -1,15 +1,7 @@
-{ rustPlatform, pkgs }:
+{ rustPlatform, pkgs, lib, makeWrapper }:
 let
   cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-in
-rustPlatform.buildRustPackage {
-  pname = cargoToml.package.name;
-  inherit (cargoToml.package) version;
-  src = ./.;
-  cargoLock = {
-    lockFile = ./Cargo.lock;
-  };
-  buildInputs = with pkgs; [
+  runtimeDeps = with pkgs; [
     git
     gnupg
     git-crypt
@@ -17,5 +9,22 @@ rustPlatform.buildRustPackage {
     just
     age-plugin-yubikey
     age-plugin-fido2-hmac
+    nix
+    nixos-install-tools
+    openssh
+    util-linux
   ];
+in
+rustPlatform.buildRustPackage rec {
+  pname = cargoToml.package.name;
+  inherit (cargoToml.package) version;
+  src = ./.;
+  cargoLock = {
+    lockFile = ./Cargo.lock;
+  };
+  buildInputs = [ makeWrapper ];
+  postFixup = ''
+    wrapProgram $out/bin/${pname} \
+      --prefix PATH : ${"/run/wrappers/bin:" + (lib.makeBinPath runtimeDeps)}
+  '';
 }
