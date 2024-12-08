@@ -1,4 +1,4 @@
-{ config, lib, pkgs, libx, ... }:
+{ config, lib, libx, ... }:
 let
   basicBorgJob = { repo, paths, prune ? null }: {
     inherit repo paths;
@@ -179,7 +179,7 @@ in
     serviceConfig.Type = "oneshot";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    script = with pkgs; ''
+    script = ''
       sudo zfs allow -u backup send,hold
     '';
   };

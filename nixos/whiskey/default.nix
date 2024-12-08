@@ -1,8 +1,4 @@
-{ libx, config, ... }:
-let
-  ntfy_topic = libx.getSecretWithDefault ../sensitive.nix "ntfy_topic" "null";
-in
-{
+{ config, ... }: {
   imports =
     [
       # Include the results of the hardware scan.
