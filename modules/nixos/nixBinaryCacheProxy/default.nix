@@ -113,5 +113,10 @@ in
         };
       };
     };
+    systemd.services.niginx = {
+      seriveConfig = {
+        WorkingDirectory = "${cfg.cachePath}";
+      };
+    };
   };
 }
