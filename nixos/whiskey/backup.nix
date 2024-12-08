@@ -7,7 +7,7 @@ let
     environment.BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK = "yes";
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
-    startAt = "daily";
+    startAt = "6h";
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
@@ -18,7 +18,7 @@ let
   };
 in
 {
-  age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
+  age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/whiskey/borgbase_ssh_key.age;
 
   services.borgbackup.jobs = {
     level1 = basicBorgJob {
