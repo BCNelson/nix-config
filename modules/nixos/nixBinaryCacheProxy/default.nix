@@ -59,6 +59,7 @@ in
         acmeRoot = null;
         locations."/" = {
           root = "/var/public-nix-cache";
+          recommendedProxySettings = false;
           extraConfig = ''
             expires max;
             add_header Cache-Control $cache_header always;
@@ -81,6 +82,7 @@ in
         '';
         locations."@fallback" = {
           proxyPass = "$upstream_endpoint";
+          recommendedProxySettings = false;
           extraConfig = ''
             proxy_cache nixbinarycache;
             proxy_cache_valid  200 302  60m;
@@ -98,6 +100,7 @@ in
           # Note: This is duplicated with the `@fallback` above,
           # would be nicer if we could redirect to the @fallback instead.
           proxyPass = "$upstream_endpoint";
+          recommendedProxySettings = false;
           extraConfig = ''
             proxy_cache nixbinarycache;
             proxy_cache_valid  200 302  60m;
