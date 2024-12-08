@@ -84,6 +84,7 @@ in
           proxyPass = "$upstream_endpoint";
           recommendedProxySettings = false;
           extraConfig = ''
+            proxy_set_header Host cache.nixos.org;
             proxy_cache nixbinarycache;
             proxy_cache_valid  200 302  60m;
 
@@ -102,6 +103,7 @@ in
           proxyPass = "$upstream_endpoint";
           recommendedProxySettings = false;
           extraConfig = ''
+            proxy_set_header Host cache.nixos.org;
             proxy_cache nixbinarycache;
             proxy_cache_valid  200 302  60m;
 
