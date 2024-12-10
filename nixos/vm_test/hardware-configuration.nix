@@ -7,13 +7,12 @@ _:
     };
   };
 
-  virtualisation.vmVariantWithBootLoader.virtualisation = {
-    memorySize = 2048;
-    cores = 4;
-    useBootLoader = true;
+  virtualisation.vmVariant.virtualisation = {
+    memorySize = 8192;
+    cores = 8;
     qemu = {
       guestAgent.enable = true;
+      options = [ "-vga qxl" ];
     };
-    useEFIBoot = true;
   };
 }
