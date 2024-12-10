@@ -10,9 +10,14 @@
         extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           bitwarden
           darkreader
+          pay-by-privacy
           google-cal-event-merge
           ublock-origin
           i-dont-care-about-cookies
+          languagetool
+          refined-github
+          firefox-color
+          stylus
         ];
         search = {
           default = "Google";
@@ -23,7 +28,6 @@
           "signon.rememberSignons" = false;
           "signon.rememberSignons.visibilityToggle" = false;
           "trailhead.firstrun.didSeeAboutWelcome" = true;
-          "datareporting.policy.dataSubmissionPolicyBypassNotification" = true;
           "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
           "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
           "browser.newtabpage.activity-stream.topSitesRows" = 3;
