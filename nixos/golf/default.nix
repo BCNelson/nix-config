@@ -6,7 +6,7 @@
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
     ../_mixins/hardware/fingerprint.nix
-  ] ++ lib.optional (builtins.pathExists ./hardware-configuration.nix) ./hardware-configuration.nix;
+  ];
   networking.firewall = {
     enable = true;
     allowedTCPPortRanges = [

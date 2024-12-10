@@ -47,7 +47,10 @@ fn main() -> Result<()> {
     println!("Decrypting Repository");
     run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
 
-    let target_host_prefix = args.target_host.split('-').next().unwrap();
+    let target_host_parts: Vec<&str> = args.target_host.split('-').collect();
+
+    let target_host_prefix = target_host_parts[0];
+    let target_host_suffix = target_host_parts[1];
 
     println!("WARNING! The disk {} in {} is about to get wiped", 
                  args.target_disk.display(), target_host_prefix);
@@ -87,8 +90,9 @@ fn main() -> Result<()> {
     let host_dir = format!("./nixos/{}", target_host_prefix);
     run_cmd!(mkdir -p $host_dir)?;
 
-    run_cmd!(sudo nixos-generate-config --dir $host_dir --root /mnt)?;
-    run_cmd!(rm -f "${host_dir}/configuration.nix")?;
+    run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
+    run_cmd!(mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
+    run_cmd!(rm -rf "${host_dir}/generate")?;
 
     let default_nix_path = format!("{}/default.nix", host_dir);
     let default_nix_config = include_str!("../templates/default-host.nix");

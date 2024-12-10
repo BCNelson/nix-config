@@ -7,11 +7,14 @@
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
+  # Get the host postfix from the hostname (e.g. 1 in sierria-1)
+  hostnamePostfix = lib.strings.concatStrings (lib.lists.drop 1 (lib.strings.splitString "-" hostname));
 in
 {
   imports = [ ./common.nix ./secrets.nix ]
     # ++ lib.optional common ./common.nix # Common configuration but ones that can be turned off
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
+    ++ lib.optional (builtins.pathExists ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix) ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix
     ++ builtins.filter builtins.pathExists (map (username: ./_mixins/users/${username}) usernames)
     ++ lib.optional (builtins.isString desktop) ./_mixins/roles/desktop;
 

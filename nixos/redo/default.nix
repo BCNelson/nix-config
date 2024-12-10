@@ -1,7 +1,6 @@
 { pkgs, ... }:
 {
   imports = [
-    ./hardware-configuration.nix
     ../_mixins/roles/docker.nix
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/flatpak.nix
