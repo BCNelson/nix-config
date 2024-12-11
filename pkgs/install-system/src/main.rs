@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 use clap::Parser;
 use anyhow::{Result, bail};
 use cmd_lib::run_cmd;
@@ -94,14 +94,19 @@ fn main() -> Result<()> {
     run_cmd!(mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
     run_cmd!(rm -rf "${host_dir}/generate")?;
 
+    // check if the default.nix file exists
     let default_nix_path = format!("{}/default.nix", host_dir);
-    let default_nix_config = include_str!("../templates/default-host.nix");
-    let default_with_autoupdates_nix_config = include_str!("../templates/default-host-autoupdate.nix");
+    let default_nix_exists = std::fs::exists(&default_nix_path).unwrap();
 
-    if auto_updates {
-        std::fs::write(&default_nix_path, default_with_autoupdates_nix_config)?;
-    } else {
-        std::fs::write(&default_nix_path, default_nix_config)?;
+    if !default_nix_exists {
+        let default_nix_config = include_str!("../templates/default-host.nix");
+        let default_with_autoupdates_nix_config = include_str!("../templates/default-host-autoupdate.nix");
+
+        if auto_updates {
+            std::fs::write(&default_nix_path, default_with_autoupdates_nix_config)?;
+        } else {
+            std::fs::write(&default_nix_path, default_nix_config)?;
+        }
     }
 
     let new_host_config = format!(
