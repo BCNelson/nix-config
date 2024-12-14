@@ -9,15 +9,15 @@ use regex::Regex;
 struct Args {
     // Target hostname
     #[arg(required = true)]
-    target_host: String,
+    host: String,
 
     /// Target username
-    #[arg(default_value = "bcnelson")]
-    target_user: String,
+    #[arg(short, long, default_value = "bcnelson", value_delimiter = ',')]
+    users: Vec<String>,
 
     /// Target disk
     #[arg(required = true)]
-    target_disk: PathBuf,
+    disk: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -40,20 +40,20 @@ fn main() -> Result<()> {
     let mut flake_content = std::fs::read_to_string("flake.nix")?;
     
     //check if the host is already in the flake
-    if flake_content.contains(args.target_host.as_str()) {
+    if flake_content.contains(args.host.as_str()) {
         bail!("Host already exists in flake.nix");
     }
 
     println!("Decrypting Repository");
     run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
 
-    let target_host_parts: Vec<&str> = args.target_host.split('-').collect();
+    let target_host_parts: Vec<&str> = args.host.split('-').collect();
 
     let target_host_prefix = target_host_parts[0];
     let target_host_suffix = target_host_parts[1];
 
     println!("WARNING! The disk {} in {} is about to get wiped", 
-                 args.target_disk.display(), target_host_prefix);
+                 args.disk.display(), target_host_prefix);
     println!("         NixOS will be re-installed");
     println!("         This is a destructive operation\n");
 
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
         "disko/default.nix".to_string()
     };
 
-    let disk_arg = format!("\"{}\"", args.target_disk.display());
+    let disk_arg = format!("\"{}\"", args.disk.display());
 
     run_cmd!( sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
 
@@ -91,7 +91,7 @@ fn main() -> Result<()> {
     run_cmd!(mkdir -p $host_dir)?;
 
     run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
-    run_cmd!(mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
+    run_cmd!(sudo mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
     run_cmd!(rm -rf "${host_dir}/generate")?;
 
     // check if the default.nix file exists
@@ -109,9 +109,11 @@ fn main() -> Result<()> {
         }
     }
 
+    let users = format!("\"{}\"", args.users.join("\" \""));
+
     let new_host_config = format!(
         "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
-        args.target_host, args.target_host, args.target_user
+        args.host, args.host, users
     );
 
     let nixos_configurations_regex = Regex::new(r"(?m)(nixosConfigurations = \{\n)").unwrap();
@@ -123,7 +125,7 @@ fn main() -> Result<()> {
     
     std::fs::write("flake.nix", flake_content)?;
 
-    let target_host = format!("{}", args.target_host);
+    let target_host = format!("{}", args.host);
 
     let ssh_ket_comment = format!("{}@nix-config", target_host);
 
@@ -136,7 +138,7 @@ fn main() -> Result<()> {
     let host_def_contents = include_str!("../templates/host.nix")
         .replace("INSERT_PUBLIC_KEY", &public_key);
     // write the host definition
-    let host_def_path = format!("{}/hosts/data/{}.nix", nix_config.display(), args.target_host);
+    let host_def_path = format!("{}/hosts/data/{}.nix", nix_config.display(), args.host);
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
@@ -167,18 +169,17 @@ fn main() -> Result<()> {
         git config --unset push.autoSetupRemote;
     )?;
 
-    let target_user = format!("{}", args.target_user);
-
-    println!("Copying nix-config to /config and /mnt/home/{}", target_user);
+    println!("Copying nix-config to /config");
     run_cmd!(
         mkdir -p /mnt/etc/ssh;
         sudo cp $home/id_ed25519 "/mnt/etc/ssh/ssh_host_ed25519_key";
         sudo cp $home/id_ed25519.pub "/mnt/etc/ssh/ssh_host_ed25519_key.pub";
         sudo rsync -a "$home/nix-config" "/mnt/config/";
-        sudo rsync -a --delete "$home/nix-config" "/mnt/home/$target_user";
     )?;
 
-    run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
+    for target_user in args.users {
+        run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
+    }
 
     Ok(())
 }
