@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, pkgs, ... }:
 {
   imports = [
     inputs.plasma-manager.homeManagerModules.plasma-manager
@@ -59,5 +59,10 @@
       };
     };
   };
+
+  home.packages = [
+    pkgs.dolphin-shred
+  ];
+  
   qt.style.catppuccin.enable = true;
 }
