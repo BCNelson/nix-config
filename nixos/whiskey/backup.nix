@@ -7,7 +7,7 @@ let
     environment.BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK = "yes";
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
-    startAt = "6h";
+    startAt = "*-*-* 0/6:00:00";
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
