@@ -3,6 +3,7 @@
 {
   imports = [
     ../_mixins/work/redo.nix
+    ./_mixins/workstation.nix
   ];
 
   home.packages = [
