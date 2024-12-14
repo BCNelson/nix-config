@@ -37,9 +37,17 @@
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
 
-  i18n.supportedLocales = lib.mkDefault [
+  # Add this to ensure all required locales are generated
+  i18n.supportedLocales = [
     "en_US.UTF-8/UTF-8"
+    "C.UTF-8/UTF-8"  # Add basic C locale as fallback
   ];
+
+  # Add this to ensure all environment variables are set
+  environment.variables = {
+    LANG = "en_US.UTF-8";
+    LC_ALL = "en_US.UTF-8";
+  };
 
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "en_US.UTF-8";
