@@ -1,10 +1,26 @@
 {
     "nix.enableLanguageServer": true, // Enable LSP.
     "nix.serverPath": "nixd", // The path to the LSP server executable.
-    "nixpkgs": {
-        "expr": "import <nixpkgs> {}",
-    },
     "rust-analyzer.linkedProjects": [
         "pkgs/install-system/Cargo.toml",
-    ]
+    ],
+    "nix.formatterPath": "alejandra",
+    "nix.serverSettings": {
+        "nixd": {
+            "formatting": {
+                "command": [ "alejandra" ]
+            },
+            "options": {
+                // By default, this entry will be read from `import <nixpkgs> { }`.
+                // You can write arbitrary Nix expressions here, to produce valid "options" declaration result.
+                // Tip: for flake-based configuration, utilize `builtins.getFlake`
+                "nixos": {
+                    "expr": "(builtins.getFlake \"${workspaceFolder}\").nixosConfigurations.sierra-2.options"
+                },
+                // "home-manager": {
+                //     "expr": "(builtins.getFlake \"${workspaceFolder}\").homeConfigurations.<name>.options"
+                // },
+            }
+        }
+    }
 }

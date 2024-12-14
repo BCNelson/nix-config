@@ -37,7 +37,7 @@ in
       zstd
       terraform
       nixd
-      nil
+      alejandra
       agenix-rekey
       age-plugin-yubikey
       age-plugin-fido2-hmac
