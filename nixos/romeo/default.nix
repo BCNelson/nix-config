@@ -9,7 +9,6 @@ in
       ../_mixins/roles/tailscale.nix
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
-      ../_mixins/roles/figurine.nix
       ../_mixins/roles/server/monitoring.nix
       ../_mixins/roles/server/nginx.nix
       ./unbound.nix
