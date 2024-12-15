@@ -5,5 +5,6 @@
     newSession = true;
     mouse = true;
     shell = "${pkgs.fish}/bin/fish";
+    terminal = "screen-256color";
   };
 }
