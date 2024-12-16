@@ -12,6 +12,10 @@ in
       inputs.nixarr.nixosModules.default
     ];
 
+  nixpkgs.config.permittedInsecurePackages = [
+    "dotnet-sdk-6.0.428"
+  ];
+
   nixarr = {
     enable = true;
 
