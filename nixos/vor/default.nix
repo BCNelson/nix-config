@@ -5,8 +5,10 @@
       ../_mixins/roles/server
       ../_mixins/roles/server/zfs.nix
       ../_mixins/roles/server/monitoring.nix
+      ../_mixins/roles/server/nginx.nix
       ./samba.nix
       ./backups.nix
+      ./dataDirs.nix
     ];
 
   age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;

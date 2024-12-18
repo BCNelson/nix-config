@@ -258,6 +258,14 @@ resource "porkbun_dns_record" "vor_ck_nel_family-AAAA" {
   content = "fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4"
 }
 
+# photos      CNAME  vor.ck.nel.family.
+resource "porkbun_dns_record" "photos_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "photos"
+  type    = "CNAME"
+  content = "vor.ck.nel.family"
+}
+
 # *.h.b      CNAME  h.b.nel.family.
 resource "porkbun_dns_record" "wildcard_h_b_nel_family-CNAME" {
   domain  = "nel.family"
