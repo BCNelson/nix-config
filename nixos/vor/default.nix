@@ -6,6 +6,7 @@
       ../_mixins/roles/server/zfs.nix
       ../_mixins/roles/server/monitoring.nix
       ../_mixins/roles/server/nginx.nix
+      ./services
       ./samba.nix
       ./backups.nix
       ./dataDirs.nix
