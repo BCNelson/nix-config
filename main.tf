@@ -259,9 +259,9 @@ resource "porkbun_dns_record" "vor_ck_nel_family-AAAA" {
 }
 
 # photos      CNAME  vor.ck.nel.family.
-resource "porkbun_dns_record" "photos_nel_family-CNAME" {
+resource "porkbun_dns_record" "photos_ck_nel_family-CNAME" {
   domain  = "nel.family"
-  name    = "photos"
+  name    = "photos.ck"
   type    = "CNAME"
   content = "vor.ck.nel.family"
 }
