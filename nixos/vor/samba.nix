@@ -39,6 +39,12 @@ _:
 
   users.users.samba = {
     isNormalUser = false;
+    isSystemUser = true;
     description = "Samba";
+    group = "samba";
+  };
+
+  users.groups.samba = {
+    isSystemGroup = true;
   };
 }
