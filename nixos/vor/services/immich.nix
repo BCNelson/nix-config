@@ -21,6 +21,7 @@ in
 
   services.nginx.virtualHosts."photos.ck.nel.family" = {
     enableACME = true;
+    acmeRoot = null;
     forceSSL = true;
     locations."/" = {
       proxyPass = "http://[::1]:${toString config.services.immich.port}";
