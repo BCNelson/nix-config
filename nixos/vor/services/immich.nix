@@ -21,9 +21,11 @@ in
 
   systemd.tmpfiles.settings."10-immich" = {
     "${config.services.immich.mediaLocation}" = {
-      user = "${config.services.immich.user}";
-      group = "${config.services.immich.group}";
-      mode = "0755";
+      d = {
+        user = "${config.services.immich.user}";
+        group = "${config.services.immich.group}";
+        mode = "0755";
+      };
     };
   };
 
