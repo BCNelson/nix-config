@@ -44,7 +44,5 @@ _:
     group = "samba";
   };
 
-  users.groups.samba = {
-    isSystemGroup = true;
-  };
+  users.groups.samba = {};
 }
