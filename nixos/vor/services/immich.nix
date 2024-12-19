@@ -19,6 +19,16 @@ in
 
   users.users.immich.extraGroups = [ "video" "render" ];
 
+  systemd.tmpfiles.settings."10-immich" = {
+    "${config.services.immich.mediaLocation}" = {
+      d = {
+        user = "${config.services.immich.user}";
+        group = "${config.services.immich.group}";
+        mode = "0755";
+      };
+    };
+  };
+
   services.nginx.virtualHosts."photos.ck.nel.family" = {
     enableACME = true;
     acmeRoot = null;
