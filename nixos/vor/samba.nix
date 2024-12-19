@@ -31,9 +31,14 @@ _:
         "guest ok" = "yes";
         "create mask" = "0644";
         "directory mask" = "0755";
-        "force user" = "bcnelson";
-        "force group" = "bcnelson";
+        "force user" = "samba";
+        "force group" = "samba";
       };
     };
+  };
+
+  users.users.samba = {
+    isNormalUser = false;
+    description = "Samba";
   };
 }
