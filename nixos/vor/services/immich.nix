@@ -31,6 +31,7 @@ in
 
   environment.systemPackages = [
     pkgs.icloudpd
+    pkgs.immich-cli
   ];
 
   services.nginx.virtualHosts."photos.ck.nel.family" = {
