@@ -1,6 +1,6 @@
-{ pkgs, libx, ... }:
+{ pkgs, ... }:
 let
-  bcnelson_init_password = libx.getSecret ../../../sensitive.nix "bcnelson_init_password";
+  bcnelson_init_password = "bcnelson_init_password";
 in
 {
   users.users.bcnelson = {
