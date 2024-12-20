@@ -44,8 +44,16 @@ fn main() -> Result<()> {
         bail!("Host already exists in flake.nix");
     }
 
-    println!("Decrypting Repository");
-    run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
+    // check .git/config for git-crypt
+    let git_config = std::fs::read_to_string(".git/config")?;
+    if !git_config.contains("git-crypt") {
+        println!("Decrypting Repository");
+        run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
+    } else {
+        println!("Repository already decrypted");
+    }
+
+    
 
     let target_host_parts: Vec<&str> = args.host.split('-').collect();
 
@@ -92,7 +100,7 @@ fn main() -> Result<()> {
 
     run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
     run_cmd!(sudo mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
-    run_cmd!(rm -rf "${host_dir}/generate")?;
+    run_cmd!(sudo rm -rf "${host_dir}/generate")?;
 
     // check if the default.nix file exists
     let default_nix_path = format!("{}/default.nix", host_dir);
@@ -112,7 +120,7 @@ fn main() -> Result<()> {
     let users = format!("\"{}\"", args.users.join("\" \""));
 
     let new_host_config = format!(
-        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ \"{}\" ]; inherit libx; version = \"unstable\"; }};",
+        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ {} ]; inherit libx; version = \"unstable\"; }};",
         args.host, args.host, users
     );
 
@@ -130,7 +138,7 @@ fn main() -> Result<()> {
     let ssh_ket_comment = format!("{}@nix-config", target_host);
 
     // Generate SSH keys
-    run_cmd!(ssh-keygen -t ed25519 -N "\"\"" -f "$home/id_ed25519" -C $ssh_ket_comment)?;
+    run_cmd!(ssh-keygen -t ed25519 -N "" -f "$home/id_ed25519" -C $ssh_ket_comment)?;
 
     // read the public key
     let public_key = std::fs::read_to_string(format!("{}/id_ed25519.pub", home))?;
@@ -142,7 +150,7 @@ fn main() -> Result<()> {
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
-    run_cmd!(ignore sudo nix format)?;
+    run_cmd!(ignore sudo nix fmt)?;
 
     if auto_updates {
         run_cmd!(
@@ -167,6 +175,7 @@ fn main() -> Result<()> {
         git config push.autoSetupRemote true;
         just push;
         git config --unset push.autoSetupRemote;
+        git switch ;
     )?;
 
     println!("Copying nix-config to /config");
