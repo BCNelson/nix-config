@@ -1,4 +1,4 @@
-{ desktop, lib, ... }:
+{ desktop, lib, pkgs, ... }:
 let
   atLeast2405 = lib.versionAtLeast lib.trivial.release "24.05";
 in
@@ -56,5 +56,10 @@ in
 
   programs.ssh = {
     startAgent = true;
+  };
+
+  programs.gnupg.agent = {
+    enable = true;
+    pinentryPackage = pkgs.pinentry-qt;
   };
 }
