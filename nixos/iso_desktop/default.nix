@@ -18,9 +18,4 @@
   ];
 
   nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
-
-  programs.gnupg.agent = {
-    enable = true;
-    pinentryPackage = pkgs.pinentry-qt;
-  };
 }
