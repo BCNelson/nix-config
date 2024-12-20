@@ -6,7 +6,7 @@
 
 {
   nix = {
-    gc = {
+    gc = lib.mkDefault{
       automatic = true;
       dates = "weekly";
       options = "--delete-older-than 7d";
