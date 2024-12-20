@@ -42,7 +42,16 @@
 
       NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
 
+      # check if this is a dummy value from rekey by checking the length of the token (it should be shorter than 20 characters)
+      NTFY_TOKEN_LENGTH=''${#NTFY_TOKEN}
+      if [ $NTFY_TOKEN_LENGTH -lt 20 ]; then
+          echo There is no ntfy token set, skipping notification
+          echo "Auth URL: $auth_url"
+          exit 0
+      fi
+
       echo "Sending notification to ntfy channel $auth_url"
+      echo "NTFY_TOKEN" $NTFY_TOKEN
       ${curl}/bin/curl -H "X-Title: Tailscale Login: $HOSTNAME" \
           -H "X-Priority: 4" \
           -H "X-Actions: action=view, label=Open URL, url=$auth_url, clear=true" \
