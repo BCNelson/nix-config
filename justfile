@@ -121,14 +121,16 @@ isoTest version='iso_desktop': (isoCreate version)
     ISO=$(head -n1 {{ justfile_directory() }}/result/nix-support/hydra-build-products | cut -d'/' -f6)
     qemu-system-x86_64-uefi -enable-kvm -m 8192 -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk
 
-isoInstall: isoCreate
+isoInstall version='iso_desktop': (isoCreate version)
     #!/usr/bin/env bash
-    ISO=$(head -n1 {{ justfile_directory() }}/../result/nix-support/hydra-build-products | cut -d'/' -f6)
+    shopt -s extglob
+    ISO_PATH=$(awk '{print $3}' "{{justfile_directory()}}/result/nix-support/hydra-build-products")
     if test -e /dev/disk/by-label/@(v|V)entoy; then
         ventoy_Mount=$(findmnt -n -o TARGET /dev/disk/by-label/@(v|V)entoy)
         if [ -n "$ventoy_Mount" ]; then
             echo "Copying iso to ventoy drive"
-            cp {{ justfile_directory() }}/result/iso/$ISO $ventoy_Mount/Nixos_Install_Desktop.iso
+
+            cp "$ISO_PATH" $ventoy_Mount/Nixos_{{version}}.iso
         else
             echo "Ventoy drive not mounted"
         fi
