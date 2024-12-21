@@ -3,6 +3,7 @@ use clap::Parser;
 use anyhow::{Result, bail};
 use cmd_lib::run_cmd;
 use regex::Regex;
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -75,13 +76,22 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    print!("Would you like automatic updates enabled? [y/N] ");
-    std::io::Write::flush(&mut std::io::stdout())?;
+    let host_dir = format!("./nixos/{}", target_host_prefix);
 
-    input.clear();
-    std::io::stdin().read_line(&mut input)?;
+    // check if the default.nix file exists
+    let default_nix_path = format!("{}/default.nix", host_dir);
+    let default_nix_exists = std::fs::exists(&default_nix_path).unwrap();
 
-    let auto_updates = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+
+    let mut auto_updates = false;
+    if !default_nix_exists {
+        print!("Would you like automatic updates enabled? [y/N] ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        input.clear();
+        std::io::stdin().read_line(&mut input)?;
+        auto_updates = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+    }
 
     run_cmd!(sudo true)?;
 
@@ -95,16 +105,11 @@ fn main() -> Result<()> {
 
     run_cmd!( sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
 
-    let host_dir = format!("./nixos/{}", target_host_prefix);
     run_cmd!(mkdir -p $host_dir)?;
 
     run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
     run_cmd!(sudo mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
     run_cmd!(sudo rm -rf "${host_dir}/generate")?;
-
-    // check if the default.nix file exists
-    let default_nix_path = format!("{}/default.nix", host_dir);
-    let default_nix_exists = std::fs::exists(&default_nix_path).unwrap();
 
     if !default_nix_exists {
         let default_nix_config = include_str!("../templates/default-host.nix");
@@ -137,8 +142,21 @@ fn main() -> Result<()> {
 
     let ssh_ket_comment = format!("{}@nix-config", target_host);
 
-    // Generate SSH keys
-    run_cmd!(ssh-keygen -t ed25519 -N "" -f "$home/id_ed25519" -C $ssh_ket_comment)?;
+    // Generate SSH keys using Rust's native process library so that we can pass an empty passphrase
+    let ssh_keygen_status = Command::new("ssh-keygen")
+        .arg("-t")
+        .arg("ed25519")
+        .arg("-N")
+        .arg("")
+        .arg("-f")
+        .arg(format!("{}/id_ed25519", home))
+        .arg("-C")
+        .arg(&ssh_ket_comment)
+        .status()?;
+
+    if !ssh_keygen_status.success() {
+        bail!("Failed to generate SSH keys");
+    }
 
     // read the public key
     let public_key = std::fs::read_to_string(format!("{}/id_ed25519.pub", home))?;
@@ -152,12 +170,11 @@ fn main() -> Result<()> {
 
     run_cmd!(ignore sudo nix fmt)?;
 
-    if auto_updates {
-        run_cmd!(
-            git add -A;
-            nix run ".#agenix-rekey.x86_64-linux.rekey";
-        )?;
-    }
+    //TODO: Better chack to see if this is needed
+    run_cmd!(
+        git add -A;
+        nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy;
+    )?;
 
     run_cmd!(
         git checkout -b "install-$target_host";
@@ -175,7 +192,7 @@ fn main() -> Result<()> {
         git config push.autoSetupRemote true;
         just push;
         git config --unset push.autoSetupRemote;
-        git switch ;
+        git switch auto-update;
     )?;
 
     println!("Copying nix-config to /config");
@@ -183,7 +200,7 @@ fn main() -> Result<()> {
         mkdir -p /mnt/etc/ssh;
         sudo cp $home/id_ed25519 "/mnt/etc/ssh/ssh_host_ed25519_key";
         sudo cp $home/id_ed25519.pub "/mnt/etc/ssh/ssh_host_ed25519_key.pub";
-        sudo rsync -a "$home/nix-config" "/mnt/config/";
+        sudo rsync -a "$home/nix-config/" "/mnt/config/";
     )?;
 
     for target_user in args.users {
