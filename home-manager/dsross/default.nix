@@ -5,8 +5,7 @@ let
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ ]
-    ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
+  imports = lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
   xdg.enable = true;
