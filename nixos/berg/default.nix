@@ -19,6 +19,8 @@
     };
   };
 
+  time.timeZone = "America/Los_Angeles";
+
   # Enable automatic garbage collection
   nix = {
     settings = {
