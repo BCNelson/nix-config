@@ -23,8 +23,6 @@
   nix = {
     settings = {
       auto-optimise-store = true;
-      # Use your cache if available
-      substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
     };
     gc = {
       automatic = true;
