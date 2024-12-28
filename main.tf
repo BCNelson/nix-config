@@ -308,6 +308,15 @@ resource "porkbun_dns_record" "check_nel_family-CNAME" {
   type    = "CNAME"
   content = "esoteric-rattlesnake.pikapod.net"
 }
+
+# rss.b     CNAME  dainty-bull.pikapod.net
+resource "porkbun_dns_record" "rss_b_nel_family-CNAME" {
+  domain = "nel.family"
+  name = "rss.b"
+  type = "CNAME"
+  content = "dainty-bull.pikapod.net"
+}
+
 # docs      CNAME  h.b.nel.family.
 resource "porkbun_dns_record" "docs_h_b_nel_family-CNAME" {
   domain  = "nel.family"
