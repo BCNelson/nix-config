@@ -67,9 +67,10 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - run: rm -f flake.lock
       - uses: actions/download-artifact@v4
+        id: download-artifact
         with:
           name: flake.lock
-          path: ./flake.lock
+      - run: cp ${{ steps.download-artifact.outputs.download-path }}/flake.lock .
       - name: Check host ${{ matrix.host }}
         run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run
 
@@ -90,11 +91,11 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - run: rm -f flake.lock
-
       - uses: actions/download-artifact@v4
+        id: download-artifact
         with:
           name: flake.lock
-          path: ./flake.lock
+      - run: cp ${{ steps.download-artifact.outputs.download-path }}/flake.lock .
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
