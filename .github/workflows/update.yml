@@ -23,7 +23,73 @@ jobs:
 
       - run: nix flake update
 
-      - run: nix flake check --show-trace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flake.lock
+          path: ./flake.lock
+
+  get-hosts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      hosts: ${{ steps.set-hosts.outputs.hosts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+      - id: set-hosts
+        run: echo "hosts=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)" >> $GITHUB_OUTPUT
+
+  check-hosts:
+    needs: 
+      - get-hosts
+      - update
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
+      fail-fast: false
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+          path: ./flake.lock
+      - name: Check host ${{ matrix.host }}
+        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run
+
+  comment:
+    runs-on: ubuntu-latest
+    needs: check-hosts
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+          path: ./flake.lock
 
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
