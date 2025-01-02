@@ -134,6 +134,8 @@ in
         User = "root";
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
+        CPUWeight = 10;
+        CPUQuota= "95%";
       };
       restartIfChanged = false;
     };
