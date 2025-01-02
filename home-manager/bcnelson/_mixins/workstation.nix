@@ -17,6 +17,18 @@
           RequestTTY = "yes";
         };
       };
+      "ryuu.llp.nel.family" = {
+        extraOptions = {
+          RemoteCommand = "tmux a";
+          RequestTTY = "yes";
+        };
+      };
+      "vor.ck.nel.family" = {
+        extraOptions = {
+          RemoteCommand = "tmux a";
+          RequestTTY = "yes";
+        };
+      };
     };
   };
 }
