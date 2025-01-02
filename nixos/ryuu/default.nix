@@ -1,8 +1,6 @@
 { ... }:
 {
-  imports = [
-    ../_mixins/roles/tailscale.nix
-  ];
+  imports = [];
 
   services.bcnelson.autoUpdate = {
     enable = true;
