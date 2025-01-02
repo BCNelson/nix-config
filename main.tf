@@ -236,19 +236,19 @@ resource "porkbun_dns_record" "homeassistant_b_nel_family-AAAA" {
   type = "AAAA"
   content = "fd7a:115c:a1e0:ab12:4843:cd96:6242:4c5f"
 }
-# ryuu.llp      A  100.90.206.28
+# ryuu.llp      A  100.73.83.164
 resource "porkbun_dns_record" "ryuu_llp_nel_family-A" {
   domain  = "nel.family"
   name    = "ryuu.llp"
   type    = "A"
-  content = "100.90.206.28"
+  content = "100.73.83.164"
 }
-# ryuu.llp      AAAA  fd7a:115c:a1e0:ab12:4843:cd96:625a:ce1c
+# ryuu.llp      AAAA  fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4
 resource "porkbun_dns_record" "ryuu_llp_nel_family-AAAA" {
   domain  = "nel.family"
   name    = "ryuu.llp"
   type    = "AAAA"
-  content = "fd7a:115c:a1e0:ab12:4843:cd96:625a:ce1c"
+  content = "fd7a:115c:a1e0:ab12:4843:cd96:6249:53a4"
 }
 # vor.ck      A  100.73.83.164
 resource "porkbun_dns_record" "vor_ck_nel_family-A" {
