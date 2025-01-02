@@ -19,8 +19,6 @@ in
 
   age.identityPaths = [ hostKeyFile ];
 
-  nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
-
   # If ephemeral is true, then tailscale will be removed on next reboot
   systemd.services.tailscaled = {
     serviceConfig.Environment = [ "FLAGS=--state=mem: --tun 'tailscale0'" ];

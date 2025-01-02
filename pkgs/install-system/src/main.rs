@@ -1,9 +1,11 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 use clap::Parser;
 use anyhow::{Result, bail};
 use cmd_lib::run_cmd;
 use regex::Regex;
 use std::process::Command;
+
+mod wifi;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -28,6 +30,8 @@ fn main() -> Result<()> {
     if std::env::var("USER")? == "root" {
         bail!("ERROR! Program should be run as a regular user");
     }
+
+    wifi::ensure_connectivity()?;
 
     let home = std::env::var("HOME")?;
     let nix_config = PathBuf::from(&home).join("nix-config");
@@ -66,13 +70,7 @@ fn main() -> Result<()> {
     println!("         NixOS will be re-installed");
     println!("         This is a destructive operation\n");
 
-    print!("Are you sure? [y/N] ");
-    std::io::Write::flush(&mut std::io::stdout())?;
-
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    if !matches!(input.trim().to_lowercase().as_str(), "y" | "yes") {
+    if !inquire::Confirm::new("Are you sure?").with_default(false).prompt()? {
         return Ok(());
     }
 
@@ -85,12 +83,9 @@ fn main() -> Result<()> {
 
     let mut auto_updates = false;
     if !default_nix_exists {
-        print!("Would you like automatic updates enabled? [y/N] ");
-        std::io::Write::flush(&mut std::io::stdout())?;
-
-        input.clear();
-        std::io::stdin().read_line(&mut input)?;
-        auto_updates = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+        auto_updates = inquire::Confirm::new("Would you like automatic updates enabled?")
+            .with_default(false)
+            .prompt()?;
     }
 
     run_cmd!(sudo true)?;

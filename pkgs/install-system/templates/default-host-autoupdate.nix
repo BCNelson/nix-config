@@ -1,8 +1,6 @@
 { ... }:
 {
-  imports = [
-    ./hardware-configuration.nix
-  ];
+  imports = [];
 
   services.bcnelson.autoUpdate = {
     enable = true;
