@@ -64,5 +64,5 @@
     pkgs.dolphin-shred
   ];
   
-  qt.style.catppuccin.enable = true;
+  catppuccin.kvantum.enable = true;
 }

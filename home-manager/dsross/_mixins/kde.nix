@@ -63,5 +63,5 @@
       };
     };
   };
-  qt.style.catppuccin.enable = true;
+  catppuccin.kvantum.enable = true;
 }

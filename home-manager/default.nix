@@ -3,7 +3,7 @@
 {
   nixpkgs = {
     overlays = [
-      inputs.nur.overlay
+      inputs.nur.overlays.default
       outputs.overlays.unstable-packages
       outputs.overlays.additions
     ];

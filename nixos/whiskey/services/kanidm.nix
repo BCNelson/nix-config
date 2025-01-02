@@ -31,7 +31,7 @@
 
   services.kanidm = {
     enableServer = true;
-    package = pkgs.kanidm;
+    package = pkgs.kanidm_1_4;
     serverSettings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
