@@ -87,6 +87,7 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
+"ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "berg-1" = libx.mkHost { hostname = "berg-1"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
