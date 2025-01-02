@@ -43,8 +43,8 @@
       NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
 
       # check if this is a dummy value from rekey by checking the length of the token (it should be shorter than 20 characters)
-      NTFY_TOKEN_LENGTH=''${#NTFY_TOKEN}
-      if [ $NTFY_TOKEN_LENGTH -lt 20 ]; then
+      NTFY_TOKEN_LENGTH="$(echo -n "$NTFY_TOKEN" | wc -c)"
+      if [ $NTFY_TOKEN_LENGTH -gt 20 ]; then
           echo There is no ntfy token set, skipping notification
           echo "Auth URL: $auth_url"
           exit 0
