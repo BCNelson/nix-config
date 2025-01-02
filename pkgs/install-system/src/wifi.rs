@@ -1,7 +1,7 @@
 // wifi.rs
 use anyhow::{Result, bail};
 use cmd_lib::{run_cmd, run_fun};
-use std::{time::Duration, path::Path};
+use std::time::Duration;
 
 const MAX_RETRIES: u32 = 3;
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -50,10 +50,10 @@ fn check_wifi_hardware() -> Result<String> {
     Ok(interface.to_string())
 }
 
-fn connect_wifi(interface: &str, creds: &WifiCredentials) -> Result<()> {
+fn connect_wifi(credentials: &WifiCredentials) -> Result<()> {
     let _ = run_cmd!(sudo nmcli radio wifi on);
-    let ssid = creds.ssid.clone();
-    let password = creds.password.clone();
+    let ssid = credentials.ssid.clone();
+    let password = credentials.password.clone();
     let _ = run_cmd!(sudo nmcli dev wifi connect $ssid password $password)?;
 
     Ok(())
@@ -79,7 +79,7 @@ pub fn ensure_connectivity() -> Result<()> {
         }
 
         let credentials = get_wifi_credentials()?;
-        if let Err(e) = connect_wifi(&interface, &credentials) {
+        if let Err(e) = connect_wifi(&credentials) {
             println!("Error setting up WiFi: {}", e);
             continue;
         }
