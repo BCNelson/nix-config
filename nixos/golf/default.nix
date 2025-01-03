@@ -6,6 +6,7 @@
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
     ../_mixins/hardware/fingerprint.nix
+    ../_mixins/roles/kanidmClient.nix
   ];
   networking.firewall = {
     enable = true;
