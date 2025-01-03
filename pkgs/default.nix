@@ -5,4 +5,5 @@ pkgs: {
   mdns-reflector = pkgs.callPackage ./mdns-reflector.nix { };
   install-system = pkgs.callPackage ./install-system { };
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };
+  mb4-extractor = pkgs.callPackage ./m4b-extractor { };
 }

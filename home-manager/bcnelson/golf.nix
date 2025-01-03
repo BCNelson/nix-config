@@ -7,5 +7,7 @@
 
   home.packages = [
     pkgs.yt-dlp
+    pkgs.libation
+    pkgs.mb4-extractor
   ];
 }
