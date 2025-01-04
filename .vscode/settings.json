@@ -3,6 +3,7 @@
     "nix.serverPath": "nixd", // The path to the LSP server executable.
     "rust-analyzer.linkedProjects": [
         "pkgs/install-system/Cargo.toml",
+        "pkgs/nix-cache-discovery/Cargo.toml"
     ],
     "nix.formatterPath": "alejandra",
     "nix.serverSettings": {

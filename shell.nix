@@ -14,6 +14,7 @@ let
     cargo-edit
     cargo-watch
     rust-analyzer
+    cmake
   ];
 in
 {
