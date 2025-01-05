@@ -145,7 +145,7 @@ in
         User = "root";
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
-        slice = "system-autoupdate.slice";
+        Slice = "system-autoupdate.slice";
       };
       restartIfChanged = false;
     };
@@ -157,7 +157,7 @@ in
       serviceConfig = {
         Type = "simple";
         RemainAfterExit = true;
-        slice = "system-autoupdate.slice";
+        Slice = "system-autoupdate.slice";
       };
       script = ''
         #!/usr/bin/env bash
@@ -181,7 +181,7 @@ in
         Type = "simple";
         User = "root";
         ExecStart = "${ntfy-refresh-client}/bin/ntfy-refresh-client";
-        slice = "system-autoupdate.slice";
+        Slice = "system-autoupdate.slice";
       };
       restartIfChanged = true;
     };
