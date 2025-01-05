@@ -88,15 +88,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.timers.auto-update = {
-      enable = true;
-      timerConfig = {
-        OnBootSec = "1min";
-        OnUnitActiveSec = cfg.refreshInterval;
-        Persistent = true;
-      };
-      wantedBy = [ "timers.target" ];
-    };
 
     assertions = [
       {
@@ -117,6 +108,26 @@ in
       }
     ];
 
+    systemd.slices.system-autoupdate = {
+      enable = true;
+      wantedBy = [ "system.slice" ];
+      sliceConfig = {
+        CPUAccounting = true;
+        CPUWeight = 10;
+        CPUQuota= "95%";
+      };
+    };
+
+    systemd.timers.auto-update = {
+      enable = true;
+      timerConfig = {
+        OnBootSec = "1min";
+        OnUnitActiveSec = cfg.refreshInterval;
+        Persistent = true;
+      };
+      wantedBy = [ "timers.target" ];
+    };
+
     systemd.services.auto-update = {
       enable = true;
       environment = {
@@ -134,8 +145,7 @@ in
         User = "root";
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
-        CPUWeight = 10;
-        CPUQuota= "95%";
+        slice = "system-autoupdate.slice";
       };
       restartIfChanged = false;
     };
@@ -147,6 +157,7 @@ in
       serviceConfig = {
         Type = "simple";
         RemainAfterExit = true;
+        slice = "system-autoupdate.slice";
       };
       script = ''
         #!/usr/bin/env bash
@@ -170,6 +181,7 @@ in
         Type = "simple";
         User = "root";
         ExecStart = "${ntfy-refresh-client}/bin/ntfy-refresh-client";
+        slice = "system-autoupdate.slice";
       };
       restartIfChanged = true;
     };
