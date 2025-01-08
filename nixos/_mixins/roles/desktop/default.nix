@@ -24,6 +24,7 @@ in
         };
       };
     };
+    pulseaudio.enable = lib.mkForce false;
     xserver = {
       xkb = {
         layout = "us";
@@ -50,7 +51,6 @@ in
 
   # Enable sound with pipewire.
   # sound.enable = true; // Removed https://github.com/NixOS/nixpkgs/issues/319809
-  hardware.pulseaudio.enable = lib.mkForce false;
 
   security.polkit.enable = true;
 
