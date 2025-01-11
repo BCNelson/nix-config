@@ -10,7 +10,6 @@
       ../_mixins/roles/appimage.nix
       ../_mixins/roles/nixified-ai.nix
       ../_mixins/roles/emulator.nix
-      ../_mixins/roles/weylus.nix
       ../_mixins/hardware/streamdeck.nix
       ../_mixins/hardware/qmk.nix
       ../_mixins/hardware/platfromio.nix
