@@ -6,6 +6,7 @@
 
   home.packages = [
     pkgs.winbox4
+    pkgs.ticktick
   ];
 
   programs.ssh = {
