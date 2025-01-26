@@ -67,18 +67,12 @@
   programs.dconf.enable = true;
 
   environment.systemPackages = with pkgs; [
-    vim
+    nano
     git
     git-crypt
-    pciutils
-    waypipe
   ];
 
   programs.tmux.enable = true;
 
-  programs.fish = {
-    enable = true;
-    useBabelfish = true;
-  };
   services.fwupd.enable = true;
 }

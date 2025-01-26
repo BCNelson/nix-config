@@ -87,7 +87,7 @@
       # NixOS configuration entrypoint
       # Available through 'nixos-rebuild --flake .#your-hostname'
       nixosConfigurations = {
-        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
+        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "berg-1" = libx.mkHost { hostname = "berg-1"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
@@ -95,7 +95,7 @@
         "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; version = "unstable"; };
         "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "vm_test" = libx.mkHost { hostname = "vm_test"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
+        "vm_test" = libx.mkHost { hostname = "vm_test"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };

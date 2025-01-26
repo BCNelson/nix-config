@@ -12,7 +12,7 @@ in
     # Note SDDM does not support password changes so this will need to be done via the command line.
     initialPassword = bcnelson_init_password;
     packages = with pkgs; [
-      # Console Apps here
+      vim
     ];
   };
 }
