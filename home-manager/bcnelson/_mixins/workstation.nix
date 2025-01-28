@@ -6,7 +6,7 @@
 
   home.packages = [
     pkgs.winbox4
-    pkgs.ticktick
+    pkgs.kdePackages.merkuro
   ];
 
   programs.ssh = {
