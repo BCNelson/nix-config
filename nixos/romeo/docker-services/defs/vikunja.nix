@@ -10,7 +10,7 @@ let
     };
     cors = {
       enabled = true;
-      allowed_origins = [ "*" "http://127.0.0.1:45735" ];
+      allowed_origins = [ "*" ];
     };
     mailer = {
       enabled = true;
