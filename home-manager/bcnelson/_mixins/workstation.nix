@@ -7,6 +7,7 @@
   home.packages = [
     pkgs.winbox4
     pkgs.kdePackages.merkuro
+    pkgs.mb4-extractor
   ];
 
   programs.ssh = {
