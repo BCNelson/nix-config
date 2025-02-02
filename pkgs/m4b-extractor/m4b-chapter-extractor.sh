@@ -20,7 +20,6 @@ ext=${1##*.}
 echo "extension: $ext"
 # all files / folders are named based on the "shortname" of the input file
 shortname=$(basename "$1" ".$ext")
-picture=$shortname.jpg
 chapterdata=$shortname.dat
 metadata=$shortname.tmp
 echo "shortname: $shortname"
@@ -60,19 +59,26 @@ readarray -t start <<< "$(jq -r '.chapters[].start_time' "$chapterdata")"
 readarray -t end <<< "$(jq -r '.chapters[].end_time' "$chapterdata")"
 readarray -t title <<< "$(jq -r '.chapters[].tags.title' "$chapterdata")"
 
+rm "$chapterdata"
+
 # create a ffmpeg metadata file to extract addition metadata lost in splitting files - deleted afterwards
 ffmpeg -loglevel error -i "$1" -f ffmetadata "$metadata"
-artist_sort=$(grep -m 1 ^sort_artist "$metadata")
+echo "Reading metadata from $metadata"
+artist_sort=$(grep -m 1 ^sort_artist "$metadata" || grep -m 1 ^artist "$metadata")
 artist_sort=${artist_sort#*=}
-album_sort=$(grep -m 1 ^sort_album "$metadata")
+echo "artist_sort: $artist_sort"
+album_sort=$(grep -m 1 ^sort_album "$metadata" || grep -m 1 ^title "$metadata")
 album_sort=${album_sort#*=}
+echo "album_sort: $album_sort"
+echo "Deleting $metadata"
 rm "$metadata"
 
 # create directory for the output
+echo "Creating directory $shortname"
 mkdir -p "$shortname"
 echo -e "\fID\tStart Time\tEnd Time\tTitle\t\tFilename"
 for i in "${!id[@]}"; do
-  trackno="(($i+1))"
+  trackno=$((i+1))
   # set the name for output - currently in format <bookname>/<tranck number>
   outname="$shortname/$(printf "%02d" "$trackno"). $shortname - ${title[$i]}.$outputtype"
   #outname=$(sed -e 's/[^A-Za-z0-9._- ]/_/g' <<< $outname)
@@ -84,9 +90,6 @@ for i in "${!id[@]}"; do
             -metadata track="$trackno" \
             -map_metadata 0 -id3v2_version 3 \
             "$outname"
-  [[ $outputtype == m4* ]] && AtomicParsley "$outname" \
-            --artwork "$picture" --overWrite \
-            --sortOrder artist "$artist_sort" \
-            --sortOrder album "$album_sort" \
-            > /dev/null
 done
+
+
