@@ -28,7 +28,7 @@ in
   virtualisation.oci-containers.containers.romm = {
     image = "rommapp/romm:latest";
     environment = {
-      "DB_HOST" = "romm-db";
+      "DB_HOST" = "localhost";
       "DB_NAME" = "romm";
       "DB_USER" = "romm-user";
     };
@@ -42,9 +42,8 @@ in
       "${dataDirs.level3}/romm/assets:/romm/assets"
       "${dataDirs.level5}/romm/config:/romm/config"
     ];
-    ports = [ "127.0.0.1:8090:80" ];
     dependsOn = ["romm-db"];
-    networks = ["romm"];
+    extraOptions = [ "--pod=romm" ];
   };
 
   age.secrets.romm-db-root-password = {
@@ -75,7 +74,16 @@ in
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
     ];
-    networks = ["romm"];
+    extraOptions = [ "--pod=romm" ];
+  };
+
+  systemd.services.create-romm-pod = with config.virtualisation.oci-containers; {
+    serviceConfig.Type = "oneshot";
+    wantedBy = [ "${backend}-romm-db.service" "${backend}-romm.service" ];
+    script = ''
+      ${pkgs.podman}/bin/podman pod exists romm || \
+        ${pkgs.podman}/bin/podman pod create -n romm -p '127.0.0.1:8090:80'
+    '';
   };
 
   services.nginx = {
