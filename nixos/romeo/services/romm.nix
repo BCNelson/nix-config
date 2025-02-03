@@ -41,7 +41,7 @@ in
       "${dataDirs.level5}/romm/library:/romm/library"
       "${dataDirs.level3}/romm/assets:/romm/assets"
       "${dataDirs.level5}/romm/config:/romm/config"
-      "romm-db-socket:/run/mysqld/mysdld.sock"
+      "/var/temp/romm-db.sock:/run/mysqld/mysdld.sock"
     ];
     dependsOn = ["romm-db"];
     ports = [
@@ -76,7 +76,7 @@ in
     ];
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
-      "romm-db-socket:/run/mysqld/mysdld.sock"
+      "/var/temp/romm-db.sock:/run/mysqld/mysdld.sock"
     ];
   };
 
