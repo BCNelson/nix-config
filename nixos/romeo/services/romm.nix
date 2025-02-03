@@ -41,7 +41,7 @@ in
       "${dataDirs.level5}/romm/library:/romm/library"
       "${dataDirs.level3}/romm/assets:/romm/assets"
       "${dataDirs.level5}/romm/config:/romm/config"
-      "romm-db-sock:/run/mysqld/mysdld.sock"
+      "romm-db-sock:/run/mysqld/"
     ];
     dependsOn = ["romm-db"];
     extraOptions = [ "--pod=romm" ];
@@ -74,7 +74,7 @@ in
     ];
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
-      "romm-db-sock:/run/mysqld/mysdld.sock"
+      "romm-db-sock:/run/mysqld/"
     ];
     extraOptions = [ "--pod=romm" ];
   };
