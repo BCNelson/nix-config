@@ -43,12 +43,7 @@ in
       "${dataDirs.level5}/romm/config:/romm/config"
     ];
     ports = [ "127.0.0.1:8090:80" ];
-    dependsOn = {
-      "romm-db" = {
-        condition = "service_healthy";
-        restart = true;
-      };
-    };
+    dependsOn = ["romm-db"];
   };
 
   age.secrets.romm-db-root-password = {
@@ -79,14 +74,6 @@ in
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
     ];
-    healthcheck = {
-      test = [ "CMD" "healthcheck.sh" "--connect" "--innodb_initialized" ];
-      startPeriod = "30s";
-      startInterval = "10s";
-      interval = "10s";
-      timeout = "5s";
-      retries = 5;
-    };
   };
 
   services.nginx = {
