@@ -28,6 +28,7 @@ in
   virtualisation.oci-containers.containers.romm = {
     image = "rommapp/romm:latest";
     environment = {
+      "DB_HOST" = "localhost";
       "DB_NAME" = "romm";
       "DB_USER" = "romm-user";
     };
