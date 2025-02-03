@@ -28,7 +28,6 @@ in
   virtualisation.oci-containers.containers.romm = {
     image = "rommapp/romm:latest";
     environment = {
-      "DB_HOST" = "localhost";
       "DB_NAME" = "romm";
       "DB_USER" = "romm-user";
     };
@@ -41,6 +40,7 @@ in
       "${dataDirs.level5}/romm/library:/romm/library"
       "${dataDirs.level3}/romm/assets:/romm/assets"
       "${dataDirs.level5}/romm/config:/romm/config"
+      "romm-db-socket:/run/mysqld/mysdld.sock"
     ];
     dependsOn = ["romm-db"];
     extraOptions = [ "--pod=romm" ];
@@ -73,6 +73,7 @@ in
     ];
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
+      "romm-db-socket:/run/mysqld/mysdld.sock"
     ];
     extraOptions = [ "--pod=romm" ];
   };
