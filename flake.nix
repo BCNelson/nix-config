@@ -20,6 +20,7 @@
     agenix.url = "github:ryantm/agenix";
     agenix-rekey.url = "github:oddlama/agenix-rekey";
     agenix-rekey.inputs.nixpkgs.follows = "nixpkgs-unstable";
+    agenix-template.url = "github:jhillyerd/agenix-template/1.0.0";
 
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
