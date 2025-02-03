@@ -43,7 +43,9 @@ in
       "romm-db-socket:/run/mysqld/mysdld.sock"
     ];
     dependsOn = ["romm-db"];
-    extraOptions = [ "--pod=romm" ];
+    ports = [
+      "127.0.0.1:8080:80"
+    ];
   };
 
   age.secrets.romm-db-root-password = {
@@ -75,16 +77,6 @@ in
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
       "romm-db-socket:/run/mysqld/mysdld.sock"
     ];
-    extraOptions = [ "--pod=romm" ];
-  };
-
-  systemd.services.create-romm-pod = with config.virtualisation.oci-containers; {
-    serviceConfig.Type = "oneshot";
-    wantedBy = [ "${backend}-romm-db.service" "${backend}-romm.service" ];
-    script = ''
-      ${pkgs.podman}/bin/podman pod exists romm || \
-        ${pkgs.podman}/bin/podman pod create -n romm -p '127.0.0.1:8090:80'
-    '';
   };
 
   services.nginx = {
