@@ -44,6 +44,7 @@ in
     ];
     ports = [ "127.0.0.1:8090:80" ];
     dependsOn = ["romm-db"];
+    networks = ["romm"];
   };
 
   age.secrets.romm-db-root-password = {
@@ -74,6 +75,7 @@ in
     volumes = [
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
     ];
+    networks = ["romm"];
   };
 
   services.nginx = {
