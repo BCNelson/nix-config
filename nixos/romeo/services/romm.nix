@@ -30,7 +30,7 @@ in
       STEAMGRIDDB_API_KEY = config.age.secrets.steamgriddb_api_key.path;
     };
     content = ''
-      DB_PASSWD=$DB_PASSWORDc
+      DB_PASSWD=$DB_PASSWORD
       ROMM_AUTH_SECRET_KEY=$AUTH_SECRET_KEY
       IGDB_CLIENT_SECRET=$IGDB_CLIENT_SECRET
       STEAMGRIDDB_API_KEY=$STEAMGRIDDB_API_KEY
