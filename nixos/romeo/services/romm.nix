@@ -100,7 +100,7 @@ in
         '';
         locations = {
           "/" = {
-            proxyPass = "http://localhost:8090";
+            proxyPass = "http://localhost:8091";
             extraConfig = ''
               proxy_set_header Host $host;
               proxy_set_header Upgrade $http_upgrade;
