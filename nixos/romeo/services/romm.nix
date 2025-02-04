@@ -95,9 +95,6 @@ in
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
         locations = {
           "/" = {
             proxyPass = "http://localhost:8091";
