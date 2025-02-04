@@ -14,14 +14,26 @@ in
     generator.script = {pkgs, ...}: "${pkgs.openssl}/bin/openssl rand -hex 32";
   };
 
+  age.secrets.romm-igdb-client-secret = {
+    rekeyFile = ../../../secrets/store/romeo/igdb_client_secret.age;
+  };
+
+  age.secrets.steamgriddb_api_key = {
+    rekeyFile = ../../../secrets/store/romeo/steamgriddb_api_key.age;
+  };
+
   age-template.files.romm-env = {
     vars = {
       DB_PASSWORD = config.age.secrets.romm-db-password.path;
       AUTH_SECRET_KEY = config.age.secrets.rom-auth-secret-key.path;
+      IGDB_CLIENT_SECRET = config.age.secrets.romm-igdb-client-secret.path;
+      STEAMGRIDDB_API_KEY = config.age.secrets.steamgriddb_api_key.path;
     };
     content = ''
-      DB_PASSWD=$DB_PASSWORD
+      DB_PASSWD=$DB_PASSWORDc
       ROMM_AUTH_SECRET_KEY=$AUTH_SECRET_KEY
+      IGDB_CLIENT_SECRET=$IGDB_CLIENT_SECRET
+      STEAMGRIDDB_API_KEY=$STEAMGRIDDB_API_KEY
     '';
   };
 
@@ -31,6 +43,7 @@ in
       "DB_HOST" = "localhost";
       "DB_NAME" = "romm";
       "DB_USER" = "romm-user";
+      "IGDB_CLIENT_ID" = "3xmoinnxfnx8caexrrx4mzq8sn3eli";
     };
     environmentFiles = [
       "${config.age-template.files.romm-env.path}"
