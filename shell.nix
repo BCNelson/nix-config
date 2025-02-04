@@ -42,6 +42,7 @@ in
       agenix-rekey
       age-plugin-yubikey
       age-plugin-fido2-hmac
+      repomix
     ] ++ lib.optional (lib.hasInfix system == "linux") [
       pkgs.quickemu
       pkgs.qemu

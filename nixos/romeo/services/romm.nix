@@ -84,7 +84,7 @@ in
     wantedBy = [ "${backend}-romm-db.service" "${backend}-romm.service" ];
     script = ''
       ${pkgs.podman}/bin/podman pod exists romm || \
-        ${pkgs.podman}/bin/podman pod create -n romm -p '0.0.0.0:8090:8080'
+        ${pkgs.podman}/bin/podman pod create -n romm -p '0.0.0.0:8091:8080'
     '';
   };
 
