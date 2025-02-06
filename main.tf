@@ -96,7 +96,7 @@ resource "porkbun_dns_record" "h_b_nel_family-A" {
   domain  = "nel.family"
   name    = "h.b"
   type    = "A"
-  content = "76.27.3.156"
+  content = "204.228.151.125"
   ttl     = 600
 }
 
