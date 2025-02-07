@@ -37,6 +37,12 @@ in
 
     # Enable CUPS to print documents.
     printing.enable = true;
+    # Enable the Avahi mDNS/DNS-SD daemon. Printer discovery. and other things
+    avahi = {
+      enable = true;
+      nssmdns4 = true;
+      openFirewall = true;
+    };
   } // (if atLeast2405 then {
     displayManager.sddm = {
       enable = true;
