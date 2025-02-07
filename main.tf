@@ -15,7 +15,7 @@ terraform {
   required_providers {
     porkbun = {
       source  = "cullenmcdermott/porkbun"
-      version = "0.2.5"
+      version = "0.3.0"
     }
   }
 }
