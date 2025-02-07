@@ -232,11 +232,11 @@ in
         '';
         locations = {
           "/" = {
-            proxyPass = "http://192.168.3.8:8123";
+            proxyPass = "http://192.168.3.6:8123";
           };
           "/api/websocket" = {
             proxyWebsockets = true;
-            proxyPass = "http://192.168.3.8:8123";
+            proxyPass = "http://192.168.3.6:8123";
             extraConfig = ''
               proxy_set_header Host $host;
               proxy_set_header Upgrade $http_upgrade;
@@ -245,7 +245,7 @@ in
           };
           "/api/hassio_ingress" = {
             proxyWebsockets = true;
-            proxyPass = "http://192.168.3.8:8123";
+            proxyPass = "http://192.168.3.6:8123";
             extraConfig = ''
               proxy_set_header Host $host;
               proxy_set_header Upgrade $http_upgrade;
