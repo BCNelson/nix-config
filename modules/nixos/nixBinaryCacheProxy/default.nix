@@ -137,6 +137,7 @@ in
             </service-group>
           '';
         };
+        publish.userServices = true;
       };
     };
     systemd.services.nginx = {
