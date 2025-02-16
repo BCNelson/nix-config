@@ -126,9 +126,10 @@ in
             <?xml version="1.0" standalone='no'?><!--*-nxml-*-->
             <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
             <service-group>
-              <name replace-wildcards="yes">%h</name>
+              <name replace-wildcards="yes">%h Nix Binary Cache</name>
               <service>
                 <type>_http._tcp</type>
+                <domain>local</domain>
                 <subtype>_nix-binary-cache</subtype>
                 <port>443</port>
                 <txt-record>url=https://${cfg.domain}</txt-record>
