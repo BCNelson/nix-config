@@ -128,9 +128,9 @@ in
             <service-group>
               <name replace-wildcards="yes">%h Nix Binary Cache</name>
               <service>
-                <type>_http._tcp</type>
+                <type>_https._tcp</type>
                 <domain-name>local</domain-name>
-                <subtype>_nix-binary-cache</subtype>
+                <subtype>_nix-binary-cache._sub._https._tcp</subtype>
                 <port>443</port>
                 <txt-record>url=https://${cfg.domain}</txt-record>
               </service>
