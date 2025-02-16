@@ -137,7 +137,10 @@ in
             </service-group>
           '';
         };
-        publish.userServices = true;
+        publish = {
+          enable = true;
+          userServices = true;
+        };
       };
     };
     systemd.services.nginx = {
