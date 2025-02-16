@@ -129,7 +129,7 @@ in
               <name replace-wildcards="yes">%h Nix Binary Cache</name>
               <service>
                 <type>_http._tcp</type>
-                <domain>local</domain>
+                <domain-name>local</domain-name>
                 <subtype>_nix-binary-cache</subtype>
                 <port>443</port>
                 <txt-record>url=https://${cfg.domain}</txt-record>
