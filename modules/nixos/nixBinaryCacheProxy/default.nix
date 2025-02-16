@@ -24,6 +24,11 @@ in
         default = "20g";
         description = "The maximum size of the cache";
       };
+      advertiseMdns = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Advertise the binary cache proxy over mDNS";
+      };
     };
   };
 
@@ -114,7 +119,8 @@ in
         };
       };
       };
-      avahi = {
+      avahi = lib.mkIf cfg.advertiseMdns {
+        enable = true;
         extraServiceFiles = {
           cache = ''
             <?xml version="1.0" standalone='no'?><!--*-nxml-*-->
