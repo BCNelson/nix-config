@@ -1,10 +1,13 @@
-use std::collections::{BTreeSet, HashMap};
+use std::{collections::{BTreeSet, HashMap}, time::Duration};
 
 use async_trait::async_trait;
-use log::trace;
+use log::{info, trace};
+use mdns_sd::{ServiceDaemon, ServiceEvent};
 use pingora::{protocols::l4::socket::SocketAddr, Error};
 use pingora_load_balancing::{discovery::ServiceDiscovery, Backend, Extensions};
 use url::Url;
+
+use tokio::time::interval;
 
 pub struct BackendUrl(Url);
 
@@ -34,7 +37,66 @@ fn url_to_backends(url: Url) -> Vec<Backend> {
 
 async fn get_backend_urls() -> Result<Vec<BackendUrl>, Box<Error>> {
     trace!("get_backend_urls");
-    Ok(vec![BackendUrl(Url::parse("https://cache.nixos.org").unwrap())])
+    let mut ret = vec![];
+    ret.push(BackendUrl(Url::parse("https://cache.nixos.org").unwrap()));
+    let mut period = interval(Duration::from_secs(2));
+    period.tick().await;
+
+    let service_type = "_nixcache._sub._http._tcp.local.";
+    let mdns = ServiceDaemon::new().expect("Failed to create daemon");
+
+    info!("Browsing for service: {:?}", service_type);
+    let receiver = mdns.browse(service_type).expect("Failed to browse");
+    loop {
+        tokio::select! {
+            Ok(event) = receiver.recv_async() => {
+                match event {
+                    ServiceEvent::SearchStarted(_) => {
+                        info!("Service started");
+                    }
+                    ServiceEvent::SearchStopped(_) => {
+                        info!("Service stopped");
+                        break;
+                    }
+                    ServiceEvent::ServiceFound(service_type, fullname) => {
+                        info!("Service found service_type:{:?} fullname:{:?}", service_type, fullname);
+                    }
+                    ServiceEvent::ServiceResolved(service) => {
+                        info!("Service resolved: {:?}", service);
+                        match service.get_property_val_str("url") {
+                            Some(url) => {
+                                info!("Service resolved url: {:?}", url);
+                                match Url::parse(&url) {
+                                    Ok(url) => {
+                                        ret.push(BackendUrl(url));
+                                    }
+                                    Err(e) => {
+                                        info!("Service resolved url parse error: {:?}", e);
+                                        continue;
+                                    }
+                                }
+                            }
+                            None => {
+                                info!("Service resolved url not found");
+                            }
+                        }
+                    }
+                    ServiceEvent::ServiceRemoved(service_type, fullname) => {
+                        info!("Service found service_type:{:?} fullname:{:?}", service_type, fullname);
+                    }
+                }
+            }
+            _ = period.tick() => {
+                info!("timeout");
+                break;
+            }
+        }
+    }
+
+    info!("Shutting down mdns daemon");
+    mdns.shutdown().unwrap();
+
+    Ok(ret)
 }
 
 

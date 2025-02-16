@@ -40,7 +40,8 @@ in
       }
     ];
 
-    services.nginx = {
+    services= {
+      nginx = {
       enable = true;
       appendHttpConfig = ''
         proxy_cache_path ${cfg.cachePath} levels=1:2 keys_zone=nixbinarycache:100m max_size=${cfg.maxCacheSize} inactive=365d use_temp_path=off;
@@ -112,11 +113,30 @@ in
           '';
         };
       };
+      };
+      avahi = {
+        extraServiceFiles = {
+          cache = ''
+            <?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+            <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+            <service-group>
+              <name replace-wildcards="yes">%h</name>
+              <service>
+                <type>_http._tcp</type>
+                <subtype>_nix-binary-cache</subtype>
+                <port>443</port>
+                <txt-record>url=https://${cfg.domain}</txt-record>
+              </service>
+            </service-group>
+          '';
+        };
+      };
     };
     systemd.services.nginx = {
       serviceConfig = {
          ReadWritePaths = "${cfg.cachePath}";
       };
     };
+
   };
 }
