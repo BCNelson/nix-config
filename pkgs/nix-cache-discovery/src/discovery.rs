@@ -42,7 +42,7 @@ async fn get_backend_urls() -> Result<Vec<BackendUrl>, Box<Error>> {
     let mut period = interval(Duration::from_secs(2));
     period.tick().await;
 
-    let service_type = "_nixcache._sub._http._tcp.local.";
+    let service_type = "_nix-binary-cache._sub._https._tcp.local.";
     let mdns = ServiceDaemon::new().expect("Failed to create daemon");
 
     info!("Browsing for service: {:?}", service_type);
