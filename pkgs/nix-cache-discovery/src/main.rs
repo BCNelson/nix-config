@@ -6,14 +6,16 @@ use pingora_core::upstreams::peer::HttpPeer;
 use pingora_core::Result;
 use pingora_load_balancing::{discovery::ServiceDiscovery, Backends};
 use pingora_proxy::{ProxyHttp, Session};
+use priority_selection::Priority;
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use std::sync::Arc;
 use url::Url;
 
 mod discovery;
 mod healthcheck;
+mod priority_selection;
 
-pub struct LB(Arc<LoadBalancer<RoundRobin>>);
+pub struct LB(Arc<LoadBalancer<Priority>>);
 
 impl LB {
     pub fn new(discovery: Box<dyn ServiceDiscovery + Send + Sync>) -> Self {
@@ -87,7 +89,7 @@ fn main() {
     let mdns_service_discovery = MdnsServiceDiscovery::new();
     let mut backends = Backends::new(Box::new(mdns_service_discovery));
     backends.set_health_check(Box::new(healthcheck::Healthcheck()));
-    let mut lb = LoadBalancer::from_backends(backends);
+    let mut lb: LoadBalancer<Priority> = LoadBalancer::from_backends(backends);
     lb.health_check_frequency = Some(std::time::Duration::from_secs(10));
     lb.update_frequency = Some(std::time::Duration::from_secs(30));
 
