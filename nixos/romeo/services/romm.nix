@@ -57,6 +57,9 @@ in
       "romm-db-sock:/run/mysqld/"
     ];
     dependsOn = ["romm-db"];
+    ports = [
+      "127.0.0.1:8091:8080"
+    ];
     extraOptions = [ 
       "--pod=romm"
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
@@ -109,7 +112,6 @@ in
 
       # Create new pod with settings
       ${pkgs.podman}/bin/podman pod create -n romm \
-        -p '127.0.0.1:8091:8080' \
         --network bridge
     '';
   };
