@@ -24,18 +24,20 @@
         name = "Redo";
         isDefault = true;
         id = 1;
-        extensions = with pkgs.nur.repos.rycee.firefox-addons; [
-          darkreader
-          google-cal-event-merge
-          ublock-origin
-          i-dont-care-about-cookies
-          languagetool
-          onepassword-password-manager
-          react-devtools
-          refined-github
-          firefox-color
-          stylus
-        ];
+        extensions = {
+          packages = with pkgs.nur.repos.rycee.firefox-addons; [
+            darkreader
+            google-cal-event-merge
+            ublock-origin
+            i-dont-care-about-cookies
+            languagetool
+            onepassword-password-manager
+            react-devtools
+            refined-github
+            firefox-color
+            stylus
+          ];
+        };
         search = {
           default = "Google";
           force = true;

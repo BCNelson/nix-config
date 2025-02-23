@@ -7,13 +7,15 @@
       personal = {
         name = "Personal";
         isDefault = true;
-        extensions = with pkgs.nur.repos.rycee.firefox-addons; [
-          bitwarden
-          darkreader
-          google-cal-event-merge
-          ublock-origin
-          i-dont-care-about-cookies
-        ];
+        extensions = {
+          packages = with pkgs.nur.repos.rycee.firefox-addons; [
+            bitwarden
+            darkreader
+            google-cal-event-merge
+            ublock-origin
+            i-dont-care-about-cookies
+          ];
+        };
         search = {
           default = "Google";
           force = true;
