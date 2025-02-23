@@ -57,7 +57,12 @@ in
       "romm-db-sock:/run/mysqld/"
     ];
     dependsOn = ["romm-db"];
-    extraOptions = [ "--pod=romm" ];
+    extraOptions = [ 
+      "--pod=romm"
+      "--health-cmd=wget -q --spider http://localhost:8080/ || exit 1"
+      "--health-interval=10s"
+      "--health-retries=3"
+    ];
   };
 
   age.secrets.romm-db-root-password = {
@@ -93,11 +98,19 @@ in
   };
 
   systemd.services.create-romm-pod = with config.virtualisation.oci-containers; {
-    serviceConfig.Type = "oneshot";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
     wantedBy = [ "${backend}-romm-db.service" "${backend}-romm.service" ];
     script = ''
-      ${pkgs.podman}/bin/podman pod exists romm || \
-        ${pkgs.podman}/bin/podman pod create -n romm -p '0.0.0.0:8091:8080'
+      # Remove existing pod if it exists
+      ${pkgs.podman}/bin/podman pod exists romm && ${pkgs.podman}/bin/podman pod rm -f romm
+
+      # Create new pod with settings
+      ${pkgs.podman}/bin/podman pod create -n romm \
+        -p '0.0.0.0:8091:8080' \
+        --network bridge
     '';
   };
 
@@ -110,9 +123,16 @@ in
         acmeRoot = null;
         locations = {
           "/" = {
-            proxyPass = "http://localhost:8091";
+            proxyPass = "http://127.0.0.1:8091";
             extraConfig = ''
               proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              
+              proxy_connect_timeout 60s;
+              proxy_send_timeout 60s;
+              proxy_read_timeout 60s;
             '';
           };
         };
