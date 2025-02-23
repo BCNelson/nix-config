@@ -60,8 +60,7 @@ in
     ports = [
       "127.0.0.1:8091:8080"
     ];
-    extraOptions = [ 
-      "--pod=romm"
+    extraOptions = [
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
       "--health-interval=10s"
       "--health-retries=3"
@@ -97,7 +96,6 @@ in
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
       "romm-db-sock:/run/mysqld/"
     ];
-    extraOptions = [ "--pod=romm" ];
   };
 
   systemd.services.create-romm-pod = with config.virtualisation.oci-containers; {
@@ -112,6 +110,7 @@ in
 
       # Create new pod with settings
       ${pkgs.podman}/bin/podman pod create -n romm \
+        -p '127.0.0.1:8091:8080' \
         --network bridge
     '';
   };
