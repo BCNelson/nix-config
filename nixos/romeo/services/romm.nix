@@ -62,7 +62,7 @@ in
     ];
     extraOptions = [
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
-      "--health-interval=10s"
+      "--health-interval=60s"
       "--health-retries=3"
     ];
   };
