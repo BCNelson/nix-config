@@ -98,23 +98,6 @@ in
     ];
   };
 
-  systemd.services.create-romm-pod = with config.virtualisation.oci-containers; {
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    wantedBy = [ "${backend}-romm-db.service" "${backend}-romm.service" ];
-    script = ''
-      # Remove existing pod if it exists
-      ${pkgs.podman}/bin/podman pod exists romm && ${pkgs.podman}/bin/podman pod rm -f romm
-
-      # Create new pod with settings
-      ${pkgs.podman}/bin/podman pod create -n romm \
-        -p '127.0.0.1:8091:8080' \
-        --network bridge
-    '';
-  };
-
   services.nginx = {
     enable = true;
     virtualHosts = {
