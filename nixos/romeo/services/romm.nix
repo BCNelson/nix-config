@@ -59,7 +59,6 @@ in
     dependsOn = ["romm-db"];
     extraOptions = [ 
       "--pod=romm"
-      "--network=slirp4netns:port_handler=${pkgs.slirp4netns}/bin/slirp4netns"
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
       "--health-interval=10s"
       "--health-retries=3"
