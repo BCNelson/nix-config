@@ -59,7 +59,7 @@ in
     dependsOn = ["romm-db"];
     extraOptions = [ 
       "--pod=romm"
-      "--health-cmd=wget -q --spider http://localhost:8080/ || exit 1"
+      "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
       "--health-interval=10s"
       "--health-retries=3"
     ];
