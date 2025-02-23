@@ -58,7 +58,7 @@ in
     ];
     dependsOn = ["romm-db"];
     ports = [
-      "127.0.0.1:8091:8080"
+      "127.0.0.1:8158:8080"
     ];
     extraOptions = [
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
