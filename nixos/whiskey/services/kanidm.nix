@@ -105,7 +105,7 @@
           claimMaps = {
             "grafana_role" = {
               valuesByGroup = {
-                "service_admins@nel.family" = "GrafanaAdmin";
+                "service_admins@nel.family" = [ "GrafanaAdmin" ];
               };
             };
           };
