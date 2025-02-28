@@ -43,6 +43,7 @@ in
       age-plugin-yubikey
       age-plugin-fido2-hmac
       repomix
+      claude-code
     ] ++ lib.optional (lib.hasInfix system == "linux") [
       pkgs.quickemu
       pkgs.qemu
