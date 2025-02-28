@@ -42,6 +42,14 @@
     };
     provision = {
       enable = true;
+      groups = {
+        "household@nel.family" = {
+          members = [ ];
+        };
+        "service_admins@nel.family" = {
+          members = [ ];
+        };
+      };
       systems.oauth2 = {
         "audiobookshelf" = {
           displayName = "Audiobookshelf";
