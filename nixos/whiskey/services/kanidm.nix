@@ -85,6 +85,7 @@
         };
         "mealie" = {
           displayName = "Mealie";
+          originUrl = "https://recipes.nel.family/login";
           originLanding = "https://recipes.nel.family/";
           scopeMaps = {
             "household@nel.family" = [ "email" "groups" "openid" "profile"];
@@ -92,6 +93,7 @@
         };
         "jellyfin" = {
           displayName = "Jellyfin";
+          originUrl = "https://jellyfin.example.com/sso/OID/redirect/kanidm";
           originLanding = "https://media.nel.family/";
           scopeMaps = {
             "household@nel.family" = [ "email" "groups" "openid" "profile"];
@@ -99,6 +101,7 @@
         };
         "paperless" = {
           displayName = "Paperless";
+          originUrl = "https://docs.h.b.nel.family/accounts/oidc/kanidm/login/callback";
           originLanding = "https://docs.h.b.nel.family/";
           scopeMaps = {
             "service_admins@nel.family" = [ "email" "groups" "openid" "profile"];
@@ -106,6 +109,7 @@
         };
         "grafana" = {
           displayName = "Grafana";
+          originUrl = "https://grafana.b.nel.family/login/generic_oauth";
           originLanding = "https://grafana.b.nel.family/";
           scopeMaps = {
             "service_admins@nel.family" = [ "email" "groups" "openid" "profile"];
