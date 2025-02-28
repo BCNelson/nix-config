@@ -11,7 +11,7 @@
   ];
 
   home.packages = [
-    pkgs.yakuake
+    pkgs.kdePackages.yakuake
     pkgs.libreoffice-qt6-still
     pkgs.hunspell
     pkgs.hunspellDicts.en_US-large
@@ -23,7 +23,7 @@
     enable = true;
     packageSourced = [
       {
-        package = pkgs.yakuake;
+        package = pkgs.kdePackages.yakuake;
         path = "share/applications/org.kde.yakuake.desktop";
       }
     ];

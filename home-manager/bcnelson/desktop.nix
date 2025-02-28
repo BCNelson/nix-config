@@ -13,7 +13,7 @@
   ];
 
   home.packages = [
-    pkgs.yakuake
+    pkgs.kdePackages.yakuake
 
     # pkgs.quickemu
     # pkgs.quickgui
@@ -49,7 +49,7 @@
     enable = true;
     packageSourced = [
       {
-        package = pkgs.yakuake;
+        package = pkgs.kdePackages.yakuake;
         path = "share/applications/org.kde.yakuake.desktop";
       }
     ];

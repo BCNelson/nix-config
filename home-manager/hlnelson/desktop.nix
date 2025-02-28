@@ -12,7 +12,7 @@
   ];
 
   home.packages = [
-    pkgs.yakuake
+    pkgs.kdePackages.yakuake
 
     pkgs.unstable.obsidian
 
@@ -29,7 +29,7 @@
     enable = true;
     packageSourced = [
       {
-        package = pkgs.yakuake;
+        package = pkgs.kdePackages.yakuake;
         path = "share/applications/org.kde.yakuake.desktop";
       }
     ];
