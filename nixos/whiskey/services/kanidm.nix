@@ -43,10 +43,10 @@
     provision = {
       enable = true;
       groups = {
-        "household@nel.family" = {
+        "household" = {
           members = [ ];
         };
-        "service_admins@nel.family" = {
+        "service_admins" = {
           members = [ ];
         };
       };
@@ -56,7 +56,7 @@
           originUrl = "https://audiobooks.nel.family/";
           originLanding = "https://audiobooks.nel.family/";
           scopeMaps = {
-            "household@nel.family" = [ "email" "openid" "profile"];
+            "household" = [ "email" "openid" "profile"];
           };
           preferShortUsername = true;
         };
@@ -69,7 +69,7 @@
           ];
           originLanding = "https://photos.h.b.nel.family/";
           scopeMaps = {
-            "household@nel.family" = [ "email" "openid" "profile"];
+            "household" = [ "email" "openid" "profile"];
           };
           allowInsecureClientDisablePkce = true;
           preferShortUsername = true;
@@ -79,7 +79,7 @@
           originUrl = "https://todo.nel.family/auth/openid/";
           originLanding = "https://todo.nel.family/";
           scopeMaps = {
-            "household@nel.family" = [ "email" "openid" "profile"];
+            "household" = [ "email" "openid" "profile"];
           };
           allowInsecureClientDisablePkce = true;
         };
@@ -88,7 +88,7 @@
           originUrl = "https://recipes.nel.family/login";
           originLanding = "https://recipes.nel.family/";
           scopeMaps = {
-            "household@nel.family" = [ "email" "groups" "openid" "profile"];
+            "household" = [ "email" "groups" "openid" "profile"];
           };
         };
         "jellyfin" = {
@@ -96,7 +96,7 @@
           originUrl = "https://jellyfin.example.com/sso/OID/redirect/kanidm";
           originLanding = "https://media.nel.family/";
           scopeMaps = {
-            "household@nel.family" = [ "email" "groups" "openid" "profile"];
+            "household" = [ "email" "groups" "openid" "profile"];
           };
         };
         "paperless" = {
@@ -104,7 +104,7 @@
           originUrl = "https://docs.h.b.nel.family/accounts/oidc/kanidm/login/callback";
           originLanding = "https://docs.h.b.nel.family/";
           scopeMaps = {
-            "service_admins@nel.family" = [ "email" "groups" "openid" "profile"];
+            "service_admins" = [ "email" "groups" "openid" "profile"];
           };
         };
         "grafana" = {
@@ -112,12 +112,12 @@
           originUrl = "https://grafana.b.nel.family/login/generic_oauth";
           originLanding = "https://grafana.b.nel.family/";
           scopeMaps = {
-            "service_admins@nel.family" = [ "email" "groups" "openid" "profile"];
+            "service_admins" = [ "email" "groups" "openid" "profile"];
           };
           claimMaps = {
             "grafana_role" = {
               valuesByGroup = {
-                "service_admins@nel.family" = [ "GrafanaAdmin" ];
+                "service_admins" = [ "GrafanaAdmin" ];
               };
             };
           };
