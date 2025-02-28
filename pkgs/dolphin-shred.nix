@@ -1,7 +1,7 @@
 { stdenv
 , lib
 , makeWrapper
-, kdialog
+, kdePackages
 , coreutils
 , bash
 , libnotify
@@ -26,7 +26,7 @@ stdenv.mkDerivation {
     set -e
 
     if [ -z "\$1" ]; then
-      ${kdialog}/bin/kdialog --error "No file selected"
+      ${kdePackages.kdialog}/bin/kdialog --error "No file selected"
       exit 1
     fi
 
@@ -35,7 +35,7 @@ stdenv.mkDerivation {
     skipped_files=()
     total_files=0
 
-    if ${kdialog}/bin/kdialog --title "Secure Delete" --warningcontinuecancel "Securely delete these files?\n\nThis action cannot be undone!"; then
+    if ${kdePackages.kdialog}/bin/kdialog --title "Secure Delete" --warningcontinuecancel "Securely delete these files?\n\nThis action cannot be undone!"; then
       for file in "\$@"; do
         ((total_files++))
         
@@ -59,7 +59,7 @@ stdenv.mkDerivation {
         error_msg=""
         [ \''${#failed_files[@]} -gt 0 ] && error_msg="Failed to shred: \''${failed_files[*]}\n"
         [ \''${#skipped_files[@]} -gt 0 ] && error_msg="\$error_msg\nSkipped: \''${skipped_files[*]}"
-        ${kdialog}/bin/kdialog --title "Secure Delete - Error" --error "\$error_msg"
+        ${kdePackages.kdialog}/bin/kdialog --title "Secure Delete - Error" --error "\$error_msg"
       else
         # Only show notification on complete success
         ${libnotify}/bin/notify-send "Secure Delete" "Successfully shredded \$total_files file(s)" -i edit-delete-shred
@@ -71,7 +71,7 @@ stdenv.mkDerivation {
 
     # Wrap the script to ensure it can find its runtime dependencies
     wrapProgram $out/bin/safe-remove.sh \
-      --prefix PATH : ${lib.makeBinPath [ kdialog coreutils libnotify ]}
+      --prefix PATH : ${lib.makeBinPath [ kdePackages.kdialog coreutils libnotify ]}
 
     # Create the .desktop file
     cat > $out/share/kio/servicemenus/shred.desktop << EOF
