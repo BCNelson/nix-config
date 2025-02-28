@@ -23,5 +23,8 @@
     '')
   ];
 
-  services.pcscd.enable = true;
+  services= {
+    pcscd.enable = true;
+    kmscon.enable = true;
+  };
 }

@@ -12,6 +12,7 @@
     pkgs.bazel-buildtools
     # pkgs.zed-editor
     pkgs.cloudflared
+    pkgs.zoom-us
   ];
 
   programs.firefox = {
