@@ -8,6 +8,7 @@
     pkgs.winbox4
     pkgs.kdePackages.merkuro
     pkgs.mb4-extractor
+    pkgs.zoom-us
   ];
 
   programs.ssh = {
