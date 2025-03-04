@@ -1,5 +1,8 @@
 _:
 {
-  services.pcscd.enable = true;
+  services= {
+    pcscd.enable = true;
+    kmscon.enable = true;
+  };
   programs.partition-manager.enable = true;
 }
