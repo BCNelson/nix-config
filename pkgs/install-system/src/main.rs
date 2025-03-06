@@ -92,13 +92,25 @@ fn main() -> Result<()> {
 
     let disk_nix = if PathBuf::from(format!("nixos/{}/disks.nix", target_host_prefix)).exists() {
         format!("nixos/{}/disks.nix", target_host_prefix)
+        //TODO: Check if it is a luks disk
     } else {
-        "disko/default.nix".to_string()
+        // Check if luks is needed
+        let luks = inquire::Confirm::new("Would you like to encrypt the disk?").with_default(false).prompt()?;
+        match luks {
+            true => {
+                let passphrase = inquire::Password::new("Enter passphrase for disk encryption:").prompt()?;
+                std::fs::write("/tmp/luks-password", passphrase)?;
+                "disko/luks.nix".to_string()
+            },
+            false => {
+                "disko/default.nix".to_string()
+            }   
+        }
     };
 
     let disk_arg = format!("\"{}\"", args.disk.display());
 
-    run_cmd!( sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
+    run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
 
     run_cmd!(mkdir -p $host_dir)?;
 
