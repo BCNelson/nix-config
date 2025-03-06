@@ -104,11 +104,22 @@ fn main() -> Result<()> {
             },
             false => {
                 "disko/default.nix".to_string()
-            }   
+            }
         }
     };
 
     let disk_arg = format!("\"{}\"", args.disk.display());
+
+    let desktop_options = vec![ "kde6", "None", "hyperland", "kde" ];
+    let desktop = inquire::Select::new("Select a desktop environment", desktop_options)
+        .prompt()?;
+
+    let desktop_config = match desktop {
+        "kde6" => format!(" desktop = \"kde6\";"),
+        "hyperland" => format!(" desktop = \"hyperland\";"),
+        "kde" => format!(" desktop = \"kde\";"),
+        _ => format!(""),
+    };
 
     run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
 
@@ -132,8 +143,8 @@ fn main() -> Result<()> {
     let users = format!("\"{}\"", args.users.join("\" \""));
 
     let new_host_config = format!(
-        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ {} ]; inherit libx; version = \"unstable\"; }};",
-        args.host, args.host, users
+        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ {} ];{} inherit libx; version = \"unstable\"; }};",
+        args.host, args.host, users, desktop_config
     );
 
     let nixos_configurations_regex = Regex::new(r"(?m)(nixosConfigurations = \{\n)").unwrap();
@@ -141,7 +152,6 @@ fn main() -> Result<()> {
     flake_content = nixos_configurations_regex.replace(&flake_content, |caps: &regex::Captures| {
         format!("{}{}\n", &caps[0], new_host_config)
     }).to_string();
-    
     
     std::fs::write("flake.nix", flake_content)?;
 
