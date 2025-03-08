@@ -1,4 +1,4 @@
-{ pkgs, outputs, ... }:
+{ pkgs, lib, desktop, outputs, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -9,8 +9,7 @@
     ./_mixins/firefox.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
-    ./_mixins/kde.nix
-  ];
+  ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
 
   home.packages = [
     pkgs.kdePackages.yakuake
@@ -28,7 +27,6 @@
     pkgs.kdePackages.kate
 
     # Chat
-    pkgs.unstable.signal-desktop
     pkgs.unstable.discord
 
     pkgs.newsflash
