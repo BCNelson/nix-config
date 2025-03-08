@@ -1,8 +1,4 @@
-{ desktop, lib, pkgs, ... }:
-let
-  atLeast2405 = lib.versionAtLeast lib.trivial.release "24.05";
-in
-{
+{ desktop, lib, pkgs, ... }: {
   imports = lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
 
   services = {
@@ -43,17 +39,7 @@ in
       nssmdns4 = true;
       openFirewall = true;
     };
-  } // (if atLeast2405 then {
-    displayManager.sddm = {
-      enable = true;
-      autoNumlock = true;
-    };
-  } else {
-    xserver.displayManager.sddm = {
-      enable = true;
-      autoNumlock = true;
-    };
-  });
+  };
 
   # Enable sound with pipewire.
   # sound.enable = true; // Removed https://github.com/NixOS/nixpkgs/issues/319809
