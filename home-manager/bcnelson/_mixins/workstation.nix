@@ -9,6 +9,7 @@
     pkgs.kdePackages.merkuro
     pkgs.mb4-extractor
     pkgs.zoom-us
+    pkgs.claude-code
   ];
 
   programs.ssh = {
