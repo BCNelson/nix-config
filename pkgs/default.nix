@@ -6,4 +6,5 @@ pkgs: {
   install-system = pkgs.callPackage ./install-system { };
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };
   mb4-extractor = pkgs.callPackage ./m4b-extractor { };
+  claude-code = pkgs.callPackage ./claude-code { };
 }
