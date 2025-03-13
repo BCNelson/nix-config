@@ -2,7 +2,13 @@
   lib,
   buildNpmPackage,
   fetchzip,
-  bash
+  bash,
+  findutils,
+  gnumake,
+  gnused,
+  gnugrep,
+  coreutils-full,
+  ripgrep
 }:
 
 buildNpmPackage rec {
@@ -22,8 +28,14 @@ buildNpmPackage rec {
 
   postFixup = ''
     wrapProgram $out/bin/claude \
-      --set PATH ${lib.makeBinPath [
+      --prefix PATH ${lib.makeBinPath [
+        coreutils-full
+        findutils
+        gnumake
+        gnused
+        gnugrep
         bash
+        ripgrep
       ]}
   '';
 
