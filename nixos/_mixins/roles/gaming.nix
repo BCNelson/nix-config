@@ -22,4 +22,6 @@
     pkgs.gamescope
     pkgs.steamtinkerlaunch
   ];
+
+  services.hardware.openrgb.enable = true;
 }

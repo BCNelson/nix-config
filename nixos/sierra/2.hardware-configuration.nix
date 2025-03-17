@@ -59,6 +59,8 @@
     pkgs.libva
   ];
 
+  services.hardware.openrgb.motherboard = "intel";
+
   services.udev.packages = [ pkgs.android-udev-rules ];
 
   hardware.bluetooth.enable = true; # enables support for Bluetooth
