@@ -69,13 +69,27 @@
     };
   };
 
-  xdg.desktopEntries = {
-    firefox-personal = {
-      name = "Firefox (Personal)";
-      genericName = "Web Browser";
-      exec = "firefox -P \"Personal\"";
-      terminal = false;
-      categories = [ "Application" "Network" "WebBrowser" ];
+
+
+  xdg = {
+    desktopEntries = {
+      firefox-personal = {
+        name = "Firefox (Personal)";
+        genericName = "Web Browser";
+        exec = "firefox -P \"Personal\"";
+        terminal = false;
+        categories = [ "Application" "Network" "WebBrowser" ];
+      };
+    };
+    configFile = {
+      "distrobox/redo.ini" = {
+        enable = true;
+        text = ''
+        [redo]
+        image=ubuntu:latest
+        additional_packages="build-essential"
+        '';
+      };
     };
   };
 }

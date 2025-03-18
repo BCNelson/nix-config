@@ -10,6 +10,7 @@
     pkgs.mb4-extractor
     pkgs.zoom-us
     pkgs.claude-code
+    pkgs.gh
   ];
 
   programs.ssh = {
