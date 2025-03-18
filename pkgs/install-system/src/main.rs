@@ -4,8 +4,129 @@ use anyhow::{Result, bail};
 use cmd_lib::run_cmd;
 use regex::Regex;
 use std::process::Command;
+use std::collections::HashMap;
+use std::fs;
 
 mod wifi;
+
+/// Lists available disks in the system
+fn list_available_disks() -> Result<Vec<String>> {
+    let mut disks = Vec::new();
+    
+    // Read from /sys/block to get all block devices
+    for entry in fs::read_dir("/sys/block")? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        // Get the disk name
+        if let Some(disk_name) = path.file_name().and_then(|n| n.to_str()) {
+            // Filter out loop, ram and dm devices
+            if !disk_name.starts_with("loop") && 
+               !disk_name.starts_with("ram") && 
+               !disk_name.starts_with("dm-") {
+                
+                // Read size to make sure it's a real disk
+                if let Ok(size_str) = fs::read_to_string(path.join("size")) {
+                    if let Ok(size) = size_str.trim().parse::<u64>() {
+                        // Only include disks with non-zero size
+                        if size > 0 {
+                            let dev_path = format!("/dev/{}", disk_name);
+                            disks.push(dev_path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(disks)
+}
+
+/// Retrieves detailed information about a disk
+fn get_disk_info(disk_path: &PathBuf) -> Result<HashMap<String, String>> {
+    let mut disk_info = HashMap::new();
+    
+    // Extract the base disk name (e.g., /dev/sda -> sda)
+    let disk_name = disk_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
+    
+    // Read disk vendor, model, size from sysfs
+    let sysfs_path = PathBuf::from("/sys/block").join(disk_name);
+    
+    // Check if device exists
+    if !sysfs_path.exists() {
+        bail!("Disk {} not found in system", disk_path.display());
+    }
+    
+    // Get disk size
+    if let Ok(size_bytes) = fs::read_to_string(sysfs_path.join("size")) {
+        if let Ok(sectors) = size_bytes.trim().parse::<u64>() {
+            // Sectors are typically 512 bytes
+            let size_gb = (sectors * 512) as f64 / 1_073_741_824.0;
+            disk_info.insert("size".to_string(), format!("{:.1} GB", size_gb));
+        }
+    }
+    
+    // Get vendor and model information
+    if let Ok(vendor) = fs::read_to_string(sysfs_path.join("device/vendor")) {
+        disk_info.insert("vendor".to_string(), vendor.trim().to_string());
+    }
+    
+    if let Ok(model) = fs::read_to_string(sysfs_path.join("device/model")) {
+        disk_info.insert("model".to_string(), model.trim().to_string());
+    }
+    
+    // Check if removable
+    if let Ok(removable) = fs::read_to_string(sysfs_path.join("removable")) {
+        let is_removable = removable.trim() == "1";
+        disk_info.insert("removable".to_string(), is_removable.to_string());
+    }
+    
+    // Try to detect if it's a USB device
+    let is_usb = fs::read_dir(sysfs_path.join("device"))
+        .ok()
+        .and_then(|entries| {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_symlink() && path.file_name().and_then(|n| n.to_str()) == Some("driver") {
+                    if let Ok(target) = fs::read_link(path) {
+                        let target_str = target.to_string_lossy();
+                        if target_str.contains("usb") {
+                            return Some(true);
+                        }
+                    }
+                }
+            }
+            Some(false)
+        })
+        .unwrap_or(false);
+    
+    disk_info.insert("is_usb".to_string(), is_usb.to_string());
+    
+    // Try to get current mount points
+    if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
+        let relevant_mounts: Vec<&str> = mounts.lines()
+            .filter(|line| line.contains(disk_path.to_string_lossy().as_ref()))
+            .collect();
+        
+        if !relevant_mounts.is_empty() {
+            disk_info.insert("mounted".to_string(), "true".to_string());
+            disk_info.insert("mount_points".to_string(), 
+                relevant_mounts.iter()
+                    .map(|line| {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if parts.len() > 1 { parts[1] } else { "unknown" }
+                    })
+                    .collect::<Vec<&str>>()
+                    .join(", "));
+        } else {
+            disk_info.insert("mounted".to_string(), "false".to_string());
+        }
+    }
+    
+    Ok(disk_info)
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -17,10 +138,6 @@ struct Args {
     /// Target username
     #[arg(short, long, default_value = "bcnelson", value_delimiter = ',')]
     users: Vec<String>,
-
-    /// Target disk
-    #[arg(required = true)]
-    disk: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -61,16 +178,182 @@ fn main() -> Result<()> {
     
 
     let target_host_parts: Vec<&str> = args.host.split('-').collect();
-
+    
+    // Ensure the hostname format is correct (prefix-number)
+    if target_host_parts.len() != 2 {
+        bail!("Invalid hostname format: Expected format is <name>-<number> (e.g., sierra-2)");
+    }
+    
     let target_host_prefix = target_host_parts[0];
     let target_host_suffix = target_host_parts[1];
+    
+    // Ensure the suffix is a number
+    if target_host_suffix.parse::<u32>().is_err() {
+        bail!("Invalid hostname format: The suffix part after the dash must be a number (e.g., 'sierra-2')");
+    }
 
-    println!("WARNING! The disk {} in {} is about to get wiped", 
-                 args.disk.display(), target_host_prefix);
-    println!("         NixOS will be re-installed");
-    println!("         This is a destructive operation\n");
+    // List available disks and let user select one
+    println!("\nAvailable disks on this system:");
+    let disks = match list_available_disks() {
+        Ok(disks) => disks,
+        Err(e) => {
+            bail!("Error listing disks: {}", e);
+        }
+    };
+    
+    if disks.is_empty() {
+        bail!("No suitable disks found on the system");
+    }
+    
+    // Create disk display info for selection
+    let mut disk_display_info = Vec::new();
+    let mut disk_paths = Vec::new();
+    
+    for disk_path in &disks {
+        let disk_pathbuf = PathBuf::from(disk_path);
+        match get_disk_info(&disk_pathbuf) {
+            Ok(info) => {
+                let unknown_str = "Unknown".to_string();
+                let size = info.get("size").unwrap_or(&unknown_str);
+                let model = info.get("model").unwrap_or(&unknown_str);
+                let is_usb = info.get("is_usb").map_or(false, |v| v == "true");
+                let is_removable = info.get("removable").map_or(false, |v| v == "true");
+                
+                let mut disk_type = "";
+                if is_removable {
+                    disk_type = " [REMOVABLE]";
+                }
+                
+                if is_usb {
+                    disk_type = " [USB]";
+                }
+                
+                let display = format!("{} - {} - {}{}", 
+                    disk_path, 
+                    model, 
+                    size,
+                    disk_type);
+                
+                disk_display_info.push(display);
+                disk_paths.push(disk_path.clone());
+            },
+            Err(_) => {
+                let display = format!("{} - No information available", disk_path);
+                disk_display_info.push(display);
+                disk_paths.push(disk_path.clone());
+            }
+        }
+    }
+    
+    // Let user select the disk
+    let selected_disk_display = inquire::Select::new("Select the disk to install NixOS on", disk_display_info)
+        .prompt()?;
+    
+    // Find the selected disk path
+    let selected_index = disk_display_info.iter().position(|d| d == &selected_disk_display).unwrap();
+    let selected_disk = PathBuf::from(&disk_paths[selected_index]);
 
-    if !inquire::Confirm::new("Are you sure?").with_default(false).prompt()? {
+    // Gather detailed disk information
+    println!("\nAnalyzing disk {}...", selected_disk.display());
+    
+    let disk_info = match get_disk_info(&selected_disk) {
+        Ok(info) => info,
+        Err(e) => {
+            println!("WARNING: Could not get detailed disk information: {}", e);
+            bail!("Failed to get disk information. Aborting for safety.");
+        }
+    };
+
+    // Print detailed disk information
+    println!("\nDisk information:");
+    println!("  Path: {}", selected_disk.display());
+    
+    if let Some(model) = disk_info.get("model") {
+        println!("  Model: {}", model);
+    }
+    
+    if let Some(vendor) = disk_info.get("vendor") {
+        println!("  Vendor: {}", vendor);
+    }
+    
+    if let Some(size) = disk_info.get("size") {
+        println!("  Size: {}", size);
+    }
+    
+    // Generate warnings based on disk characteristics
+    let mut warnings = Vec::new();
+    
+    if disk_info.get("removable").map_or(false, |v| v == "true") {
+        warnings.push("⚠️ This appears to be a REMOVABLE device!".to_string());
+    }
+    
+    if disk_info.get("is_usb").map_or(false, |v| v == "true") {
+        warnings.push("⚠️ This appears to be a USB device! USB drives are typically NOT suitable for system installation.".to_string());
+    }
+    
+    if let Some(size) = disk_info.get("size") {
+        if let Ok(size_str) = size.split_whitespace().next().unwrap_or("0").parse::<f64>() {
+            if size_str < 20.0 {
+                warnings.push("⚠️ This disk is unusually small for a system installation (< 20GB)!".to_string());
+            }
+        }
+    }
+    
+    if disk_info.get("mounted").map_or(false, |v| v == "true") {
+        if let Some(mounts) = disk_info.get("mount_points") {
+            warnings.push(format!("⚠️ This disk is currently mounted at: {}", mounts));
+            
+            // Check if this disk contains the boot media
+            if mounts.contains("/run/initramfs") || mounts.contains("/nix/store") || mounts.contains("/iso") {
+                warnings.push("⚠️ WARNING: This appears to be the BOOT MEDIA you're currently running from!".to_string());
+                warnings.push("⚠️ Installing to this disk will likely FAIL and could brick your installation media!".to_string());
+            }
+        } else {
+            warnings.push("⚠️ This disk is currently mounted!".to_string());
+        }
+    }
+    
+    // Check if this appears to be a system disk with existing partitions
+    if let Ok(output) = Command::new("lsblk")
+        .arg("-no")
+        .arg("NAME,MOUNTPOINT")
+        .arg(selected_disk.to_string_lossy().as_ref())
+        .output() 
+    {
+        if let Ok(output_str) = String::from_utf8(output.stdout) {
+            if output_str.contains("/boot") || output_str.contains("/ ") || output_str.contains("/home") {
+                warnings.push("⚠️ This disk appears to contain an existing operating system!".to_string());
+            }
+        }
+    }
+
+    println!("\n========== WARNING ==========");
+    println!("The disk {} is about to get COMPLETELY WIPED!", selected_disk.display());
+    println!("NixOS will be installed on this disk for {}", target_host_prefix);
+    println!("This is a DESTRUCTIVE operation that CANNOT be undone!");
+    
+    if !warnings.is_empty() {
+        println!("\nADDITIONAL WARNINGS:");
+        for warning in &warnings {
+            println!("  {}", warning);
+        }
+    }
+    println!("==============================\n");
+
+    // Extra confirmation if there are warnings
+    if !warnings.is_empty() {
+        if !inquire::Confirm::new("This disk has warnings. Do you REALLY want to continue?")
+            .with_default(false)
+            .prompt()?
+        {
+            bail!("Installation aborted by user");
+        }
+    }
+
+    if !inquire::Confirm::new("Are you sure you want to install on this disk?")
+        .with_default(false)
+        .prompt()? 
+    {
         return Ok(());
     }
 
@@ -78,7 +361,7 @@ fn main() -> Result<()> {
 
     // check if the default.nix file exists
     let default_nix_path = format!("{}/default.nix", host_dir);
-    let default_nix_exists = std::fs::exists(&default_nix_path).unwrap();
+    let default_nix_exists = std::fs::metadata(&default_nix_path).is_ok();
 
 
     let mut auto_updates = false;
@@ -108,7 +391,7 @@ fn main() -> Result<()> {
         }
     };
 
-    let disk_arg = format!("\"{}\"", args.disk.display());
+    let disk_arg = format!("\"{}\"", selected_disk.display());
 
     let desktop_options = vec![ "kde6", "None", "hyperland", "kde" ];
     let desktop = inquire::Select::new("Select a desktop environment", desktop_options)
