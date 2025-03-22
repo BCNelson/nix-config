@@ -19,6 +19,9 @@ in
       "${dataDirs.level5}/audiobookshelf/metadata:/metadata"
     ];
     ports = [ "127.0.0.1:8080:80" ];
+    labels = {
+      "io.containers.autoupdate" = "registry";
+    };
   };
 
   services.nginx = {

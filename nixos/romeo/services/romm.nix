@@ -96,6 +96,9 @@ in
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
       "romm-db-sock:/run/mysqld/"
     ];
+    labels = {
+      "io.containers.autoupdate" = "registry";
+    };
   };
 
   services.nginx = {
