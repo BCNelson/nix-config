@@ -11,7 +11,6 @@ let
       changedetection.nel.family A 192.168.3.7
       rom.nel.family A 192.168.3.7
       auth.nel.family A 192.168.3.7
-      nel.to A 192.168.3.7
       nixcache.nel.family A 192.168.3.7
     '';
     destination = "/localOverride";

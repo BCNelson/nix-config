@@ -165,19 +165,6 @@ in
           };
         };
       };
-      "nel.to" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/a" = {
-            return = "301 https://inventory.h.b.nel.family$request_uri";
-          };
-        };
-      };
       "photos.h.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
