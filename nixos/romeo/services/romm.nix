@@ -38,7 +38,7 @@ in
   };
 
   virtualisation.oci-containers.containers.romm = {
-    image = "rommapp/romm:latest";
+    image = "docker.io/rommapp/romm:latest";
     environment = {
       "DB_HOST" = "localhost";
       "DB_NAME" = "romm";
@@ -65,6 +65,9 @@ in
       "--health-interval=60s"
       "--health-retries=3"
     ];
+    labels = {
+      "io.containers.autoupdate" = "registry";
+    };
   };
 
   age.secrets.romm-db-root-password = {
@@ -84,7 +87,7 @@ in
   };
 
   virtualisation.oci-containers.containers.romm-db = {
-    image = "mariadb:latest";
+    image = "docker.io/mariadb:11.7";
     environment = {
       "MARIADB_DATABASE" = "romm";
       "MARIADB_USER" = "romm-user";
@@ -96,9 +99,6 @@ in
       "${dataDirs.level5}/romm/db:/var/lib/mysql"
       "romm-db-sock:/run/mysqld/"
     ];
-    labels = {
-      "io.containers.autoupdate" = "registry";
-    };
   };
 
   services.nginx = {
