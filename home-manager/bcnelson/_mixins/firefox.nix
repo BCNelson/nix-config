@@ -22,7 +22,7 @@
           ];
         };
         search = {
-          default = "Google";
+          default = "google";
           force = true;
         };
         settings = {
