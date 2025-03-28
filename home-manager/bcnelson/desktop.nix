@@ -71,20 +71,6 @@
 
   systemd.user.startServices = "sd-switch";
 
-  # Home Manager is pretty good at managing dotfiles. The primary way to manage
-  # plain files is through 'home.file'.
-  home.file = {
-    ".local/share/konsole/Fish.profile".text = ''
-      [General]
-      Command=~/.nix-profile/bin/fish
-      Name=Fish
-      Parent=FALLBACK/
-
-      [Scrolling]
-      HistoryMode=2
-    '';
-  };
-
   home.sessionVariables = {
     VISUAL = "kwrite";
   };
