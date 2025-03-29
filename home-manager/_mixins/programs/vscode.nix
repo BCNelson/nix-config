@@ -6,7 +6,6 @@
     package = pkgs.unstable.vscode.fhs; #pkgs.vscode.fhs Breaks ssh agent issue #2
     profiles.default.userSettings = {
       "terminal.integrated.defaultProfile.linux" = "fish";
-      "workbench.colorTheme" = "Default Dark Modern";
       "editor.inlineSuggest.enabled" = true;
       "github.copilot.enable" = {
         "*" = true;
