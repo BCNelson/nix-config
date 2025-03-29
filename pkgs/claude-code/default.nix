@@ -13,21 +13,25 @@
 
 buildNpmPackage rec {
   pname = "claude-code";
-  version = "0.2.32";
+  version = "0.2.56";
 
   src = fetchzip {
     url = "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-${version}.tgz";
-    hash = "sha256-yIj/+m1LKIN51X5zmBnayucpAzz2cdE/QXfwQapeEqI=";
+    hash = "sha256-8zqRRaqa8RFLzJC4MyrSAeK6b5vPxOxa8Q6x0UNlMuY=";
   };
 
-  npmDepsHash = "sha256-NkMPBbLgr6MuMWNswDsulAYR7A8M6H9EGF2rw1tC33E=";
+  npmDepsHash = "sha256-h7iO6IZLKo1ifXykBm89CAmVe4K3DaewQ4gQekM9xmM=";
 
   postPatch = ''
     cp ${./package-lock.json} package-lock.json
   '';
 
-  postFixup = ''
+  # `claude-code` tries to auto-update by default, this disables that functionality.
+  # Note that the `DISABLE_AUTOUPDATER` environment variable is not documented, so this trick may
+  # not continue to work.
+  postInstall = ''
     wrapProgram $out/bin/claude \
+      --set DISABLE_AUTOUPDATER 1 \
       --prefix PATH ${lib.makeBinPath [
         coreutils-full
         findutils
