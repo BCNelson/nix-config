@@ -12,7 +12,7 @@
     };
   };
 
-  imports = [ inputs.catppuccin.homeManagerModules.catppuccin ]
+  imports = [ inputs.catppuccin.homeModules.catppuccin ]
     ++ lib.optional (builtins.pathExists ./${username}) ./${username};
   home.stateVersion = stateVersion;
   programs.home-manager.enable = true;
