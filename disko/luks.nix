@@ -61,7 +61,7 @@
             };
           };
           swap = {
-            size = "100%";
+            size = swapSize;
               content = {
                 type = "swap";
                 discardPolicy = "both";
