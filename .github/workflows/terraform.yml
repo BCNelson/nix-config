@@ -14,6 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
       - name: Terraform Init
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
