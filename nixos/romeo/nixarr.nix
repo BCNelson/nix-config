@@ -47,6 +47,92 @@ in
     sonarr.enable = true;
   };
 
+  services.nginx = {
+    enable = true;
+    virtualHosts = {
+      "bazarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:6767";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+      "prowlarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:9696";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+      "readarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:8787";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+      "radarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:7878";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+      "sonarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:8989";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+    };
+  };
+
   services.jackett = {
     enable = true;
     dataDir = "${dataDirs.level6}/jackett";
