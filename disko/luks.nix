@@ -1,39 +1,72 @@
-{ disk, ... }: {
+{ disk, swapSize, ... }: {
   disko.devices = {
     disk = {
       main = {
-        device = disk;
         type = "disk";
+        device = disk;
         content = {
           type = "gpt";
           partitions = {
             ESP = {
+              size = "500M";
               type = "EF00";
-              size = "1G";
               content = {
                 type = "filesystem";
                 format = "vfat";
                 mountpoint = "/boot";
+                mountOptions = [ "umask=0077" ];
               };
             };
             luks = {
-              name = "luks";  # Set the partition label for easier identification
               size = "100%";
               content = {
                 type = "luks";
                 name = "crypted";
-                # Settings for a more secure encryption setup
+                extraOpenArgs = [ ];
                 settings = {
-                  allowDiscards = true;      # Allow TRIM commands to pass through to the device (reduces lifespan but improves performance)
+                  allowDiscards = true;
                 };
-                passwordFile = "/tmp/luks-password";  # Path to a file containing the password
+                passwordFile = "/tmp/luks-password";
                 content = {
-                  type = "filesystem";
-                  format = "ext4";
-                  mountpoint = "/";
+                  type = "lvm_pv";
+                  vg = "pool";
                 };
               };
             };
+          };
+        };
+      };
+    };
+    lvm_vg = {
+      pool = {
+        type = "lvm_vg";
+        lvs = {
+          root = {
+            size = "50%";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/";
+              mountOptions = [
+                "defaults"
+              ];
+            };
+          };
+          home = {
+            size = "50%";
+            content = {
+              type = "filesystem";
+              format = "ext4";
+              mountpoint = "/home";
+            };
+          };
+          swap = {
+            size = "100%";
+              content = {
+                type = "swap";
+                discardPolicy = "both";
+                resumeDevice = true; # resume from hiberation from this device
+              };
           };
         };
       };

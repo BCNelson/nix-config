@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 
 mod wifi;
+mod swap;
 
 /// Lists available disks in the system
 fn list_available_disks() -> Result<Vec<String>> {
@@ -246,7 +247,7 @@ fn main() -> Result<()> {
     }
     
     // Let user select the disk
-    let selected_disk_display = inquire::Select::new("Select the disk to install NixOS on", disk_display_info)
+    let selected_disk_display = inquire::Select::new("Select the disk to install NixOS on", disk_display_info.clone())
         .prompt()?;
     
     // Find the selected disk path
@@ -404,7 +405,21 @@ fn main() -> Result<()> {
         _ => format!(""),
     };
 
-    run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg)?;
+    let swap_size = swap::select_swap_size()?;
+    
+    // Provide relevant feedback based on swap size
+    if swap_size == 0 {
+        println!("No swap partition will be created");
+    } else if swap_size > 32 {
+        println!("Creating a large swap partition ({}GB) - this may take a while", swap_size);
+    } else {
+        println!("Creating a {}GB swap partition", swap_size);
+    }
+    
+    // Convert to string for command
+    let swap_size_arg = format!("{}GB", swap_size.to_string());
+
+    run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg --arg swapSize $swap_size_arg)?;
 
     run_cmd!(mkdir -p $host_dir)?;
 
