@@ -53,6 +53,7 @@ in
     pkgs.lsof
 
     pkgs.usbutils # lsusb
+    pkgs.pciutils # lspcigit
     pkgs.inotify-info
   ];
 
