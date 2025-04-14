@@ -417,7 +417,7 @@ fn main() -> Result<()> {
     }
     
     // Convert to string for command
-    let swap_size_arg = format!("{}GB", swap_size.to_string());
+    let swap_size_arg = format!("\"{}G\"", swap_size.to_string());
 
     run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg --arg swapSize $swap_size_arg)?;
 
