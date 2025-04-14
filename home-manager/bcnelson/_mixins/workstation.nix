@@ -11,7 +11,6 @@
     pkgs.zoom-us
     pkgs.claude-code
     pkgs.gh
-    pkgs.anytype
   ];
 
   programs.ssh = {
