@@ -1,5 +1,10 @@
 {pkgs, ...}:
 {
+  
+  imports = [
+    ./appimage.nix
+  ];
+
   services= {
     pcscd.enable = true;
     kmscon.enable = true;
