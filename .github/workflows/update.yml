@@ -69,7 +69,7 @@ jobs:
         with:
           name: flake.lock
       - name: Check host ${{ matrix.host }}
-        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run
+        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace
 
   comment:
     runs-on: ubuntu-latest
