@@ -14,5 +14,6 @@
     pkgs.nixpkgs-review
     pkgs.ventoy-full
     pkgs.libation
+    pkgs.inkscape
   ];
 }
