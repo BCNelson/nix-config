@@ -2,6 +2,7 @@
 {
   imports = [
     ./nvim.nix
+    ../../_mixins/programs/libreOffice.nix
   ];
 
   home.packages = [
