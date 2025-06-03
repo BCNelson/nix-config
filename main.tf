@@ -335,7 +335,7 @@ resource "porkbun_dns_record" "pdf_nel_family-CNAME" {
   domain = "nel.family"
   name = "pdf"
   type = "CNAME"
-  content = "amorphous-swine.pikapod.ne"
+  content = "amorphous-swine.pikapod.net"
 }
 
 resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
