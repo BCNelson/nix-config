@@ -54,6 +54,13 @@ resource "porkbun_dns_record" "CAA_rss_b_nel_family" {
   content = "0 issue \"sectigo.com\""
 }
 
+resource "porkbun_dns_record" "CAA_pdf_nel_family" {
+  domain  = "nel.family"
+  name    = "pdf"
+  type    = "CAA"
+  content = "0 issue \"sectigo.com\""
+}
+
 resource "porkbun_dns_record" "mx10_nel_family" {
   domain  = "nel.family"
   type    = "MX"
