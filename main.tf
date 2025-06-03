@@ -331,6 +331,13 @@ resource "porkbun_dns_record" "check_nel_family-CNAME" {
   content = "esoteric-rattlesnake.pikapod.net"
 }
 
+resource "porkbun_dns_record" "pdf_nel_family-CNAME" {
+  domain = "nel.family"
+  name = "pdf"
+  type = "CNAME"
+  content = "amorphous-swine.pikapod.ne"
+}
+
 resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
   domain = "nel.family"
   name = "*.arr.b"
