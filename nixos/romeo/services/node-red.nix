@@ -4,7 +4,7 @@ let
 in
 {
   virtualisation.oci-containers.containers.node-red = {
-    image = "ghcr.io/node-red/node-red:latest-debian";
+    image = "node-red/node-red:latest-debian";
     environment = {
       "TZ" = "America/Denver";
       "NODE_RED_ENABLE_PROJECTS" = "true";
