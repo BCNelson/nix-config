@@ -72,9 +72,5 @@
     user = "bcnelson";
   };
 
-  nixpkgs.config.permittedInsecurePackages = [
-    "ventoy-1.1.05"
-  ];
-
   zramSwap.enable = true;
 }
