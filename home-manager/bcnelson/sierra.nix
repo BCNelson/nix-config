@@ -7,6 +7,7 @@
     ../_mixins/programs/emulator.nix
     ../_mixins/programs/blender.nix
     ./_mixins/workstation.nix
+    ./_mixins/3dprinting.nix
   ];
 
   home.packages = [
