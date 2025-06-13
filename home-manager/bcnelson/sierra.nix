@@ -6,6 +6,7 @@
     ../_mixins/programs/libreOffice.nix
     ../_mixins/programs/emulator.nix
     ../_mixins/programs/blender.nix
+    ./_mixins/programs/veloren.nix
     ./_mixins/workstation.nix
     ./_mixins/3dprinting.nix
   ];
