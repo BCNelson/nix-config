@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -7,6 +7,7 @@
   ];
 
   home.packages = [
+    pkgs.winbox4
   ];
 
   programs.plasma = {
