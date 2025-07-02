@@ -3,17 +3,9 @@
 
   inputs = {
     # Nixpkgs
-    nixpkgs24-05.url = "github:nixos/nixpkgs/nixos-24.05";
-    nixpkgs24-11.url = "github:nixos/nixpkgs/nixos-24.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Home manager
-    home-manager24-05.url = "github:nix-community/home-manager/release-24.05";
-    home-manager24-05.inputs.nixpkgs.follows = "nixpkgs24-05";
-
-    home-manager24-11.url = "github:nix-community/home-manager/release-24.11";
-    home-manager24-11.inputs.nixpkgs.follows = "nixpkgs24-11";
-
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
@@ -39,10 +31,10 @@
     };
 
     nix-formatter-pack.url = "github:Gerschtli/nix-formatter-pack";
-    nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs24-05";
+    nix-formatter-pack.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
     disko.url = "github:nix-community/disko";
-    disko.inputs.nixpkgs.follows = "nixpkgs24-05";
+    disko.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
     nixos-hardware.url = "github:nixos/nixos-hardware";
 
@@ -51,7 +43,7 @@
 
     nixos-generators = {
       url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs24-05";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
     catppuccin.url = "github:catppuccin/nix";
