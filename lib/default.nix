@@ -53,7 +53,18 @@ let
 in
 {
   # Helper function for generating host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable" }: versions.${version}.nixpkgs.lib.nixosSystem {
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable", patches ? null }:let 
+    orginalNixpkgs = versions.${version}.nixpkgs;
+    system = "x86_64-linux"; # TODO: Make this dynamic based on the host platform
+    pkgs = orginalNixpkgs.legacyPackages.${system};
+    patchedNixpkgsSource = if patches != null then pkgs.applyPatches {
+      name = "nixpkgs-patched";
+      src = orginalNixpkgs;
+      patches = map pkgs.fetchpatch patches;
+    } else null;
+    nixpkgs = if patches != null then patchedNixpkgsSource else orginalNixpkgs;
+    nixpkgsLib = if patches != null then (import patchedNixpkgsSource {}).lib else orginalNixpkgs.lib;
+  in nixpkgsLib.nixosSystem {
     specialArgs = {
       inherit inputs outputs desktop hostname usernames stateVersion libx;
     };
@@ -66,10 +77,10 @@ in
       inputs.agenix-template.nixosModules.default
       (mkHome { inherit hostname usernames desktop; })
       {
-        nix.nixPath = [ "nixpkgs=${versions.${version}.nixpkgs}" ];
+        nix.nixPath = [ "nixpkgs=${nixpkgs}" ];
       }
-    ] ++ (versions.${version}.nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
-    ++ versions.${version}.nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
+    ] ++ (nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
+    ++ nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
   };
 
   mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {

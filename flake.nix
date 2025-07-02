@@ -96,8 +96,25 @@
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "iso_console" = libx.mkHost { hostname = "iso_console"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"; inherit libx; version = "unstable"; };
-        "iso_desktop" = libx.mkHost { hostname = "iso_desktop"; usernames = [ "nixos" ]; nixosMods = inputs.nixpkgs24-11 + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix"; desktop = "kde6"; inherit libx; version = "unstable"; };
+        "iso_console" = libx.mkHost {
+          hostname = "iso_console";
+          usernames = [ "nixos" ];
+          nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix";
+          inherit libx;
+          version = "unstable";
+          # patches = [{
+          #   url = "https://patch-diff.githubusercontent.com/raw/NixOS/nixpkgs/pull/405787.patch";
+          #   hash = "sha256-sCoGapRkM5MAtZLAt0Q4FN38lwiBHgnOeONSQhgjZac=";
+          # }];
+        };
+        "iso_desktop" = libx.mkHost { 
+          hostname = "iso_desktop";
+          usernames = [ "nixos" ];
+          nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix";
+          desktop = "kde6";
+          inherit libx;
+          version = "unstable";
+        };
         # "vm_test" = libx.mkHost { hostname = "vm_test"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
         "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
