@@ -48,9 +48,7 @@ _:
     "10-samba" = {
       "/liveData/NelsonData/Nelson Family Files" = {
         "A+" = {
-          mode = "0755";
-          user = "samba";
-          group = "samba";
+          argument = "user::samba::rw-,group::samba::rw-";
         };
       };
     };
