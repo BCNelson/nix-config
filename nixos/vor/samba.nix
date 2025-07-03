@@ -18,8 +18,7 @@ _:
         "security" = "user";
         "#use sendfile" = "yes";
         "min protocol" = "smb3";
-        "hosts allow" = "100.64.0.0/10 192.168.138.0/24";
-        "hosts deny" = "0.0.0.0/0";
+        "hosts allow" = "100.64.0.0/255.192.0.0, 192.168.138.0/255.255.255.0";
         "guest account" = "nobody";
         "map to guest" = "bad user";
       };
