@@ -48,7 +48,7 @@ _:
     "10-samba" = {
       "/liveData/NelsonData/Nelson Family Files" = {
         "A+" = {
-          argument = "group::samba::rwx";
+          argument = "group:samba:rwx";
         };
       };
     };
