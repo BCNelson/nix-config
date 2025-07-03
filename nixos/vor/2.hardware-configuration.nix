@@ -30,7 +30,7 @@
 
   boot.zfs = {
     extraPools = [ "vault" "liveData" ];
-    devNodes = "/dev/disk/by-partlabel";
+    devNodes = "/dev/disk/by-partuuid";
     forceImportRoot = false;
   };
 
