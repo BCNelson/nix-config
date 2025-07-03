@@ -43,4 +43,14 @@ _:
   };
 
   users.groups.samba = {};
+
+  systemd.tmpfiles.settings = {
+    "/liveData/NelsonData/Nelson Family Files" = {
+      "A+" = {
+        mode = "0755";
+        owner = "samba";
+        group = "samba";
+      };
+    };
+  };
 }
