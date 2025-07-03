@@ -49,7 +49,7 @@ _:
       "/liveData/NelsonData/Nelson Family Files" = {
         "A+" = {
           mode = "0755";
-          owner = "samba";
+          user = "samba";
           group = "samba";
         };
       };
