@@ -21,6 +21,10 @@ let
       nixpkgs = inputs.nixpkgs-unstable;
       home-manager = inputs.home-manager-unstable;
     };
+    unstable-small = {
+      nixpkgs = inputs.nixpkgs-unstable-small;
+      home-manager = inputs.home-manager-unstable-small;
+    };
     stable = {
       nixpkgs = inputs.nixpkgs24-11;
       home-manager = inputs.home-manager24-11;

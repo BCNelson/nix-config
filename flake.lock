@@ -303,6 +303,27 @@
         "type": "github"
       }
     },
+    "home-manager-unstable-small": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs-unstable-small"
+        ]
+      },
+      "locked": {
+        "lastModified": 1751693185,
+        "narHash": "sha256-+LKghTO5wWBcR/MJAeoSarWR7c7dO6GyA8+jM8DHV08=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "36c57c6a1d03a5efbf5e23c04dbe21259d25f992",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "ref": "master",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
     "ixx": {
       "inputs": {
         "flake-utils": [
@@ -474,6 +495,22 @@
       "original": {
         "owner": "nixos",
         "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-unstable-small": {
+      "locked": {
+        "lastModified": 1751619433,
+        "narHash": "sha256-5aZFBHQNQzrfCisewtYBDNbiKcHbxPYChiP4dkEcSXQ=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "a2867cc3f8acc944cb19fe0b73c840e9fa1ba589",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable-small",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -678,12 +715,14 @@
         "catppuccin": "catppuccin",
         "disko": "disko",
         "home-manager-unstable": "home-manager-unstable",
+        "home-manager-unstable-small": "home-manager-unstable-small",
         "nix-darwin": "nix-darwin",
         "nix-formatter-pack": "nix-formatter-pack",
         "nixarr": "nixarr",
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs-unstable": "nixpkgs-unstable",
+        "nixpkgs-unstable-small": "nixpkgs-unstable-small",
         "nixvim": "nixvim",
         "nur": "nur",
         "plasma-manager": "plasma-manager",

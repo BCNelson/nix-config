@@ -4,10 +4,16 @@
   inputs = {
     # Nixpkgs
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-unstable-small.url = "github:nixos/nixpkgs/nixos-unstable-small";
 
     # Home manager
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
+
+    home-manager-unstable-small = {
+      url = "github:nix-community/home-manager/master";
+      inputs.nixpkgs.follows = "nixpkgs-unstable-small";
+    };
 
     agenix.url = "github:ryantm/agenix";
     agenix-rekey.url = "github:oddlama/agenix-rekey";
@@ -93,11 +99,11 @@
           usernames = [ "nixos" ];
           nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix";
           inherit libx;
-          version = "unstable";
-          # patches = [{
-          #   url = "https://patch-diff.githubusercontent.com/raw/NixOS/nixpkgs/pull/405787.patch";
-          #   hash = "sha256-sCoGapRkM5MAtZLAt0Q4FN38lwiBHgnOeONSQhgjZac=";
-          # }];
+          version = "unstable-small";
+          patches = [{
+            url = "https://patch-diff.githubusercontent.com/raw/NixOS/nixpkgs/pull/405787.patch";
+            hash = "sha256-sCoGapRkM5MAtZLAt0Q4FN38lwiBHgnOeONSQhgjZac=";
+          }];
         };
         "iso_desktop" = libx.mkHost { 
           hostname = "iso_desktop";
