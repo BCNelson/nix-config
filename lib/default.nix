@@ -5,8 +5,6 @@ let
     home-manager.useUserPackages = false;
     home-manager.extraSpecialArgs = {
       inherit inputs outputs stateVersion desktop hostname platform;
-      # pkgs = pkgs.legacyPackages.${platform};
-      # inherit (pkgs) lib;
     };
     home-manager.users = builtins.listToAttrs (map
       (username: {
@@ -16,28 +14,6 @@ let
       usernames);
   };
 
-  versions = {
-    unstable = {
-      nixpkgs = inputs.nixpkgs-unstable;
-      home-manager = inputs.home-manager-unstable;
-    };
-    unstable-small = {
-      nixpkgs = inputs.nixpkgs-unstable-small;
-      home-manager = inputs.home-manager-unstable-small;
-    };
-    stable = {
-      nixpkgs = inputs.nixpkgs24-11;
-      home-manager = inputs.home-manager24-11;
-    };
-    "24.05" = {
-      nixpkgs = inputs.nixpkgs24-05;
-      home-manager = inputs.home-manager24-05;
-    };
-    "24.11" = {
-      nixpkgs = inputs.nixpkgs24-11;
-      home-manager = inputs.home-manager24-11;
-    };
-  };
 
   getSecretWithDefault = path: key: default:
     let
@@ -54,55 +30,9 @@ let
       hasCredentials = if pathExists path && isNotEncrypted path then true else false;
     in
     if hasCredentials then (import path).${key} else (builtins.trace "${path} is not a nix file does your git-cypt need to be unlocked?" default);
-in
-{
-  # Helper function for generating host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, libx ? null, version ? "stable", patches ? null }:let 
-    orginalNixpkgs = versions.${version}.nixpkgs;
-    system = "x86_64-linux"; # TODO: Make this dynamic based on the host platform
-    pkgs = orginalNixpkgs.legacyPackages.${system};
-    patchedNixpkgsSource = if patches != null then pkgs.applyPatches {
-      name = "nixpkgs-patched";
-      src = orginalNixpkgs;
-      patches = map pkgs.fetchpatch patches;
-    } else null;
-    nixpkgs = if patches != null then patchedNixpkgsSource else orginalNixpkgs;
-    nixpkgsLib = if patches != null then (import patchedNixpkgsSource {}).lib else orginalNixpkgs.lib;
-  in nixpkgsLib.nixosSystem {
-    specialArgs = {
-      inherit inputs outputs desktop hostname usernames stateVersion libx;
-    };
-    modules = [
-      ../nixos
-      versions.${version}.home-manager.nixosModules.home-manager
-      inputs.catppuccin.nixosModules.catppuccin
-      inputs.agenix.nixosModules.default
-      inputs.agenix-rekey.nixosModules.default
-      inputs.agenix-template.nixosModules.default
-      (mkHome { inherit hostname usernames desktop; })
-      {
-        nix.nixPath = [ "nixpkgs=${nixpkgs}" ];
-      }
-    ] ++ (nixpkgs.lib.optionals (nixosMods != null) [ nixosMods ])
-    ++ nixpkgs.lib.attrsets.attrValues outputs.nixosModules;
-  };
-
-  mkDarwin = { hostname, usernames, platform ? "aarch64-darwin", version ? "stable" }: inputs.nix-darwin.lib.darwinSystem {
-    specialArgs = {
-      inherit inputs outputs hostname usernames;
-    };
-    modules = [
-      ../darwin
-      { nixpkgs.hostPlatform = platform; }
-      versions.${version}.home-manager.darwinModules.home-manager
-      (mkHome { inherit hostname usernames platform; })
-    ];
-  };
-
-  inherit getSecretWithDefault;
-
+  
   getSecret = path: key: getSecretWithDefault path key "";
-
+  
   forAllSystems = inputs.nixpkgs-unstable.lib.genAttrs [
     "aarch64-linux"
     "i686-linux"
@@ -110,6 +40,38 @@ in
     "aarch64-darwin"
     "x86_64-darwin"
   ];
+in
+{
+  # Helper function for generating flake-utils-plus host configs
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }: {
+    inherit channelName;
+    specialArgs = {
+      inherit inputs hostname usernames desktop stateVersion;
+      inherit outputs;
+      libx = { inherit getSecretWithDefault getSecret forAllSystems mkHome; };
+    };
+    modules = [
+      ../nixos
+      # Always use home-manager-unstable regardless of nixpkgs version
+      inputs.home-manager-unstable.nixosModules.home-manager
+      (mkHome { inherit hostname usernames desktop; })
+    ] ++ (if nixosMods != null then [ nixosMods ] else []);
+  };
+
+
+  mkDarwin = { hostname, usernames, platform ? "aarch64-darwin" }: inputs.nix-darwin.lib.darwinSystem {
+    specialArgs = {
+      inherit inputs outputs hostname usernames;
+    };
+    modules = [
+      ../darwin
+      { nixpkgs.hostPlatform = platform; }
+      inputs.home-manager-unstable.darwinModules.home-manager
+      (mkHome { inherit hostname usernames platform; })
+    ];
+  };
+
+  inherit getSecretWithDefault getSecret forAllSystems;
 
   createDockerComposeStackPackage =
     { name

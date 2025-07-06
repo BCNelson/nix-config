@@ -2,18 +2,17 @@
   description = "Bcnleson's NixOS configuration";
 
   inputs = {
+    # Flake utils
+    flake-utils-plus.url = "github:gytis-ivaskevicius/flake-utils-plus";
+    
     # Nixpkgs
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable-small.url = "github:nixos/nixpkgs/nixos-unstable-small";
 
-    # Home manager
+    # Home manager - always use unstable
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
-
-    home-manager-unstable-small = {
-      url = "github:nix-community/home-manager/master";
-      inputs.nixpkgs.follows = "nixpkgs-unstable-small";
-    };
 
     agenix.url = "github:ryantm/agenix";
     agenix-rekey.url = "github:oddlama/agenix-rekey";
@@ -60,91 +59,99 @@
     nixarr.url = "github:rasmus-kirk/nixarr/dev";
   };
 
-  outputs = { self, nix-formatter-pack, nixpkgs-unstable, disko, ... }@inputs:
-    let
-      inherit (self) outputs;
-      # This value determines the Home Manager release that your configuration is
-      # compatible with. This helps avoid breakage when a new Home Manager release
-      # introduces backwards incompatible changes.
-      #
-      # You should not change this value, even if you update Home Manager. If you do
-      # want to update the value, then make sure to first check the Home Manager
-      # release notes.
-      stateVersion = "23.05";
-      libx = import ./lib { inherit inputs outputs stateVersion; };
-    in
-    {
-      # Your custom packages and modifications, exported as overlays
-      overlays = import ./overlays { inherit inputs; };
-      # Reusable nixos modules you might want to export
-      # These are usually stuff you would upstream into nixpkgs
-      nixosModules = import ./modules/nixos;
-      # Reusable home-manager modules you might want to export
-      # These are usually stuff you would upstream into home-manager
-      homeManagerModules = import ./modules/home-manager;
-
-      # NixOS configuration entrypoint
-      # Available through 'nixos-rebuild --flake .#your-hostname'
-      nixosConfigurations = {
-        "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
-        "berg-1" = libx.mkHost { hostname = "berg-1"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
+  outputs = inputs@{ self, flake-utils-plus, ... }:
+    flake-utils-plus.lib.mkFlake {
+      inherit self inputs;
+      
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
+      
+      channels.nixpkgs.input = inputs.nixpkgs;
+      channels.nixpkgs-unstable.input = inputs.nixpkgs-unstable;
+      channels.nixpkgs-unstable-small.input = inputs.nixpkgs-unstable-small;
+      channels.nixpkgs-unstable-small-patched = {
+        input = inputs.nixpkgs-unstable-small;
+        patches = [ ./patches/405787.patch ];
+      };
+      
+      channelsConfig.allowUnfree = true;
+      
+      hostDefaults = {
+        system = "x86_64-linux";
+        modules = [
+          inputs.catppuccin.nixosModules.catppuccin
+          inputs.agenix.nixosModules.default
+          inputs.agenix-rekey.nixosModules.default
+          inputs.agenix-template.nixosModules.default
+        ] ++ (builtins.attrValues (import ./modules/nixos));
+      };
+      
+      hosts = let
+        libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
+      in {
+        "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
+        "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
+        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; };
+        "ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; };
+        "berg-1" = libx.mkHost { hostname = "berg-1"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; };
+        "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
+        "xray-2" = libx.mkHost { hostname = "xray-2"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; };
+        "golf-2" = libx.mkHost { hostname = "golf-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "iso_console" = libx.mkHost {
           hostname = "iso_console";
           usernames = [ "nixos" ];
           nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix";
-          inherit libx;
-          version = "unstable-small";
-          patches = [{
-            url = "https://patch-diff.githubusercontent.com/raw/NixOS/nixpkgs/pull/405787.patch";
-            hash = "sha256-sCoGapRkM5MAtZLAt0Q4FN38lwiBHgnOeONSQhgjZac=";
-          }];
+          channelName = "nixpkgs-unstable-small-patched";
         };
         "iso_desktop" = libx.mkHost { 
           hostname = "iso_desktop";
           usernames = [ "nixos" ];
           nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix";
           desktop = "kde6";
-          inherit libx;
-          version = "unstable";
         };
-        # "vm_test" = libx.mkHost { hostname = "vm_test"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; inherit libx; version = "unstable"; };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
-        "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; inherit libx; nixosMods = disko.nixosModules.disko; version = "unstable"; };
-        "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; inherit libx; version = "unstable"; };
-        # "delta-1" = libx.mkHost { hostname = "delta-1"; usernames = [ "bcnelson" ]; inherit libx; version = "stable"; };
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; };
+        "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; nixosMods = inputs.disko.nixosModules.disko; };
+        "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; };
       };
 
-      formatter = libx.forAllSystems (system:
-        nix-formatter-pack.lib.mkFormatter {
-          pkgs = nixpkgs-unstable.legacyPackages.${system};
+      outputsBuilder = channels: let
+        pkgs = channels.nixpkgs-unstable;
+      in {
+        formatter = inputs.nix-formatter-pack.lib.mkFormatter {
+          inherit pkgs;
           config.tools = {
             alejandra.enable = false;
             deadnix.enable = true;
             statix.enable = true;
           };
-        }
-      );
+        };
+
+        packages = import ./pkgs pkgs;
+
+        devShells = let 
+          pkgsWithOverlays = import inputs.nixpkgs-unstable { 
+            inherit (pkgs) system; 
+            config.allowUnfree = true; 
+            overlays = [ 
+              inputs.agenix-rekey.overlays.default 
+              inputs.rust-overlay.overlays.default 
+            ]; 
+          };
+        in import ./shell.nix { 
+          inherit inputs; 
+          outputs = self; 
+          pkgs = pkgsWithOverlays; 
+          inherit (pkgs) system; 
+          inherit (inputs.nixpkgs-unstable) lib; 
+        };
+      };
+
+      overlays = import ./overlays { inherit inputs; };
+      nixosModules = import ./modules/nixos;
+      homeManagerModules = import ./modules/home-manager;
 
       agenix-rekey = inputs.agenix-rekey.configure {
         inherit (self) nixosConfigurations;
         userFlake = self;
       };
-
-      # Your custom packages
-      # Accessible through 'nix build', 'nix shell', etc
-      packages = libx.forAllSystems (system: import ./pkgs nixpkgs-unstable.legacyPackages.${system});
-
-      # Devshell for bootstrapping
-      # Acessible through 'nix develop' or 'nix-shell' (legacy)
-      devShells = libx.forAllSystems (system:
-        let pkgs = import nixpkgs-unstable { inherit system; config.allowUnfree = true; overlays = [ inputs.agenix-rekey.overlays.default inputs.rust-overlay.overlays.default ]; };
-        in import ./shell.nix { inherit inputs outputs pkgs system; inherit (nixpkgs-unstable) lib; }
-      );
     };
 }
