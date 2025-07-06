@@ -9,3 +9,6 @@ clap = { version = "4.5.23", features = ["derive"] }
 cmd_lib = "1.9.5"
 inquire = "0.7.5"
 regex = "1.11.1"
+
+[dev-dependencies]
+tempfile = "3.8"

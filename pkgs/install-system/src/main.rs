@@ -445,10 +445,10 @@ fn main() -> Result<()> {
         args.host, args.host, users, desktop_config
     );
 
-    let nixos_configurations_regex = Regex::new(r"(?m)(nixosConfigurations = \{\n)").unwrap();
+    let hosts_regex = Regex::new(r"(?m)(\s*# INSERT_NEW_HOST_CONFIG_HERE\n)").unwrap();
     
-    flake_content = nixos_configurations_regex.replace(&flake_content, |caps: &regex::Captures| {
-        format!("{}{}\n", &caps[0], new_host_config)
+    flake_content = hosts_regex.replace(&flake_content, |caps: &regex::Captures| {
+        format!("{}        {}\n", &caps[0], new_host_config)
     }).to_string();
     
     std::fs::write("flake.nix", flake_content)?;
@@ -523,4 +523,67 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_flake_nix_host_insertion() {
+        let flake_content = r#"{
+  outputs = inputs@{ self, flake-utils-plus, ... }:
+    flake-utils-plus.lib.mkFlake {
+      hosts = let
+        libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
+      in {
+        # INSERT_NEW_HOST_CONFIG_HERE
+        "existing-host" = libx.mkHost { hostname = "existing-host"; usernames = [ "user" ]; };
+      };
+    };
+}"#;
+
+        let expected_result = r#"{
+  outputs = inputs@{ self, flake-utils-plus, ... }:
+    flake-utils-plus.lib.mkFlake {
+      hosts = let
+        libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
+      in {
+        # INSERT_NEW_HOST_CONFIG_HERE
+        "test-host" = libx.mkHost { hostname = "test-host"; usernames = [ "testuser" ]; };
+        "existing-host" = libx.mkHost { hostname = "existing-host"; usernames = [ "user" ]; };
+      };
+    };
+}"#;
+
+        let new_host_config = r#""test-host" = libx.mkHost { hostname = "test-host"; usernames = [ "testuser" ]; };"#;
+        let hosts_regex = Regex::new(r"(?m)(\s*# INSERT_NEW_HOST_CONFIG_HERE\n)").unwrap();
+        
+        let result = hosts_regex.replace(&flake_content, |caps: &regex::Captures| {
+            format!("{}        {}\n", &caps[0], new_host_config)
+        }).to_string();
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn test_flake_nix_host_insertion_flexible_whitespace() {
+        let flake_content = r#"{
+      in {
+    # INSERT_NEW_HOST_CONFIG_HERE
+        "existing-host" = libx.mkHost { hostname = "existing-host"; usernames = [ "user" ]; };
+      };
+}"#;
+
+        let new_host_config = r#""test-host" = libx.mkHost { hostname = "test-host"; usernames = [ "testuser" ]; };"#;
+        let hosts_regex = Regex::new(r"(?m)(\s*# INSERT_NEW_HOST_CONFIG_HERE\n)").unwrap();
+        
+        let result = hosts_regex.replace(&flake_content, |caps: &regex::Captures| {
+            format!("{}        {}\n", &caps[0], new_host_config)
+        }).to_string();
+
+        // Should find and replace the comment regardless of indentation
+        assert!(result.contains(r#""test-host" = libx.mkHost { hostname = "test-host"; usernames = [ "testuser" ]; };"#));
+        assert!(result.contains(r#"# INSERT_NEW_HOST_CONFIG_HERE"#));
+    }
 }
