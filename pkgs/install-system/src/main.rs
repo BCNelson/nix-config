@@ -441,7 +441,7 @@ fn main() -> Result<()> {
     let users = format!("\"{}\"", args.users.join("\" \""));
 
     let new_host_config = format!(
-        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ {} ];{} inherit libx; version = \"unstable\"; }};",
+        "\"{}\" = libx.mkHost {{ hostname = \"{}\"; usernames = [ {} ];{} }};",
         args.host, args.host, users, desktop_config
     );
 
