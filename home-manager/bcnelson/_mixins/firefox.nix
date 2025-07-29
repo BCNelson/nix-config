@@ -37,6 +37,10 @@
           "widget.use-xdg-desktop-portal.file-picker" = 1;
         };
       };
+      default = {
+        isDefault = false;
+        id = 999;
+      };
     };
     policies = {
       DisablePocket = true;
