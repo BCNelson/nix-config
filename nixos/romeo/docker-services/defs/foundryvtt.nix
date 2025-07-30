@@ -7,7 +7,7 @@ let
 in
 {
   foundryvtt = {
-    image = "felddy/foundryvtt:12";
+    image = "felddy/foundryvtt:13";
     container_name = "foundryvtt";
     hostname = "pathfinder.h.b.nel.family";
     environment = [
