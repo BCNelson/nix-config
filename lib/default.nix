@@ -40,38 +40,6 @@ let
     "aarch64-darwin"
     "x86_64-darwin"
   ];
-in
-{
-  # Helper function for generating flake-utils-plus host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }: {
-    inherit channelName;
-    specialArgs = {
-      inherit inputs hostname usernames desktop stateVersion;
-      inherit outputs;
-      libx = { inherit getSecretWithDefault getSecret forAllSystems mkHome; };
-    };
-    modules = [
-      ../nixos
-      # Always use home-manager-unstable regardless of nixpkgs version
-      inputs.home-manager-unstable.nixosModules.home-manager
-      (mkHome { inherit hostname usernames desktop; })
-    ] ++ (if nixosMods != null then [ nixosMods ] else []);
-  };
-
-
-  mkDarwin = { hostname, usernames, platform ? "aarch64-darwin" }: inputs.nix-darwin.lib.darwinSystem {
-    specialArgs = {
-      inherit inputs outputs hostname usernames;
-    };
-    modules = [
-      ../darwin
-      { nixpkgs.hostPlatform = platform; }
-      inputs.home-manager-unstable.darwinModules.home-manager
-      (mkHome { inherit hostname usernames platform; })
-    ];
-  };
-
-  inherit getSecretWithDefault getSecret forAllSystems;
 
   createDockerComposeStackPackage =
     { name
@@ -106,5 +74,36 @@ in
         echo '${builtins.toJSON dockerComposeDefinition}' > $out/docker-compose.yml
       '';
     };
+in
+{
+  # Helper function for generating flake-utils-plus host configs
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }: {
+    inherit channelName;
+    specialArgs = {
+      inherit inputs hostname usernames desktop stateVersion;
+      inherit outputs;
+      libx = { inherit getSecretWithDefault getSecret forAllSystems mkHome createDockerComposeStackPackage; };
+    };
+    modules = [
+      ../nixos
+      # Always use home-manager-unstable regardless of nixpkgs version
+      inputs.home-manager-unstable.nixosModules.home-manager
+      (mkHome { inherit hostname usernames desktop; })
+    ] ++ (if nixosMods != null then [ nixosMods ] else []);
+  };
 
+
+  mkDarwin = { hostname, usernames, platform ? "aarch64-darwin" }: inputs.nix-darwin.lib.darwinSystem {
+    specialArgs = {
+      inherit inputs outputs hostname usernames;
+    };
+    modules = [
+      ../darwin
+      { nixpkgs.hostPlatform = platform; }
+      inputs.home-manager-unstable.darwinModules.home-manager
+      (mkHome { inherit hostname usernames platform; })
+    ];
+  };
+
+  inherit getSecretWithDefault getSecret forAllSystems;
 }
