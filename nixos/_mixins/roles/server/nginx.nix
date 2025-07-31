@@ -15,8 +15,8 @@
   services.nginx = {
     enable = true;
     recommendedGzipSettings = true;
-    recommendedZstdSettings = true;
     recommendedTlsSettings = true;
+    recommendedBrotliSettings = true;
     recommendedProxySettings = true;
     recommendedOptimisation = true;
   };
