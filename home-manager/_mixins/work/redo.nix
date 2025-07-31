@@ -38,6 +38,7 @@
             firefox-color
             stylus
           ];
+          force = true;
         };
         search = {
           default = "google";

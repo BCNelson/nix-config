@@ -20,6 +20,7 @@
             firefox-color
             stylus
           ];
+          force = true;
         };
         search = {
           default = "google";
@@ -40,6 +41,7 @@
       default = {
         isDefault = false;
         id = 999;
+        extensions.force = true;
       };
     };
     policies = {
