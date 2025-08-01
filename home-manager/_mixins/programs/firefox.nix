@@ -15,6 +15,7 @@
             ublock-origin
             i-dont-care-about-cookies
           ];
+          force = true;
         };
         search = {
           default = "google";
