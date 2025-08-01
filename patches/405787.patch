@@ -1,6 +1,6 @@
-From 807a776288483423a7df2194328ee061329edb5f Mon Sep 17 00:00:00 2001
+From a12e6b57a82f2f32afc938e3aaeaf8b0d3d023de Mon Sep 17 00:00:00 2001
 From: Bradley Nelson <bradley@nel.family>
-Date: Sat, 5 Jul 2025 10:35:48 -0600
+Date: Wed, 9 Apr 2025 20:52:37 -0600
 Subject: [PATCH] nixos-generate-config lvm and luks
 
 ---
@@ -11,10 +11,10 @@ Subject: [PATCH] nixos-generate-config lvm and luks
  create mode 100644 nixos/tests/nixos-generate-config-luks-lvm.nix
 
 diff --git a/nixos/modules/installer/tools/nixos-generate-config.pl b/nixos/modules/installer/tools/nixos-generate-config.pl
-index 1799ba2c5d977d..f6a20d2a9f5da9 100644
+index 7c404fa25dc63b..474b3d17ef053c 100644
 --- a/nixos/modules/installer/tools/nixos-generate-config.pl
 +++ b/nixos/modules/installer/tools/nixos-generate-config.pl
-@@ -344,6 +344,22 @@ sub findStableDevPath {
+@@ -329,6 +329,22 @@ sub findStableDevPath {
  
      my $st = stat($dev) or return $dev;
  
@@ -34,10 +34,10 @@ index 1799ba2c5d977d..f6a20d2a9f5da9 100644
 +        return $dev;
 +    }
 +
-     foreach my $dev2 (glob("/dev/stratis/*/*"), glob("/dev/disk/by-uuid/*"), glob("/dev/mapper/*"), glob("/dev/disk/by-label/*")) {
-         my $st2 = stat($dev2) or next;
-         return $dev2 if $st->rdev == $st2->rdev;
-@@ -415,6 +431,7 @@ sub in {
+     foreach my $dev2 (
+         glob("/dev/stratis/*/*"),
+         glob("/dev/mapper/*"),
+@@ -405,6 +421,7 @@ sub in {
      $device =~ s/\\040/ /g; # account for devices with spaces in the name (\040 is the escape character)
      $device =~ s/\\011/\t/g; # account for mount points with tabs in the name (\011 is the escape character)
  
@@ -45,7 +45,7 @@ index 1799ba2c5d977d..f6a20d2a9f5da9 100644
      # Skip the read-only bind-mount on /nix/store.
      next if $mountPoint eq "/nix/store" && (grep { $_ eq "rw" } @superOptions) && (grep { $_ eq "ro" } @mountOptions);
  
-@@ -439,12 +456,45 @@ sub in {
+@@ -429,12 +446,45 @@ sub in {
      }
      $fsByDev{$fields[2]} = $mountPoint;
  
@@ -91,7 +91,7 @@ index 1799ba2c5d977d..f6a20d2a9f5da9 100644
      # Is this a mount of a loopback device?
      my @extraOptions;
      if ($device =~ /\/dev\/loop(\d+)/) {
-@@ -547,20 +597,97 @@ sub in {
+@@ -537,20 +587,97 @@ sub in {
          my $dmUuid = read_file("/sys/class/block/$deviceName/dm/uuid",  err_mode => 'quiet');
          if ($dmUuid =~ /^CRYPT-LUKS/)
          {
@@ -200,10 +200,10 @@ index 1799ba2c5d977d..f6a20d2a9f5da9 100644
              $useSwraid = 1;
          }
 diff --git a/nixos/tests/all-tests.nix b/nixos/tests/all-tests.nix
-index 82aef7fdea8a6a..6d115be75d079b 100644
+index 76867b74b49d6f..65094c62408862 100644
 --- a/nixos/tests/all-tests.nix
 +++ b/nixos/tests/all-tests.nix
-@@ -986,6 +986,7 @@ in
+@@ -1027,6 +1027,7 @@ in
    nix-store-veritysetup = runTest ./nix-store-veritysetup.nix;
    nixops = handleTest ./nixops/default.nix { };
    nixos-generate-config = runTest ./nixos-generate-config.nix;
