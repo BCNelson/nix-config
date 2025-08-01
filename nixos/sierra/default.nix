@@ -48,10 +48,6 @@
     '')
   ];
 
-  nixpkgs.config.permittedInsecurePackages = [
-    "libsoup-2.74.3"
-  ];
-
   users.groups = {
     photos = {
       name = "photos";
