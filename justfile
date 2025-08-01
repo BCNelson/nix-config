@@ -5,21 +5,10 @@
 default:
     @just --list --justfile {{ justfile() }} --list-heading $'Avalible Commands\n'
 
-all: update-os update-home
+all: update-os
 
 update:
     nix flake update
-
-alias home := update-home
-alias h := update-home
-
-[linux]
-update-home *additionalArgs:
-    home-manager switch --flake .#$USER@$HOSTNAME {{ additionalArgs }}
-
-[macos]
-update-home *additionalArgs:
-    home-manager switch --flake .#$USER@$(hostname -s) {{ additionalArgs }}
 
 alias apply := update-os
 alias os := update-os
@@ -97,6 +86,10 @@ sync: pull update-os
 [linux]
 check *additionalArgs:
     nix flake check {{ additionalArgs }}
+
+[linux]
+check-host host *additionalArgs:
+    nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel --dry-run {{ additionalArgs }}
 
 alias fmt := format
 
