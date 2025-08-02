@@ -1,5 +1,9 @@
 name: Nix Flake Check
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
@@ -16,44 +20,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  get-hosts:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      hosts: ${{ steps.set-hosts.outputs.hosts }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: DeterminateSystems/nix-installer-action@main
-      - id: set-hosts
-        run: echo "hosts=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)" >> $GITHUB_OUTPUT
-
   check-hosts:
-    needs: get-hosts
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
-      fail-fast: false
-    permissions:
-      contents: read
-      id-token: write
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          determinate: true
-      - name: Check host ${{ matrix.host }}
-        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run
+    uses: ./.github/workflows/check-hosts.yml
   
   auto-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: check-hosts
     if: github.ref == 'refs/heads/main'
 
@@ -61,5 +33,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f
-      - run: curl -d "Github Actions Update" ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}
+      - name: Update auto-update branch
+        run: |
+          git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f || {
+            echo "Failed to update auto-update branch"
+            exit 1
+          }
+      - name: Send notification
+        run: |
+          curl -d "Github Actions Update" ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }} || {
+            echo "Failed to send notification"
+            exit 1
+          }

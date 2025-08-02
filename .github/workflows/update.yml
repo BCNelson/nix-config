@@ -1,5 +1,9 @@
 name: Bump flake.lock
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 on:
   schedule:
     - cron: "0 9 * * *"
@@ -9,6 +13,7 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       id-token: write
@@ -19,6 +24,7 @@ jobs:
           fetch-depth: 0
 
       - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - run: nix flake update
 
@@ -27,52 +33,15 @@ jobs:
           name: flake.lock
           path: ./flake.lock
 
-  get-hosts:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      hosts: ${{ steps.set-hosts.outputs.hosts }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: DeterminateSystems/nix-installer-action@main
-      - id: set-hosts
-        run: echo "hosts=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)" >> $GITHUB_OUTPUT
-
   check-hosts:
-    needs: 
-      - get-hosts
-      - update
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
-      fail-fast: false
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: DeterminateSystems/nix-installer-action@main
-        with:
-          determinate: true
-      - run: rm -f flake.lock
-      - uses: actions/download-artifact@v4
-        id: download-artifact
-        with:
-          name: flake.lock
-      - name: Check host ${{ matrix.host }}
-        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace
+    needs: update
+    uses: ./.github/workflows/check-hosts.yml
+    with:
+      updated_flake: true
 
   comment:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: check-hosts
     permissions:
       contents: write
@@ -85,6 +54,7 @@ jobs:
           fetch-depth: 0
 
       - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - run: rm -f flake.lock
       - uses: actions/download-artifact@v4
@@ -104,5 +74,15 @@ jobs:
           skip_dirty_check: false    
           skip_fetch: true
 
-      - run: git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f
-      - run: curl -d "Github Actions Update" ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}
+      - name: Update auto-update branch
+        run: |
+          git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f || {
+            echo "Failed to update auto-update branch"
+            exit 1
+          }
+      - name: Send notification
+        run: |
+          curl -d "Github Actions Update" ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }} || {
+            echo "Failed to send notification"
+            exit 1
+          }

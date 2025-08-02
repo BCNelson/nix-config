@@ -1,5 +1,9 @@
 name: Sync Tailscale ACLs
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ "main" ]
@@ -15,6 +19,7 @@ on:
 jobs:
   acls:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4

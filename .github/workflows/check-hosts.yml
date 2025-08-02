@@ -1,0 +1,65 @@
+name: Check NixOS Hosts
+
+on:
+  workflow_call:
+    inputs:
+      updated_flake:
+        description: 'Whether to use updated flake.lock'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  get-hosts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      hosts: ${{ steps.set-hosts.outputs.hosts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+      - id: set-hosts
+        run: echo "hosts=$(nix eval .#nixosConfigurations --apply builtins.attrNames --json)" >> $GITHUB_OUTPUT
+
+  check-hosts:
+    needs: get-hosts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        host: ${{ fromJson(needs.get-hosts.outputs.hosts) }}
+      fail-fast: false
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        run: rm -f flake.lock
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+      - name: Check host ${{ matrix.host }}
+        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace

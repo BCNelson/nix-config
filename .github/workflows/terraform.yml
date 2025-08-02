@@ -1,15 +1,52 @@
 name: Apply Terraform
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 on:
   push:
     branches: [ "main" ]
     paths:
       - "*.tf"
       - ".github/workflows/terraform.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "*.tf"
+      - ".github/workflows/terraform.yml"
+
+env:
+  TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
+  TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
 
 jobs:
-  terraform:
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+      - name: Terraform fmt
+        run: terraform fmt -check
+      - name: Terraform Init
+        run: terraform init
+      - name: Terraform Validate
+        run: terraform validate
+      - name: Terraform Plan
+        run: terraform plan
+
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
@@ -17,21 +54,8 @@ jobs:
         with:
           terraform_version: "1.10.5"
       - name: Terraform Init
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
         run: terraform init
       - name: Terraform Plan
-        env:
-            TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
-            TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
         run: terraform plan -out=tfplan
       - name: Terraform Apply
-        env:
-            TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
-            TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
         run: terraform apply tfplan
