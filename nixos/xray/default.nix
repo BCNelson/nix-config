@@ -9,6 +9,10 @@
     ../_mixins/hardware/qmk.nix
     ../_mixins/roles/nfs.nix
   ];
+
+  nixpkgs.config.permittedInsecurePackages = [
+    "libsoup-2.74.3"
+  ];
   networking.firewall = {
     enable = true;
     allowedTCPPortRanges = [
