@@ -10,9 +10,9 @@ let
 in
 {
   nixpkgs.overlays = [
-    (final: prev: {
+    (_final: _prev: {
       # Self-contained orca-slicer with insecure package allowance
-      orca-slicer = unstablePkgs.orca-slicer;
+      inherit (unstablePkgs) orca-slicer;
     })
   ];
 

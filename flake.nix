@@ -89,6 +89,7 @@
         libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
       in {
         # INSERT_NEW_HOST_CONFIG_HERE
+        "charlie-1" = libx.mkHost { hostname = "charlie-1"; usernames = [ "bcnelson" ]; };
         "golf-4" = libx.mkHost { hostname = "golf-4"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
