@@ -6,5 +6,5 @@
   recovery = import ./recovery;
   dataDirs = import ./dataDirs;
   nixBinaryCacheProxy = import ./nixBinaryCacheProxy;
-  sign = import ./sign;
+  sign = import ./sign.nix;
 }
