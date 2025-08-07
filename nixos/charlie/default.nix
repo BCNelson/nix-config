@@ -4,6 +4,7 @@
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/docker.nix
     ./services
+    ./dataDirs.nix
   ];
 
   services.bcnelson = {
