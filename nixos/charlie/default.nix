@@ -2,6 +2,7 @@
 {
   imports = [
     ../_mixins/roles/tailscale.nix
+    ../_mixins/roles/docker.nix
   ];
 
   services.bcnelson = {
