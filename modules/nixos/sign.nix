@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.services.redo.sign;
+  cfg = config.services.bcnelson.sign;
   tabSwitcher = pkgs.writeShellApplication {
     name = "tab-switcher";
     runtimeInputs = [ pkgs.ydotool ];
@@ -25,7 +25,7 @@ in
 {
   options = {
     services.bcnelson.sign = {
-      enable = lib.mkEnableOption "Enable the Redo Sign service";
+      enable = lib.mkEnableOption "Enable the Sign service";
       urls = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
