@@ -231,6 +231,20 @@ resource "porkbun_dns_record" "romeo_b_nel_family-AAAA" {
   content = "fd7a:115c:a1e0:ab12:4843:cd96:624c:31a8"
 }
 
+resource "porkbun_dns_record" "charlie_b_nel_family-A" {
+  domain = "nel.family"
+  name = "charlie.b"
+  type = "A"
+  content = "100.83.96.109"
+}
+
+resource "porkbun_dns_record" "charlie_b_nel_family-AAAA" {
+  domain = "nel.family"
+  name = "charlie.b"
+  type = "AAAA"
+  content = "fd7a:115c:a1e0::2f01:607e"
+}
+
 resource "porkbun_dns_record" "homeassistant_b_nel_family-A" {
   domain = "nel.family"
   name = "homeassistant.b"
