@@ -4,7 +4,7 @@ let
 in
 {
   mealie = {
-    image = "ghcr.io/mealie-recipes/mealie:v2.6.0";
+    image = "ghcr.io/mealie-recipes/mealie:latest";
     container_name = "mealie";
     volumes = [
       "${dataDirs.level2}/mealie:/app/data"
