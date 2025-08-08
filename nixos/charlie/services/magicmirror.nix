@@ -5,7 +5,7 @@ in
 {
   # Init container to set proper permissions on mounted volumes
   virtualisation.oci-containers.containers.magicmirror-init = {
-    image = "karsten13/magicmirror:latest";
+    image = "docker.io/karsten13/magicmirror:latest";
     user = "root";
     environment = {
       "STARTENV" = "init";
@@ -23,7 +23,7 @@ in
 
   # Main Magic Mirror container
   virtualisation.oci-containers.containers.magicmirror = {
-    image = "karsten13/magicmirror:latest";
+    image = "docker.io/karsten13/magicmirror:latest";
     environment = {
       "MM_SCENARIO" = "server";
       "MM_MODULES_DIR" = "modules";
@@ -44,7 +44,7 @@ in
 
   # Magic Mirror Package Manager (MMPM) - optional package manager
   virtualisation.oci-containers.containers.mmpm = {
-    image = "karsten13/mmpm:latest";
+    image = "docker.io/karsten13/mmpm:latest";
     dependsOn = [ "magicmirror" ];
     ports = [
       "7890:7890"
