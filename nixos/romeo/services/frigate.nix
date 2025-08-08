@@ -36,9 +36,7 @@ in
     '';
   };
 
-  systemd.services.frigate.serviceConfig.EnvironmentFile = {
-    source = config.age-template.files.frigate-env.path;
-  };
+  systemd.services.frigate.serviceConfig.EnvironmentFile = config.age-template.files.frigate-env.path;
 
   services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
     forceSSL = true;
