@@ -14,6 +14,52 @@ in
         user = "frigate";
         password = "{FRIGATE_HA_USER_PASSWORD}";
       };
+      cameras = {
+        doorbell = {
+          ffmpeg = {
+            inputs = [
+              {
+                path = "rtsp://127.0.0.1:8554/doorbell";
+                roles = [ "record" ];
+              }
+              {
+                path = "rtsp://127.0.0.1:8554/doorbell_sub";
+                roles = [ "detect" ];
+              }
+            ];
+          };
+        };
+        playroom = {
+          ffmpeg = {
+            inputs = [
+              {
+                path = "rtsp://127.0.0.1:8554/playroom";
+                roles = [ "record" ];
+              }
+              {
+                path = "rtsp://127.0.0.1:8554/playroom_sub";
+                roles = [ "detect" ];
+              }
+            ];
+          };
+        };
+      };
+      go2rtc = {
+        streams = {
+          doorbell = {
+            url = "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus";
+          };
+          doorbell_sub = {
+            url = "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}";
+          };
+          playroom = {
+            url = "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus";
+          };
+          playroom_sub = {
+            url = "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}";
+          };
+        };
+      };
     };
   };
 
