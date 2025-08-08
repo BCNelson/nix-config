@@ -5,6 +5,7 @@ in
 {
   services.frigate = {
     enable = true;
+    hostname = "frigate.h.b.nel.family";
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
       mqtt = {
@@ -37,5 +38,11 @@ in
 
   systemd.services.frigate.serviceConfig.EnvironmentFile = {
     source = config.age-template.files.frigate-env.path;
+  };
+
+  services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
+    forceSSL = true;
+    enableACME = true;
+    acmeRoot = null;
   };
 }
