@@ -44,8 +44,13 @@ in
           };
         };
       };
-      go2rtc = {
-        streams = {
+    };
+  };
+
+  services.go2rtc = {
+    enable = false;
+    settings = {
+      streams = {
           doorbell = {
             url = "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus";
           };
@@ -59,7 +64,8 @@ in
             url = "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}";
           };
         };
-      };
+      rtsp.listen = ":8554";
+      webrtc.listen = ":8555";
     };
   };
 
@@ -82,7 +88,11 @@ in
     '';
   };
 
-  systemd.services.frigate.serviceConfig.EnvironmentFile = config.age-template.files.frigate-env.path;
+  systemd.services.frigate.serviceConfig= {
+    EnvironmentFile = config.age-template.files.frigate-env.path;
+    SupplementaryGroups = ["render" "video"] ; # for access to dev/dri/*
+    AmbientCapabilities = "CAP_PERFMON";
+  };
 
   services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
     forceSSL = true;
