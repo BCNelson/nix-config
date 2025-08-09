@@ -52,16 +52,16 @@ in
     settings = {
       streams = {
           doorbell = [
-            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
+            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=service&password=\${CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
           ];
           doorbell_sub = [
-            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}"
+            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=service&password=\${CAMERA_PASSWORD}"
           ];
           playroom = [
-            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
+            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=service&password=\${CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
           ];
           playroom_sub = [
-            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}"
+            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=service&password=\${CAMERA_PASSWORD}"
           ];
         };
       rtsp.listen = ":8554";
@@ -69,6 +69,7 @@ in
     };
   };
 
+# TODO: Rename this to camera-password
   age.secrets.frigate-camera-password = {
     rekeyFile = ./secrets/frigate_camera_password.age;
   };
@@ -83,9 +84,23 @@ in
       FRIGATE_HA_USER_PASSWORD = config.age.secrets.frigate-ha-user-password.path;
     };
     content = ''
-      FRIGATE_CAMERA_PASSWORD=$FRIGATE_CAMERA_PASSWORD
       FRIGATE_HA_USER_PASSWORD=$FRIGATE_HA_USER_PASSWORD
     '';
+  };
+
+  age-template.files.go2rtc-env = {
+    vars = {
+      CAMERA_PASSWORD = config.age.secrets.frigate-camera-password.path;
+    };
+    content = ''
+      CAMERA_PASSWORD=$CAMERA_PASSWORD
+    '';
+  };
+
+  systemd.services.go2rtc = {
+    serviceConfig = {
+      EnvironmentFile = config.age-template.files.go2rtc-env.path;
+    };
   };
 
   systemd.services.frigate.serviceConfig= {
