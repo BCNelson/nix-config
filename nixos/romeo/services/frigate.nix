@@ -51,18 +51,18 @@ in
     enable = true;
     settings = {
       streams = {
-          doorbell = {
-            url = "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus";
-          };
-          doorbell_sub = {
-            url = "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}";
-          };
-          playroom = {
-            url = "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus";
-          };
-          playroom_sub = {
-            url = "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}";
-          };
+          doorbell = [
+            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
+          ];
+          doorbell_sub = [
+            "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}"
+          ];
+          playroom = [
+            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
+          ];
+          playroom_sub = [
+            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password={FRIGATE_CAMERA_PASSWORD}"
+          ];
         };
       rtsp.listen = ":8554";
       webrtc.listen = ":8555";
