@@ -47,6 +47,25 @@ in
           motion.mask = ["0.25,0,0.735,0,0.735,0.07,0.25,0.07"];
         };
       };
+      detectors = {
+        ov = {
+          type = "openvino";
+          device = "GPU.1";
+        };
+      };
+      record = {
+        enabled = true;
+        retain = {
+          days = 7;
+          mode = "motion";
+        };
+      };
+      snapshots = {
+        enabled = true;
+        retain = {
+          default = 30;
+        };
+      };
     };
   };
 
