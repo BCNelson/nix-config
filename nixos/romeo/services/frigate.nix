@@ -48,7 +48,7 @@ in
   };
 
   services.go2rtc = {
-    enable = false;
+    enable = true;
     settings = {
       streams = {
           doorbell = {
