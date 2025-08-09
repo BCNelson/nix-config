@@ -1,10 +1,6 @@
 { config, ... }:
 let
   dataDirs = config.data.dirs;
-  ssdlite_mobilenet_v2 = builtins.fetchTarball {
-    url = "http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz";
-    sha256 = "542445cce834dbfbb7df1991425d475e85a2d7ec68c60a4f262bb18aac10c8b2";
-  };
 in
 {
   services.frigate = {
