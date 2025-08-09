@@ -15,9 +15,6 @@ in
         user = "frigate";
         password = "{FRIGATE_HA_USER_PASSWORD}";
       };
-      ffmpeg = {
-        hwaccel_args = "preset-intel-qsv-h264";
-      };
       cameras = {
         doorbell = {
           ffmpeg = {
