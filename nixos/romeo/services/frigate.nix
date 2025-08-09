@@ -1,6 +1,10 @@
 { config, ... }:
 let
   dataDirs = config.data.dirs;
+  ssdlite_mobilenet_v2 = builtins.fetchTarball {
+    url = "http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz";
+    sha256 = "542445cce834dbfbb7df1991425d475e85a2d7ec68c60a4f262bb18aac10c8b2";
+  };
 in
 {
   services.frigate = {
@@ -47,6 +51,10 @@ in
           motion.mask = ["0.25,0,0.735,0,0.735,0.07,0.25,0.07"];
         };
       };
+      detectors.ov = {
+        type = "openvino";
+        device = "GPU";
+      };
     };
   };
 
@@ -81,13 +89,19 @@ in
     rekeyFile = ./secrets/frigate_ha_user_password.age;
   };
 
+  age.secrets.frigate-plus-api-key = {
+    rekeyFile = ./secrets/frigate_plus_api_key.age;
+  };
+
   age-template.files.frigate-env = {
     vars = {
       FRIGATE_CAMERA_PASSWORD = config.age.secrets.frigate-camera-password.path;
       FRIGATE_HA_USER_PASSWORD = config.age.secrets.frigate-ha-user-password.path;
+      API_KEY = config.age.secrets.frigate-plus-api-key.path;
     };
     content = ''
       FRIGATE_HA_USER_PASSWORD=$FRIGATE_HA_USER_PASSWORD
+      PLUS_API_KEY=$API_KEY
     '';
   };
 
