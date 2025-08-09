@@ -15,6 +15,9 @@ in
         user = "frigate";
         password = "{FRIGATE_HA_USER_PASSWORD}";
       };
+      ffmpeg = {
+        hwaccel_args = "preset-intel-qsv-h264";
+      };
       cameras = {
         doorbell = {
           ffmpeg = {
@@ -29,6 +32,7 @@ in
               }
             ];
           };
+          motion.mask = ["0.25,0,0.735,0,0.735,0.07,0.25,0.07"];
         };
         playroom = {
           ffmpeg = {
@@ -43,6 +47,7 @@ in
               }
             ];
           };
+          motion.mask = ["0.25,0,0.735,0,0.735,0.07,0.25,0.07"];
         };
       };
     };
