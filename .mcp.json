@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "devenv": {
+      "type": "stdio",
+      "command": "devenv",
+      "args": ["mcp"],
+      "env": {}
+    },
+    "nix": {
+      "command": "nix",
+      "args": ["run", "github:utensils/mcp-nixos", "--"]
+    }
+  }
+}
