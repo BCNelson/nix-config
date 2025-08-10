@@ -50,7 +50,7 @@ in
       detectors = {
         ov = {
           type = "openvino";
-          device = "CPU";
+          device = "GPU";
         };
       };
       record = {
