@@ -89,10 +89,10 @@ in
             "ffmpeg:http://192.168.3.69/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=service&password=\${CAMERA_PASSWORD}"
           ];
           playroom = [
-            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=service&password=\${CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
+            "ffmpeg:http://192.168.3.80/flv?port=1935&app=bcs&stream=channel0_main.bcs&user=service&password=\${CAMERA_PASSWORD}#video=copy#audio=copy#audio=opus"
           ];
           playroom_sub = [
-            "ffmpeg:http://192.168.3.72/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=service&password=\${CAMERA_PASSWORD}"
+            "ffmpeg:http://192.168.3.80/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=service&password=\${CAMERA_PASSWORD}"
           ];
         };
       rtsp.listen = ":8554";
