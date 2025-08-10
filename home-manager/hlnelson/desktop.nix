@@ -5,7 +5,7 @@
   # manage
 
   imports = [
-    outputs.homeManagerModules.autostart
+    outputs.homeModules.autostart
     ../_mixins/programs/firefox.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix

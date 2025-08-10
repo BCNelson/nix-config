@@ -3,7 +3,7 @@
 {
 
   imports = [
-    outputs.homeManagerModules.autostart
+    outputs.homeModules.autostart
     ./_mixins/kde.nix
   ];
 
