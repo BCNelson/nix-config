@@ -42,26 +42,7 @@
   hardware.intelgpu.driver = "i915";
   hardware.graphics = {
     enable = true;
-    extraPackages = with pkgs; [
-      intel-compute-runtime    # Critical: OpenCL runtime
-      intel-media-driver      # VA-API driver
-      level-zero              # Level Zero API for optimal performance
-      vpl-gpu-rt             # Video processing library
-      ocl-icd                # OpenCL ICD loader
-      intel-gmmlib           # Graphics Memory Management Library
-      intel-igc              # Intel Graphics Compiler
-    ];
   };
-
-  environment.sessionVariables = {
-    LIBVA_DRIVER_NAME = "iHD";
-    OCL_ICD_VENDORS = "${pkgs.intel-compute-runtime}/etc/OpenCL/vendors/";
-  };
-
-  boot.kernelParams = [ 
-    "i915.force_probe=*"     # Ensure Arc GPU detection
-    "i915.enable_guc=2"      # Enable GuC firmware for compute
-  ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
