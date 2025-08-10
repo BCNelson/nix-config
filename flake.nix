@@ -150,7 +150,7 @@
 
       overlays = import ./overlays { inherit inputs; };
       nixosModules = import ./modules/nixos;
-      homeManagerModules = import ./modules/home-manager;
+      homeModules = import ./modules/home-manager;
 
       agenix-rekey = inputs.agenix-rekey.configure {
         inherit (self) nixosConfigurations;
