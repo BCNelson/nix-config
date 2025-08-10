@@ -50,7 +50,7 @@ in
       detectors = {
         ov = {
           type = "openvino";
-          device = "GPU";
+          device = "CPU";
         };
       };
       record = {
@@ -66,15 +66,15 @@ in
           default = 30;
         };
       };
-      # model = {
-      #   model_type = "yolonas";
-      #   width = 320;
-      #   height = 320;
-      #   input_tensor = "nchw";
-      #   input_pixel_format = "bgr";
-      #   path = "${dataDirs.level5}/frigate/model/yolo_nas_s.onnx";
-      #   labelmap_path = "${dataDirs.level5}/frigate/model/labelmap.txt";
-      # };
+      model = {
+        model_type = "yolonas";
+        width = 320;
+        height = 320;
+        input_tensor = "nchw";
+        input_pixel_format = "bgr";
+        path = "${dataDirs.level5}/frigate/model/yolo_nas_s.onnx";
+        labelmap_path = "${dataDirs.level5}/frigate/model/labelmap.txt";
+      };
     };
   };
 
