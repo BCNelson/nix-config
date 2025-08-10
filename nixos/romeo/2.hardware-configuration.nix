@@ -44,6 +44,11 @@
     enable = true;
   };
 
+  boot.kernelParams = [ 
+    "i915.enable_guc=3"        # Enable GuC for both submission and HuC loading
+    "i915.force_probe=56a5"    # Force probe your specific Arc A380 device ID
+  ];
+
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
   # still possible to use this option, but it's recommended to use it in conjunction
