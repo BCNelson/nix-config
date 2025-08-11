@@ -42,6 +42,7 @@
   hardware.intelgpu.driver = "i915";
   hardware.graphics = {
     enable = true;
+    extraPackages = with pkgs; [ level-zero ];
   };
 
   boot.kernelParams = [ 
