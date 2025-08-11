@@ -54,9 +54,9 @@ resource "porkbun_dns_record" "CAA_rss_b_nel_family" {
   content = "0 issue \"sectigo.com\""
 }
 
-resource "porkbun_dns_record" "CAA_pdf_nel_family" {
+resource "porkbun_dns_record" "CAA_monitor_nel_family" {
   domain  = "nel.family"
-  name    = "pdf"
+  name    = "monitor"
   type    = "CAA"
   content = "0 issue \"sectigo.com\""
 }
@@ -352,11 +352,11 @@ resource "porkbun_dns_record" "check_nel_family-CNAME" {
   content = "esoteric-rattlesnake.pikapod.net"
 }
 
-resource "porkbun_dns_record" "pdf_nel_family-CNAME" {
+resource "porkbun_dns_record" "monitor_nel_family-CNAME" {
   domain = "nel.family"
-  name = "pdf"
+  name = "monitor"
   type = "CNAME"
-  content = "amorphous-swine.pikapod.net"
+  content = "gay-oxpecker.pikapod.net"
 }
 
 resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
