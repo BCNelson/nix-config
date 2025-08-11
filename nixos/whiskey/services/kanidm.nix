@@ -31,7 +31,7 @@
 
   services.kanidm = {
     enableServer = true;
-    package = pkgs.kanidm_1_6;
+    package = pkgs.kanidmWithSecretProvisioning;
     serverSettings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
@@ -44,10 +44,17 @@
       enable = true;
       groups = {
         "household" = {
-          members = [ ];
+          members = [
+            "bcnelson"
+            "haleylyn"
+          ];
+          overwriteMembers = true;
         };
         "service_admins" = {
-          members = [ ];
+          members = [
+            "bcnelson"
+          ];
+          overwriteMembers = true;
         };
       };
       systems.oauth2 = {
@@ -121,6 +128,20 @@
               };
             };
           };
+        };
+      };
+      persons = {
+        "bcnelson" = {
+          present = true;
+          displayName = "Bradley Nelson";
+          mailAddresses = [ "bradley@nel.family" ];
+          groups = [ "household" "service_admins" ];
+        };
+        "haleylyn" = {
+          present = true;
+          displayName = "Haley Nelson";
+          mailAddresses = [ "haley.lyn15@gmail.com" ];
+          groups = [ "household" ];
         };
       };
     };
