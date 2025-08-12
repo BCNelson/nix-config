@@ -108,7 +108,7 @@
         };
         "paperless" = {
           displayName = "Paperless";
-          originUrl = "https://docs.h.b.nel.family/accounts/oidc/kanidm/login/callback";
+          originUrl = "https://docs.h.b.nel.family/accounts/oidc/kanidm/login/callback/";
           originLanding = "https://docs.h.b.nel.family/";
           scopeMaps = {
             "service_admins" = [ "email" "groups" "openid" "profile"];
