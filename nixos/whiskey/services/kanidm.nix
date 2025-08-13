@@ -66,7 +66,10 @@
       systems.oauth2 = {
         "audiobookshelf" = {
           displayName = "Audiobookshelf";
-          originUrl = [ "https://audiobooks.nel.family/auth/openid/callback" "audiobookshelf://oauth"];
+          originUrl = [ 
+            "https://audiobooks.nel.family/auth/openid/callback"
+            "https://audiobooks.nel.family/auth/openid/mobile-redirect"
+          ];
           originLanding = "https://audiobooks.nel.family/";
           scopeMaps = {
             "household" = [ "email" "openid" "profile"];
