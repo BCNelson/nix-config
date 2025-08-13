@@ -50,6 +50,12 @@
           ];
           overwriteMembers = true;
         };
+        "extended_family" = {
+          members = [
+            "cwnelson"
+          ];
+          overwriteMembers = false;
+        };
         "service_admins" = {
           members = [
             "bcnelson"
@@ -64,6 +70,7 @@
           originLanding = "https://audiobooks.nel.family/";
           scopeMaps = {
             "household" = [ "email" "openid" "profile"];
+            "extended_family" = [ "email" "openid" "profile"];
           };
           preferShortUsername = true;
         };
@@ -96,6 +103,7 @@
           originLanding = "https://recipes.nel.family/";
           scopeMaps = {
             "household" = [ "email" "groups" "openid" "profile"];
+            "extended_family" = [ "email" "groups" "openid" "profile"];
           };
         };
         "jellyfin" = {
@@ -104,6 +112,7 @@
           originLanding = "https://media.nel.family/";
           scopeMaps = {
             "household" = [ "email" "groups" "openid" "profile"];
+            "extended_family" = [ "email" "groups" "openid" "profile"];
           };
         };
         "paperless" = {
@@ -142,6 +151,12 @@
           displayName = "Haley Nelson";
           mailAddresses = [ "haley.lyn15@gmail.com" ];
           groups = [ "household" ];
+        };
+        "cwnelson" = {
+          present = true;
+          displayName = "Carter Nelson";
+          mailAddresses = [ "cartern215@gmail.com" ];
+          groups = [ "extended_family" ];
         };
       };
     };
