@@ -147,7 +147,12 @@
           present = true;
           displayName = "Bradley Nelson";
           mailAddresses = [ "bradley@nel.family" ];
-          groups = [ "household" "service_admins" ];
+          groups = [
+            "household"
+            "service_admins"
+            "admins"
+            "idm_admins"
+          ];
         };
         "haleylyn" = {
           present = true;
