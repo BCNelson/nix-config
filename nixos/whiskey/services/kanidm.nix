@@ -32,46 +32,64 @@
   age.secrets.kanidm-admin-password = {
     rekeyFile = ./secrets/kanidm_admin_password.age;
     generator.script = "passphrase";
+    mode= "0400";
+    owner = "kanidm";
   };
 
   age.secrets.kanidm-idm-admin-password = {
     rekeyFile = ./secrets/kanidm_idm_admin_password.age;
     generator.script = "passphrase";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.audiobookshelf-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/audiobookshelf_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.immich-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/immich_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.vikunja-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/vikunja_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.mealie-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/mealie_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.jellyfin-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/jellyfin_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.paperless-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/paperless_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   age.secrets.grafana-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/grafana_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
   };
 
   services.kanidm = {
