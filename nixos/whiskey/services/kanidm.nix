@@ -29,6 +29,16 @@
     };
   };
 
+  age.secrets.kanidm-admin-password = {
+    rekeyFile = ./secrets/kanidm_admin_password.age;
+    generator.script = "passphrase";
+  };
+
+  age.secrets.kanidm-idm-admin-password = {
+    rekeyFile = ./secrets/kanidm_idm_admin_password.age;
+    generator.script = "passphrase";
+  };
+
   services.kanidm = {
     enableServer = true;
     package = pkgs.kanidmWithSecretProvisioning;
@@ -42,6 +52,8 @@
     };
     provision = {
       enable = true;
+      adminPasswordFile = config.age.secrets.kanidm-admin-password.path;
+      idmAdminPasswordFile = config.age.secrets.kanidm-idm-admin-password.path;
       groups = {
         "household" = {
           members = [
@@ -88,7 +100,6 @@
           scopeMaps = {
             "household" = [ "email" "openid" "profile"];
           };
-          allowInsecureClientDisablePkce = true;
           preferShortUsername = true;
         };
         "vikunja" = {
