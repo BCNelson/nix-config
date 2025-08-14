@@ -23,5 +23,16 @@
                 // },
             }
         }
-    }
+    },
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "text": "When a file is modified under the nixos/ directory, include the name of the machine in the commit message.",
+        },
+        {
+            "text": "When a file is modified under the home-manager/ directory, include the name of the user in the commit message.",
+        },
+        {
+            "text": "When a file is modified under the pkgs/ directory, include the name of the package in the commit message.",
+        }
+    ]
 }
