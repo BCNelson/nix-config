@@ -39,6 +39,41 @@
     generator.script = "passphrase";
   };
 
+  age.secrets.audiobookshelf-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/audiobookshelf_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.immich-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/immich_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.vikunja-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/vikunja_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.mealie-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/mealie_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.jellyfin-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/jellyfin_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.paperless-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/paperless_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
+  age.secrets.grafana-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/grafana_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   services.kanidm = {
     enableServer = true;
     package = pkgs.kanidmWithSecretProvisioning;
@@ -87,6 +122,7 @@
             "household" = [ "email" "openid" "profile"];
             "extended_family" = [ "email" "openid" "profile"];
           };
+          basicSecretFile = config.age.secrets.audiobookshelf-oauth-client-secret.path;
           preferShortUsername = true;
         };
         "immich" = {
@@ -100,6 +136,7 @@
           scopeMaps = {
             "household" = [ "email" "openid" "profile"];
           };
+          basicSecretFile = config.age.secrets.immich-oauth-client-secret.path;
           preferShortUsername = true;
         };
         "vikunja" = {
@@ -109,6 +146,7 @@
           scopeMaps = {
             "household" = [ "email" "openid" "profile"];
           };
+          basicSecretFile = config.age.secrets.vikunja-oauth-client-secret.path;
           allowInsecureClientDisablePkce = true;
         };
         "mealie" = {
@@ -119,6 +157,7 @@
             "household" = [ "email" "groups" "openid" "profile"];
             "extended_family" = [ "email" "groups" "openid" "profile"];
           };
+          basicSecretFile = config.age.secrets.mealie-oauth-client-secret.path;
         };
         "jellyfin" = {
           displayName = "Jellyfin";
@@ -128,6 +167,7 @@
             "household" = [ "email" "groups" "openid" "profile"];
             "extended_family" = [ "email" "groups" "openid" "profile"];
           };
+          basicSecretFile = config.age.secrets.jellyfin-oauth-client-secret.path;
         };
         "paperless" = {
           displayName = "Paperless";
@@ -151,6 +191,7 @@
               };
             };
           };
+          basicSecretFile = config.age.secrets.grafana-oauth-client-secret.path;
         };
       };
       persons = {
@@ -161,8 +202,6 @@
           groups = [
             "household"
             "service_admins"
-            "admins"
-            "idm_admins"
           ];
         };
         "haleylyn" = {
