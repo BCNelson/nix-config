@@ -34,6 +34,11 @@
     generator.script = "passphrase";
     mode= "0400";
     owner = "kanidm";
+    bitwarden = {
+      url = "https://idm.nel.family";
+      name = "Kanidm Admin Password";
+      username = "admin";
+    };
   };
 
   age.secrets.kanidm-idm-admin-password = {

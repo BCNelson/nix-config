@@ -12,6 +12,11 @@ in
   age.secrets.rom-auth-secret-key = {
     rekeyFile = ./secrets/rom_auth_secret_key.age;
     generator.script = {pkgs, ...}: "${pkgs.openssl}/bin/openssl rand -hex 32";
+    bitwarden = {
+      url = "https://romm.nel.family";
+      name = "Romm Auth Secret Key";
+      username = "bcnelson";
+    };
   };
 
   age.secrets.romm-igdb-client-secret = {

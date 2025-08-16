@@ -44,6 +44,7 @@ in
       age-plugin-fido2-hmac
       repomix
       claude-code
+      bitwarden-cli
     ] ++ lib.optional (lib.hasInfix system == "linux") [
       pkgs.quickemu
       pkgs.qemu

@@ -7,4 +7,5 @@
   dataDirs = import ./dataDirs;
   nixBinaryCacheProxy = import ./nixBinaryCacheProxy;
   sign = import ./sign.nix;
+  bitwardenSync = import ./bitwarden-sync.nix;
 }

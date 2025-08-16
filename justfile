@@ -150,6 +150,12 @@ test machine='vm_test' type='vm':
 rekey:
     agenix rekey -a
 
+# Sync age secrets to Bitwarden
+sync-secrets:
+    @echo "🔐 Syncing age secrets to Bitwarden..."
+    just unlock
+    nix run .#age-bitwarden-sync
+
 terraform *args:
     #!/usr/bin/env bash
     export AWS_ACCESS_KEY_ID=$(nix eval --file ./nixos/sensitive.nix B2_TERRAFORM_STATE_KEY_ID | tail -c +2 | head -c -2)
