@@ -21,7 +21,7 @@ on:
 
 jobs:
   check-hosts:
-    uses: ./.github/workflows/check-hosts.yml
+    uses: ./.github/workflows/check-nix-config.yml
   
   auto-update:
     runs-on: ubuntu-latest

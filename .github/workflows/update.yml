@@ -24,7 +24,6 @@ jobs:
           fetch-depth: 0
 
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - run: nix flake update
 
@@ -35,7 +34,7 @@ jobs:
 
   check-hosts:
     needs: update
-    uses: ./.github/workflows/check-hosts.yml
+    uses: ./.github/workflows/check-nix-config.yml
     with:
       updated_flake: true
 

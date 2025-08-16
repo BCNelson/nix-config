@@ -1,4 +1,4 @@
-name: Check NixOS Hosts
+name: Check NixOS Configuration
 
 on:
   workflow_call:
@@ -23,7 +23,9 @@ jobs:
         with:
           fetch-depth: 0
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Remove existing flake.lock
+        if: ${{ inputs.updated_flake }}
+        run: rm -f flake.lock
       - name: Download updated flake.lock
         if: ${{ inputs.updated_flake }}
         uses: actions/download-artifact@v4
@@ -52,7 +54,6 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           determinate: true
-      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Download updated flake.lock
         if: ${{ inputs.updated_flake }}
         run: rm -f flake.lock
@@ -63,3 +64,28 @@ jobs:
           name: flake.lock
       - name: Check host ${{ matrix.host }}
         run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace
+
+  check-devshell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        run: rm -f flake.lock
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+      - name: Check devshell
+        run: nix build .#devShells.x86_64-linux.default --dry-run --show-trace
