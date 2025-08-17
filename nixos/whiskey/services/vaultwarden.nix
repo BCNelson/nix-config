@@ -27,7 +27,13 @@
     };
   };
 
-  age.secrets.vaultwarden.rekeyFile = ../../../secrets/store/vaultwarden.age;
+  age.secrets.vaultwarden = {
+    rekeyFile = ../../../secrets/store/vaultwarden.age;
+    bitwarden = {
+      name = "Vaultwarden Admin Token";
+      uris = { uri = "https://vault.nel.family/admin"; matchType = "host"; };
+    };
+  };
 
   services.vaultwarden = {
     enable = true;

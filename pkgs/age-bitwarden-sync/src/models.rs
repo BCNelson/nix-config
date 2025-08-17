@@ -5,9 +5,103 @@ use std::collections::HashMap;
 pub struct BitwardenConfig {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
+    pub uris: Option<UriConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
+    #[serde(default)]
+    pub favorite: bool,
+    #[serde(default)]
+    pub reprompt: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub totp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<Vec<CustomField>>,
+    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    pub organization_id: Option<String>,
+    #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
+    pub collection_ids: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UriConfig {
+    Single(String),
+    Multiple(Vec<UriEntry>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UriEntry {
+    Simple(String),
+    WithMatch {
+        uri: String,
+        #[serde(rename = "matchType")]
+        match_type: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomField {
+    pub name: String,
+    pub value: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+}
+
+impl UriConfig {
+    pub fn to_bitwarden_uris(&self) -> Vec<BitwardenUri> {
+        match self {
+            UriConfig::Single(uri) => vec![BitwardenUri {
+                uri: Some(uri.clone()),
+                match_type: Some(0), // Default to "domain"
+            }],
+            UriConfig::Multiple(entries) => entries
+                .iter()
+                .map(|entry| match entry {
+                    UriEntry::Simple(uri) => BitwardenUri {
+                        uri: Some(uri.clone()),
+                        match_type: Some(0), // Default to "domain"
+                    },
+                    UriEntry::WithMatch { uri, match_type } => BitwardenUri {
+                        uri: Some(uri.clone()),
+                        match_type: Some(Self::match_type_to_int(match_type)),
+                    },
+                })
+                .collect(),
+        }
+    }
+
+    fn match_type_to_int(match_type: &str) -> i32 {
+        match match_type {
+            "domain" => 0,
+            "host" => 1,
+            "startsWith" => 2,
+            "exact" => 3,
+            "regex" => 4,
+            "never" => 5,
+            _ => 0, // Default to domain
+        }
+    }
+}
+
+impl CustomField {
+    pub fn to_bitwarden_field(&self) -> BitwardenField {
+        BitwardenField {
+            name: Some(self.name.clone()),
+            value: Some(self.value.clone()),
+            field_type: match self.field_type.as_str() {
+                "text" => 0,
+                "hidden" => 1,
+                "boolean" => 2,
+                _ => 0, // Default to text
+            },
+            linked_id: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

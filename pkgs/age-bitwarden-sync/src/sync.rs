@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use tracing::{debug, info, warn};
 
 use crate::bitwarden::BitwardenClient;
-use crate::models::{AgeSecret, BitwardenField, BitwardenItem, BitwardenLogin, BitwardenSecureNote, BitwardenUri};
+use crate::models::{AgeSecret, BitwardenField, BitwardenItem, BitwardenLogin, BitwardenSecureNote};
 use crate::nix_eval::NixEvaluator;
 
 pub struct SecretSyncer {
@@ -53,8 +53,8 @@ impl SecretSyncer {
         // Sync vault first
         self.bitwarden.sync().await?;
 
-        // Get or create the NixOS Secrets folder
-        self.folder_id = self.bitwarden.get_or_create_folder("NixOS Secrets").await?;
+        // We'll use per-secret folder configuration, so don't set a default folder here
+        // self.folder_id will remain empty unless we need a default
 
         // Get all secrets from Nix configurations (already filtered if host filter is set)
         let secrets = self.evaluator.get_all_secrets().await?;
@@ -123,10 +123,14 @@ impl SecretSyncer {
             secret.attribute_name
         );
 
+        // Get or create the folder for this secret
+        let folder_name = secret.bitwarden.folder.as_deref().unwrap_or("NixOS Secrets");
+        let folder_id = self.bitwarden.get_or_create_folder(folder_name).await?;
+
         // Check if item already exists
         let existing_item = self
             .bitwarden
-            .find_item_by_field("age_path", &age_path, &self.folder_id)
+            .find_item_by_field("age_path", &age_path, &folder_id)
             .await?;
 
         let item_name = format!("{} - {}", secret.bitwarden.name, secret.hostname);
@@ -143,22 +147,22 @@ impl SecretSyncer {
 
             // Update existing item
             existing.name = item_name;
+            existing.folder_id = Some(folder_id.clone());
+            existing.favorite = secret.bitwarden.favorite;
+            existing.reprompt = if secret.bitwarden.reprompt { 1 } else { 0 };
+            existing.organization_id = secret.bitwarden.organization_id.clone();
+            existing.collection_ids = secret.bitwarden.collection_ids.clone();
             
             // Determine item type and set content
             if secret.bitwarden.username.is_some() {
                 existing.item_type = 1; // Login
-                existing.notes = None;
+                existing.notes = secret.bitwarden.notes.clone();
                 existing.secure_note = None;
                 existing.login = Some(BitwardenLogin {
                     username: secret.bitwarden.username.clone(),
                     password: Some(secret_value.clone()),
-                    uris: secret.bitwarden.url.as_ref().map(|url| {
-                        vec![BitwardenUri {
-                            uri: Some(url.clone()),
-                            match_type: None,
-                        }]
-                    }),
-                    totp: None,
+                    uris: secret.bitwarden.uris.as_ref().map(|uris| uris.to_bitwarden_uris()),
+                    totp: secret.bitwarden.totp.clone(),
                     password_revision_date: None,
                     fido2_credentials: None,
                 });
@@ -186,11 +190,11 @@ impl SecretSyncer {
                 login: None,
                 secure_note: None,
                 fields: Some(self.build_fields(secret, &age_path, &checksum)),
-                folder_id: if self.folder_id.is_empty() { None } else { Some(self.folder_id.clone()) },
-                favorite: false,
-                reprompt: 0,
-                organization_id: None,
-                collection_ids: None,
+                folder_id: Some(folder_id),
+                favorite: secret.bitwarden.favorite,
+                reprompt: if secret.bitwarden.reprompt { 1 } else { 0 },
+                organization_id: secret.bitwarden.organization_id.clone(),
+                collection_ids: secret.bitwarden.collection_ids.clone(),
                 password_history: None,
                 revision_date: None,
                 creation_date: None,
@@ -200,16 +204,12 @@ impl SecretSyncer {
 
             // Set content based on type
             if secret.bitwarden.username.is_some() {
+                new_item.notes = secret.bitwarden.notes.clone();
                 new_item.login = Some(BitwardenLogin {
                     username: secret.bitwarden.username.clone(),
                     password: Some(secret_value),
-                    uris: secret.bitwarden.url.as_ref().map(|url| {
-                        vec![BitwardenUri {
-                            uri: Some(url.clone()),
-                            match_type: None,
-                        }]
-                    }),
-                    totp: None,
+                    uris: secret.bitwarden.uris.as_ref().map(|uris| uris.to_bitwarden_uris()),
+                    totp: secret.bitwarden.totp.clone(),
                     password_revision_date: None,
                     fido2_credentials: None,
                 });
@@ -260,15 +260,36 @@ impl SecretSyncer {
             },
         ];
 
-        // Add URL as a field if not used in login
+        // Add custom fields from the configuration
+        if let Some(custom_fields) = &secret.bitwarden.fields {
+            for custom_field in custom_fields {
+                fields.push(custom_field.to_bitwarden_field());
+            }
+        }
+
+        // Add URL as a field if not used in login and if it's a secure note
         if secret.bitwarden.username.is_none() {
-            if let Some(url) = &secret.bitwarden.url {
-                fields.push(BitwardenField {
-                    name: Some("url".to_string()),
-                    value: Some(url.clone()),
-                    field_type: 0,
-                    linked_id: None,
-                });
+            if let Some(uris) = &secret.bitwarden.uris {
+                // For secure notes, add the first URI as a field for backward compatibility
+                let first_uri = match uris {
+                    crate::models::UriConfig::Single(uri) => Some(uri.clone()),
+                    crate::models::UriConfig::Multiple(entries) if !entries.is_empty() => {
+                        match &entries[0] {
+                            crate::models::UriEntry::Simple(uri) => Some(uri.clone()),
+                            crate::models::UriEntry::WithMatch { uri, .. } => Some(uri.clone()),
+                        }
+                    },
+                    _ => None,
+                };
+                
+                if let Some(uri) = first_uri {
+                    fields.push(BitwardenField {
+                        name: Some("url".to_string()),
+                        value: Some(uri),
+                        field_type: 0,
+                        linked_id: None,
+                    });
+                }
             }
         }
 

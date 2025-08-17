@@ -35,7 +35,6 @@
     mode= "0400";
     owner = "kanidm";
     bitwarden = {
-      url = "https://idm.nel.family";
       name = "Kanidm Admin Password";
       username = "admin";
     };
@@ -46,6 +45,10 @@
     generator.script = "passphrase";
     mode = "0400";
     owner = "kanidm";
+    bitwarden = {
+      name = "Kanidm IDM Admin Password";
+      username = "idm-admin";
+    };
   };
 
   age.secrets.audiobookshelf-oauth-client-secret = {
