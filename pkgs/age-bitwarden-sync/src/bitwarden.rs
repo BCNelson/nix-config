@@ -5,7 +5,7 @@ use serde_json::json;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::models::{BitwardenFolder, BitwardenItem, BitwardenStatus};
 

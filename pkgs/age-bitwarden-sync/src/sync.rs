@@ -135,7 +135,7 @@ impl SecretSyncer {
             // Check if update is needed
             if let Some(fields) = &existing.fields {
                 for field in fields {
-                    if field.name.as_deref() == Some("age_checksum") && field.value.as_deref() == Some(checksum) {
+                    if field.name.as_deref() == Some("age_checksum") && field.value.as_deref() == Some(&checksum) {
                         return Ok(SyncResult::Skipped);
                     }
                 }
