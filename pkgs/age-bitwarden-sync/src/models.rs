@@ -30,6 +30,11 @@ pub struct BitwardenConfig {
 #[serde(untagged)]
 pub enum UriConfig {
     Single(String),
+    SingleWithMatch {
+        uri: String,
+        #[serde(rename = "matchType")]
+        match_type: String,
+    },
     Multiple(Vec<UriEntry>),
 }
 
@@ -58,6 +63,10 @@ impl UriConfig {
             UriConfig::Single(uri) => vec![BitwardenUri {
                 uri: Some(uri.clone()),
                 match_type: Some(0), // Default to "domain"
+            }],
+            UriConfig::SingleWithMatch { uri, match_type } => vec![BitwardenUri {
+                uri: Some(uri.clone()),
+                match_type: Some(Self::match_type_to_int(match_type)),
             }],
             UriConfig::Multiple(entries) => entries
                 .iter()

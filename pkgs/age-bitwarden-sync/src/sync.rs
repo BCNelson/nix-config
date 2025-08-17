@@ -273,6 +273,7 @@ impl SecretSyncer {
                 // For secure notes, add the first URI as a field for backward compatibility
                 let first_uri = match uris {
                     crate::models::UriConfig::Single(uri) => Some(uri.clone()),
+                    crate::models::UriConfig::SingleWithMatch { uri, .. } => Some(uri.clone()),
                     crate::models::UriConfig::Multiple(entries) if !entries.is_empty() => {
                         match &entries[0] {
                             crate::models::UriEntry::Simple(uri) => Some(uri.clone()),

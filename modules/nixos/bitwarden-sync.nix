@@ -48,13 +48,14 @@ in
             uris = mkOption {
               type = types.nullOr (types.oneOf [
                 types.str
+                uriType
                 (types.listOf (types.oneOf [
                   types.str
                   uriType
                 ]))
               ]);
               default = null;
-              description = "URIs for login items. Can be a string, list of strings, or list of URI objects with matchType";
+              description = "URIs for login items. Can be a string, URI object with matchType, or list of strings/URI objects";
             };
             username = mkOption {
               type = types.nullOr types.str;

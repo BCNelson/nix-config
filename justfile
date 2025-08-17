@@ -154,7 +154,7 @@ rekey:
 sync-secrets:
     @echo "🔐 Syncing age secrets to Bitwarden..."
     just unlock
-    nix run .#age-bitwarden-sync
+    nix run .#age-bitwarden-sync -- --fido
 
 terraform *args:
     #!/usr/bin/env bash
