@@ -1,9 +1,8 @@
-{ config, ... }:
+{ config, modulesPath, ... }:
 {
   imports = [
+    (modulesPath + "/profiles/minimal.nix")
     ../_mixins/roles/tailscale.nix
-    ../_mixins/roles/docker.nix
-    ./services
     ./dataDirs.nix
   ];
 
