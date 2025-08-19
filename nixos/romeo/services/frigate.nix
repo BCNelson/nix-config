@@ -5,6 +5,7 @@ in
 {
   services.frigate = {
     enable = true;
+    checkConfig = false;
     hostname = "frigate.h.b.nel.family";
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
