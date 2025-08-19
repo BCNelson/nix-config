@@ -64,7 +64,10 @@ in
       program = "${pkgs.firefox}/bin/firefox ${lib.concatStringsSep " " cfg.urls}";
     };
 
-    systemd.services."cage-tty1".after = [ "network-online.target" ];
+    systemd.services."cage-tty1"= {
+      after = [ "network-online.target" ];
+      requires = [ "network-online.target" ];
+    };
 
     programs.firefox = {
       enable = true;

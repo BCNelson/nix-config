@@ -27,7 +27,7 @@
     };
     sign = {
       enable = true;
-      urls = [ "http://localhost:8085" ];
+      urls = [ "https://homeassistant.h.b.nel.family/kitchen-dashboard/0" ];
     };
   };
 
