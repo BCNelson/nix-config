@@ -10,7 +10,7 @@ in
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
       mqtt = {
         enabled = true;
-        host = "homeassistant.h.b.nel.family";
+        host = "192.168.3.6";
         port = 1883;
         user = "frigate";
         password = "{FRIGATE_HA_USER_PASSWORD}";
