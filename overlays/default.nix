@@ -7,8 +7,23 @@
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
   # https://nixos.wiki/wiki/Overlays
-  modifications = _final: _prev: {
+  modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
+    claude-code = prev.claude-code.overrideAttrs (_oldAttrs: {
+      postInstall = ''
+        wrapProgram $out/bin/claude \
+          --set DISABLE_AUTOUPDATER 1 \
+          --prefix PATH ${final.lib.makeBinPath [
+            final.coreutils-full
+            final.findutils
+            final.gnumake
+            final.gnused
+            final.gnugrep
+            final.bash
+            final.ripgrep
+          ]}
+      '';
+    });
   };
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
