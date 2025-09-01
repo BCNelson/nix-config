@@ -37,7 +37,7 @@ let
 in
 {
   options.age.secrets = mkOption {
-    type = types.attrsOf (types.submodule ({ ... }: {
+    type = types.attrsOf (types.submodule (_: {
       options.bitwarden = mkOption {
         type = types.nullOr (types.submodule {
           options = {
