@@ -40,7 +40,7 @@
       DisableSetDesktopBackground = true;
       WebsiteFilter = {
         Block = [ "<all_urls>" ];
-        Allow = [ 
+        Exceptions = [ 
           "https://*.waterford.org/*"
           "https://*.waterfordlabs.org/*"
           "https://*.sentry.io/*"
