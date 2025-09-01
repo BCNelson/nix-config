@@ -20,7 +20,7 @@ in
       "podman"
     ];
     homeMode = "0755";
-    packages = [ pkgs.home-manager pkgs.libsForQt5.kate ];
+    packages = [ pkgs.home-manager pkgs.kdePackages.kate ];
   };
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;

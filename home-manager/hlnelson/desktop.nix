@@ -16,7 +16,7 @@
 
     pkgs.unstable.obsidian
 
-    pkgs.libsForQt5.kate
+    pkgs.kdePackages.kate
 
     pkgs.unstable.signal-desktop
   ];
