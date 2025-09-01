@@ -19,8 +19,6 @@
     pkgs.libsForQt5.kate
 
     pkgs.unstable.signal-desktop
-
-    pkgs.jellyfin-media-player
   ];
 
   programs.bash.enable = true;
