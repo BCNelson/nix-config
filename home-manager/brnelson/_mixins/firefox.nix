@@ -44,6 +44,7 @@
           "https://*.waterford.org/*"
           "https://*.waterfordlabs.org/*"
           "https://*.sentry.io/*"
+          "https://www.google.com/recaptcha/*"
         ];
       };
     };
