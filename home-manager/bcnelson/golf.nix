@@ -3,6 +3,7 @@
 {
   imports = [
     ../_mixins/programs/audacity.nix
+    ./_mixins/workstation.nix
   ];
 
   home.packages = [

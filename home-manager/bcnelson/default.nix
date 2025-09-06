@@ -7,7 +7,6 @@ in
 {
   imports = [
     ../_mixins/console.nix
-    ./_mixins/nvim.nix
   ]
   ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
   ++ lib.optional (builtins.isString desktop) ./desktop.nix;
