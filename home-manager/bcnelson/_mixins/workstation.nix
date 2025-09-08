@@ -3,6 +3,8 @@
   imports = [
     ./nvim.nix
     ../../_mixins/programs/libreOffice.nix
+    ./claude
+    ./claude/mcp/playwrite.nix
   ];
 
   home.packages = [
@@ -10,7 +12,6 @@
     pkgs.kdePackages.merkuro
     pkgs.mb4-extractor
     pkgs.zoom-us
-    pkgs.claude-code
     pkgs.gh
     pkgs.amazing-marvin
   ];
