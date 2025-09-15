@@ -17,5 +17,6 @@
     # pkgs.ventoy-full
     pkgs.libation
     pkgs.inkscape
+    pkgs.spec-kit
   ];
 }
