@@ -14,6 +14,8 @@
     ];
   };
 
+  boot.initrd.systemd.enable = true;
+
   environment.systemPackages = [
     pkgs.qemu
     pkgs.amazon-ecr-credential-helper
@@ -22,6 +24,7 @@
         -bios ${pkgs.OVMF.fd}/FV/OVMF.fd \
         "$@"
     '')
+    pkgs.tpm2-tss
   ];
 
   services= {
