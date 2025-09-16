@@ -9,12 +9,26 @@
     environment.systemPackages = [
       pkgs.kdePackages.polkit-kde-agent-1
     ];
+    services.displayManager.sddm = {
+      enable = true;
+      autoNumlock = true;
+      wayland = {
+        enable = true;
+        compositor = "kwin";
+      };
+    };
   } else {
     services.desktopManager.plasma6.enable = true;
     services.xserver.displayManager.defaultSession = "plasma";
-    displayManager.sddm = {
-      enable = true;
+    services.xserver.displayManager.lightdm.enable = lib.mkForce false;
+    services.displayManager.sddm = {
+      enable = lib.mkForce true;
       autoNumlock = true;
+      wayland = {
+        enable = true;
+        compositor = "kwin";
+      };
     };
+
   }
 )
