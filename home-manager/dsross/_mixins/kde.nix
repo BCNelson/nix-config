@@ -63,5 +63,4 @@
       };
     };
   };
-  catppuccin.kvantum.enable = true;
 }

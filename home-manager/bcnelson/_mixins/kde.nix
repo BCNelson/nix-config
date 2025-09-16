@@ -80,6 +80,4 @@
   home.packages = [
     pkgs.dolphin-shred
   ];
-  
-  catppuccin.kvantum.enable = true;
 }

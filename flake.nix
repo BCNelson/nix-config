@@ -51,8 +51,6 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
-    catppuccin.url = "github:catppuccin/nix";
-
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
@@ -78,7 +76,6 @@
       hostDefaults = {
         system = "x86_64-linux";
         modules = [
-          inputs.catppuccin.nixosModules.catppuccin
           inputs.agenix.nixosModules.default
           inputs.agenix-rekey.nixosModules.default
           inputs.agenix-template.nixosModules.default

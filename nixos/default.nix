@@ -32,6 +32,4 @@ in
       allowUnfree = true;
     };
   };
-  catppuccin.enable = true;
-  catppuccin.sddm.enable = false;
 }

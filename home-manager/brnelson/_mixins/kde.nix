@@ -57,5 +57,4 @@
       };
     };
   };
-  catppuccin.kvantum.enable = true;
 }
