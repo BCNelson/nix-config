@@ -7,6 +7,7 @@
   imports =
     [ (modulesPath + "/installer/scan/not-detected.nix")
       inputs.nixos-hardware.nixosModules.framework-16-7040-amd
+      ../_mixins/hardware/fingerprint.nix
     ];
 
   boot.initrd.availableKernelModules = [ "nvme" "xhci_pci" "thunderbolt" "usbhid" "usb_storage" "sd_mod" ];
