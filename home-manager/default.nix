@@ -12,8 +12,7 @@
     };
   };
 
-  imports = [ ]
-    ++ lib.optional (builtins.pathExists ./${username}) ./${username};
+  imports = lib.optional (builtins.pathExists ./${username}) ./${username};
   home.stateVersion = stateVersion;
   programs.home-manager.enable = true;
   home.username = lib.mkDefault username;
