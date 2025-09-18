@@ -1,6 +1,7 @@
-{ pkgs, ... }:
+{ inputs, pkgs, ... }:
 {
   imports = [
+    inputs.lanzaboote.nixosModules.lanzaboote
     ../_mixins/roles/docker.nix
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/flatpak.nix
@@ -25,6 +26,7 @@
         "$@"
     '')
     pkgs.tpm2-tss
+    pkgs.sbctl
   ];
 
   services= {
