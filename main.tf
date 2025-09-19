@@ -258,6 +258,22 @@ resource "porkbun_dns_record" "homeassistant_b_nel_family-AAAA" {
   type = "AAAA"
   content = "fd7a:115c:a1e0:ab12:4843:cd96:6242:4c5f"
 }
+
+# homeassistant.kvm      A  100.118.234.69
+resource "porkbun_dns_record" "homeassistant_kvm_nel_family-A" {
+  domain  = "nel.family"
+  name    = "homeassistant.kvm"
+  type    = "A"
+  content = "100.118.234.69"
+}
+# homeassistant.kvm      AAAA  fd7a:115c:a1e0::4b01:ea45
+resource "porkbun_dns_record" "homeassistant_kvm_nel_family-AAAA" {
+  domain  = "nel.family"
+  name    = "homeassistant.kvm"
+  type    = "AAAA"
+  content = "fd7a:115c:a1e0::4b01:ea45"
+}
+
 # ryuu.llp      A  100.73.83.164
 resource "porkbun_dns_record" "ryuu_llp_nel_family-A" {
   domain  = "nel.family"
