@@ -321,14 +321,14 @@ resource "porkbun_dns_record" "romeo_kvm_nel_family-A" {
   domain = "nel.family"
   name = "romeo.kvm"
   type = "A"
-  content = "100.118.234.69"
+  content = "100.67.188.61"
 }
 # romeo.kvm.nel.family      AAAA
 resource "porkbun_dns_record" "romeo_kvm_nel_family-AAAA" {
   domain = "nel.family"
   name = "romeo.kvm"
   type = "AAAA"
-  content = "fd7a:115c:a1e0::4b01:ea45"
+  content = "fd7a:115c:a1e0::7401:bc42"
 }
 # audiobooks      CNAME  audiobooks.h.b.nel.family.
 resource "porkbun_dns_record" "audiobooks_nel_family-CNAME" {
