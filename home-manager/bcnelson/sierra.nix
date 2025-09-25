@@ -18,5 +18,6 @@
     pkgs.libation
     pkgs.inkscape
     pkgs.spec-kit
+    pkgs.pince
   ];
 }

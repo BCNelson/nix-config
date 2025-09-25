@@ -9,4 +9,5 @@ pkgs: {
   amazing-marvin = pkgs.callPackage ./amazing-marvin.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
+  pince = pkgs.callPackage ./pince { };
 }
