@@ -9,7 +9,6 @@ in
     hostname = "frigate.h.b.nel.family";
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
-      auth.reset_admin_password = true;
       mqtt = {
         enabled = true;
         host = "192.168.3.6";
