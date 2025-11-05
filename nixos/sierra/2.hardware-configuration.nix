@@ -61,8 +61,6 @@
 
   services.hardware.openrgb.motherboard = "intel";
 
-  services.udev.packages = [ pkgs.android-udev-rules ];
-
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
 
