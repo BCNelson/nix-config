@@ -32,7 +32,6 @@
     pkgs.newsflash
 
     #Dignostic tools
-    pkgs.glxinfo
     pkgs.vulkan-tools
     pkgs.libva-utils
 

@@ -17,7 +17,7 @@
       #   difftastic # Modern Unix `diff`
       #   dua # Modern Unix `du`
       #   duf # Modern Unix `df`
-      du-dust # Modern Unix `du`
+      dust # Modern Unix `du`
       entr # Modern Unix `watch`
       fd # Modern Unix `find`
       #   ffmpeg-headless # Terminal video encoder
