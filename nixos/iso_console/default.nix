@@ -10,7 +10,7 @@ in
       ../_mixins/roles/tailscale.nix
     ];
 
-  environment.systemPackages = [ pkgs.pinentry ];
+  environment.systemPackages = [ pkgs.pinentry-curses ];
 
   programs.gnupg.agent = {
     enable = true;
