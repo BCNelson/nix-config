@@ -6,7 +6,7 @@
       pkgs.noto-fonts
       pkgs.noto-fonts-cjk-sans
       pkgs.noto-fonts-color-emoji
-      pkgs.ubuntu_font_family
+      pkgs.ubuntu-classic
       pkgs.monaspace
     ];
     fontconfig = {
