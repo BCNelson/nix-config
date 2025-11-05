@@ -14,6 +14,7 @@
     pkgs.zoom-us
     pkgs.gh
     pkgs.amazing-marvin
+    pkgs.todoist-electron
   ];
 
   programs.ssh = {

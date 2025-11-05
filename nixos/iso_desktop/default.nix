@@ -13,7 +13,6 @@
   };
 
   environment.systemPackages = with pkgs; [
-    pinentry
     pinentry-qt
   ];
 

@@ -14,7 +14,7 @@ in
 
   programs.gnupg.agent = {
     enable = true;
-    pinentryPackage = pkgs.pinentry;
+    pinentryPackage = pkgs.pinentry-curses;
   };
 
   age.identityPaths = [ hostKeyFile ];

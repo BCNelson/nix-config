@@ -32,7 +32,7 @@ in
       git
       git-crypt
       gnupg
-      pinentry
+      pinentry-tty
       just
       qemu
       zstd
