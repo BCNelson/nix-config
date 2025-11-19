@@ -9,5 +9,6 @@
 
   systemd.timers.podman-auto-update = {
     enable = true;
+    wantedBy = ["multi-user.target"];
   };
 }
