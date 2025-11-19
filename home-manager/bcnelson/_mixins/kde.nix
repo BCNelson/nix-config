@@ -25,7 +25,7 @@
         hiding = "none";
         lengthMode = "fill";
         location = "bottom";
-        screen = "all";
+        screen = [0 1 2 3];
         widgets = [
           {
             name = "org.kde.plasma.taskmanager";

@@ -4,6 +4,8 @@
   imports = [
     ../_mixins/work/redo.nix
     ./_mixins/workstation.nix
+    ./_mixins/claude/mcp/aws/support.nix
+    ./_mixins/claude/mcp/aws/cloudwatch.nix
   ];
 
   home.packages = [

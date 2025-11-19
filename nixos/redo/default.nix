@@ -33,4 +33,6 @@
     pcscd.enable = true;
     kmscon.enable = true;
   };
+
+  programs.nix-ld.enable = true;
 }
