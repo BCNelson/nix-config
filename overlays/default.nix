@@ -30,7 +30,7 @@
   # be accessible through 'pkgs.unstable'
   unstable-packages = final: _prev: {
     unstable = import inputs.nixpkgs-unstable {
-      inherit (final) system;
+      inherit (final.stdenv.hostPlatform) system;
       config = {
         allowUnfree = true;
         permittedInsecurePackages = [
@@ -40,7 +40,7 @@
       };
     };
     stable = import inputs.nixpkgs24-05 {
-      inherit (final) system;
+      inherit (final.stdenv.hostPlatform) system;
       config = {
         allowUnfree = true;
       };

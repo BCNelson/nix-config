@@ -25,10 +25,12 @@ in
     };
     git = {
       enable = true;
-      userName = "Bradley Nelson";
-      userEmail = "bradley@nel.family";
       lfs.enable = true;
-      extraConfig = {
+      settings = {
+        user = {
+          name = "Bradley Nelson";
+          email = "bradley@nel.family";
+        };
         push = {
           default = "current";
         };

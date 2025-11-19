@@ -1,7 +1,7 @@
 { pkgs, inputs, ... }:
 let
   unstablePkgs = import inputs.nixpkgs-unstable {
-    inherit (pkgs) system;
+    inherit (pkgs.stdenv.hostPlatform) system;
     config = {
       allowUnfree = true;
       permittedInsecurePackages = [ "libsoup-2.74.3" ];

@@ -132,21 +132,21 @@
 
         packages = import ./pkgs pkgs;
 
-        devShells = let 
-          pkgsWithOverlays = import inputs.nixpkgs-unstable { 
-            inherit (pkgs) system; 
-            config.allowUnfree = true; 
-            overlays = [ 
-              inputs.agenix-rekey.overlays.default 
-              inputs.rust-overlay.overlays.default 
-            ]; 
+        devShells = let
+          pkgsWithOverlays = import inputs.nixpkgs-unstable {
+            inherit (pkgs.stdenv.hostPlatform) system;
+            config.allowUnfree = true;
+            overlays = [
+              inputs.agenix-rekey.overlays.default
+              inputs.rust-overlay.overlays.default
+            ];
           };
-        in import ./shell.nix { 
-          inherit inputs; 
-          outputs = self; 
-          pkgs = pkgsWithOverlays; 
-          inherit (pkgs) system; 
-          inherit (inputs.nixpkgs-unstable) lib; 
+        in import ./shell.nix {
+          inherit inputs;
+          outputs = self;
+          pkgs = pkgsWithOverlays;
+          inherit (pkgs.stdenv.hostPlatform) system;
+          inherit (inputs.nixpkgs-unstable) lib;
         };
       };
 

@@ -45,7 +45,7 @@ in
       repomix
       claude-code
       bitwarden-cli
-    ] ++ lib.optional (lib.hasInfix system == "linux") [
+    ] ++ lib.optional (lib.hasInfix "linux" system) [
       pkgs.quickemu
       pkgs.qemu
       (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''

@@ -29,7 +29,7 @@
       #   jiq # Modern Unix `jq`
       lazygit # Terminal Git client
       #   lurk # Modern Unix `strace`
-      moar # Modern Unix `less`
+      moor # Modern Unix `less` (formerly moar)
       #   neofetch # Terminal system info
       #   nixpkgs-review # Nix code review
       #   nurl # Nix URL fetcher
