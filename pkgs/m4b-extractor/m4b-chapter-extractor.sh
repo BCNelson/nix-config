@@ -24,6 +24,9 @@ chapterdata=$shortname.dat
 metadata=$shortname.tmp
 echo "shortname: $shortname"
 
+# Sanitize shortname for use in directory/file names (replace colons with underscores)
+shortname_sanitized="${shortname//:/_}"
+
 extension="${1##*.}"
 
 forcemp3=0
@@ -74,13 +77,13 @@ echo "Deleting $metadata"
 rm "$metadata"
 
 # create directory for the output
-echo "Creating directory $shortname"
-mkdir -p "$shortname"
+echo "Creating directory $shortname_sanitized"
+mkdir -p "$shortname_sanitized"
 echo -e "\fID\tStart Time\tEnd Time\tTitle\t\tFilename"
 for i in "${!id[@]}"; do
   trackno=$((i+1))
   # set the name for output - currently in format <bookname>/<tranck number>
-  outname="$shortname/$(printf "%02d" "$trackno"). $shortname - ${title[$i]}.$outputtype"
+  outname="$shortname_sanitized/$(printf "%02d" "$trackno"). $shortname_sanitized - ${title[$i]}.$outputtype"
   #outname=$(sed -e 's/[^A-Za-z0-9._- ]/_/g' <<< $outname)
   outname="${outname//:/_}"
   echo -e "${id[$i]}\t${start[$i]}\t${end[$i]}\t${title[$i]}\n\t\t$(basename "$outname")"
