@@ -5,6 +5,7 @@
     ./romm.nix
     ./node-red.nix
     ./frigate.nix
+    ./ollama.nix
   ];
 
   systemd.timers.podman-auto-update = {
