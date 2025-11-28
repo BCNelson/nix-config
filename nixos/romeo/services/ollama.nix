@@ -5,7 +5,7 @@
     host = "127.0.0.1";
     port = 11434;
     # Models to automatically download on first startup
-    loadModels = [ "qwen3:4b_q8" ];
+    loadModels = [ "qwen3:4b" ];
     acceleration = "vulkan";
     environmentVariables = {
       # Enable Vulkan backend for Intel Arc GPU
