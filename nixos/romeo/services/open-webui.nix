@@ -29,8 +29,13 @@ in
     };
   };
 
-  systemd.services.open-webui.serviceConfig = {
-    EnvironmentFile = config.age-template.files.open-webui-env.path;
+  systemd.services.open-webui = {
+    after = [ "zfs-import.target" ];
+    requires = [ "zfs-import.target" ];
+    serviceConfig = {
+      EnvironmentFile = config.age-template.files.open-webui-env.path;
+      ReadWritePaths = [ "${dataDirs.level5}/open-webui" ];
+    };
   };
 
   services.nginx.virtualHosts."ai.h.b.nel.family" = {
