@@ -38,8 +38,10 @@ in
     enableACME = true;
     acmeRoot = null;
     extraConfig = ''
-      # Only allow access from Tailscale network
+      #Allow access from Tailscale network
       allow 100.64.0.0/10;
+      #Allow access from local network
+      allow 192.168.0.0/16;
       deny all;
     '';
     locations = {
