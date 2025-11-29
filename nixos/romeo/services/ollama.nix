@@ -14,6 +14,9 @@
       GGML_VK_VISIBLE_DEVICES = "0";
       # Maximize GPU layer usage
       OLLAMA_GPU_LAYERS = "-1";
+
+      # https://github.com/ollama/ollama/issues/13086
+      GGML_VK_DISABLE_INTEGER_DOT_PRODUCT = "1";
     };
   };
 
