@@ -6,6 +6,7 @@
     ./node-red.nix
     ./frigate.nix
     ./ollama.nix
+    ./open-webui.nix
   ];
 
   systemd.timers.podman-auto-update = {
