@@ -45,6 +45,7 @@ in
     radarr.enable = true;
     readarr.enable = true;
     sonarr.enable = true;
+    lidarr.enable = true;
   };
 
   services.nginx = {
@@ -124,6 +125,22 @@ in
         locations = {
           "/" = {
             proxyPass = "http://localhost:8989";
+            extraConfig = ''
+              proxy_max_temp_file_size 2048m;
+            '';
+          };
+        };
+      };
+      "lidarr.arr.b.nel.family" = {
+        forceSSL = true;
+        enableACME = true;
+        acmeRoot = null;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://localhost:8686";
             extraConfig = ''
               proxy_max_temp_file_size 2048m;
             '';
