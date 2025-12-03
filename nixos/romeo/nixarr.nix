@@ -37,6 +37,10 @@ in
       extraSettings = {
         "rpc-host-whitelist" = "romeo.b.nel.family";
         "rpc-host-whitelist-enabled" = true;
+        "download_queue_enabled" = true;
+        "download_queue_size" = 50;
+        "queue_stalled_enabled" = true;
+        "queue_stalled_minutes" = 5;
       };
     };
 
