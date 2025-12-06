@@ -10,9 +10,15 @@ in
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
       ffmpeg = {
-        hwaccel_args = "preset-vaapi";
-        # Use the A380 (i915) render device for VA-API
-        hwaccel_device = "/dev/dri/by-driver/i915-render";
+        # Use VA-API on the A380 (i915) render device
+        hwaccel_args = [
+          "-hwaccel"
+          "vaapi"
+          "-hwaccel_device"
+          "/dev/dri/by-driver/i915-render"
+          "-hwaccel_output_format"
+          "vaapi"
+        ];
       };
       mqtt = {
         enabled = true;
