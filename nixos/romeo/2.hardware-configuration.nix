@@ -29,7 +29,7 @@
     };
 
   boot = {
-    kernelPackages = pkgs.linuxPackages_6_16;
+    kernelPackages = pkgs.linuxPackages_6_18;
     zfs = {
       extraPools = [ "vault" "scary" ];
       forceImportRoot = false;
