@@ -17,7 +17,7 @@ in
           "-hwaccel_device"
           "/dev/dri/by-driver/i915-render"
           "-hwaccel_output_format"
-          "vaapi"
+          "yuv420p"
         ];
       };
       mqtt = {
@@ -159,10 +159,15 @@ in
     };
   };
 
-  systemd.services.frigate.serviceConfig= {
+  systemd.services.frigate.serviceConfig = {
     EnvironmentFile = config.age-template.files.frigate-env.path;
-    SupplementaryGroups = ["render" "video"] ; # for access to dev/dri/*
+    SupplementaryGroups = [ "render" "video" ]; # for access to dev/dri/*
     AmbientCapabilities = "CAP_PERFMON";
+  };
+
+  # Force OpenVINO/Level Zero to only use the A380 (first GPU)
+  systemd.services.frigate.environment = {
+    ZE_AFFINITY_MASK = "0";
   };
 
   services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
