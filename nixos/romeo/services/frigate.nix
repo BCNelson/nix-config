@@ -9,6 +9,11 @@ in
     hostname = "frigate.h.b.nel.family";
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
+      ffmpeg = {
+        hwaccel_args = "preset-vaapi";
+        # Use the A380 (i915) render device for VA-API
+        hwaccel_device = "/dev/dri/by-driver/i915-render";
+      };
       mqtt = {
         enabled = true;
         host = "192.168.3.6";
