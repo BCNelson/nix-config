@@ -65,6 +65,24 @@
     ZE_FLAT_DEVICE_HIERARCHY = "FLAT";
   };
 
+  # udev rules for stable GPU symlinks based on driver
+  services.udev.extraRules = ''
+    # Intel Arc A380 (i915) - Media GPU (Jellyfin, Frigate)
+    SUBSYSTEM=="drm", KERNEL=="renderD*", DRIVERS=="i915", SYMLINK+="dri/by-driver/i915-render", MODE="0666"
+    SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="i915", SYMLINK+="dri/by-driver/i915-card", MODE="0666"
+
+    # Intel Arc B580 (xe) - AI GPU (Ollama)
+    SUBSYSTEM=="drm", KERNEL=="renderD*", DRIVERS=="xe", SYMLINK+="dri/by-driver/xe-render", MODE="0666"
+    SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="xe", SYMLINK+="dri/by-driver/xe-card", MODE="0666"
+  '';
+
+  # GPU diagnostic tools
+  environment.systemPackages = with pkgs; [
+    intel-gpu-tools     # intel_gpu_top
+    vulkan-tools        # vulkaninfo
+    nvtopPackages.full  # GPU monitoring (supports Intel)
+  ];
+
   networking.useDHCP = lib.mkDefault true;
   networking.hostId = "aa99924f";
 

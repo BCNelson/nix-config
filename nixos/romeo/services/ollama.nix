@@ -10,8 +10,8 @@
     environmentVariables = {
       # Enable Vulkan backend for Intel Arc GPU
       OLLAMA_VULKAN = "1";
-      # Use first GPU (stable for single GPU systems)
-      GGML_VK_VISIBLE_DEVICES = "0";
+      # Target B580 (xe driver, device 1) - A380 (i915) loads first as device 0
+      GGML_VK_VISIBLE_DEVICES = "1";
       # Maximize GPU layer usage
       OLLAMA_GPU_LAYERS = "-1";
 
