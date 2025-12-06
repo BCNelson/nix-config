@@ -28,10 +28,13 @@
       fsType = "vfat";
     };
 
-  boot.zfs = {
-    extraPools = [ "vault" "scary" ];
-    forceImportRoot = false;
-    devNodes = "/dev/disk/by-partlabel";
+  boot = {
+    kernelPackages = pkgs.linuxPackages_6_16;
+    zfs = {
+      extraPools = [ "vault" "scary" ];
+      forceImportRoot = false;
+      devNodes = "/dev/disk/by-partlabel";
+    };
   };
   services.zfs.autoScrub.enable = true;
 
