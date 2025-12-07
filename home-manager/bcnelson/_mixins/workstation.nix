@@ -5,6 +5,7 @@
     ../../_mixins/programs/libreOffice.nix
     ./claude
     ./claude/mcp/playwrite.nix
+    ./programs/trillium.nix
   ];
 
   home.packages = [
