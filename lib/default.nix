@@ -18,11 +18,11 @@ let
   getSecretWithDefault = path: key: default:
     let
       # This is needed because nix can't import a file that is encrypted https://github.com/NixOS/nix/issues/4329#issuecomment-740787749
-      inherit (inputs.nixpkgs-unstable.legacyPackages.x86_64-linux) runCommandNoCCLocal file;
+      inherit (inputs.nixpkgs-unstable.legacyPackages.x86_64-linux) runCommandLocal file;
       inherit (inputs.nixpkgs-unstable.lib) hasInfix fileContents;
       inherit (builtins) pathExists;
 
-      isNotEncrypted = f: hasInfix "text" (fileContents (runCommandNoCCLocal "chk-encryption"
+      isNotEncrypted = f: hasInfix "text" (fileContents (runCommandLocal "chk-encryption"
         {
           buildInputs = [ file ];
           src = f;
