@@ -54,6 +54,13 @@ resource "porkbun_dns_record" "CAA_rss_b_nel_family" {
   content = "0 issue \"sectigo.com\""
 }
 
+resource "porkbun_dns_record" "CAA_budget_b_nel_family" {
+  domain  = "nel.family"
+  name    = "budget.b"
+  type    = "CAA"
+  content = "0 issue \"sectigo.com\""
+}
+
 resource "porkbun_dns_record" "CAA_monitor_nel_family" {
   domain  = "nel.family"
   name    = "monitor"
@@ -388,6 +395,14 @@ resource "porkbun_dns_record" "rss_b_nel_family-CNAME" {
   name = "rss.b"
   type = "CNAME"
   content = "dainty-bull.pikapod.net"
+}
+
+# budget.b     CNAME  beryl-capybara.pikapod.net
+resource "porkbun_dns_record" "budget_b_nel_family-CNAME" {
+  domain = "nel.family"
+  name = "budget.b"
+  type = "CNAME"
+  content = "beryl-capybara.pikapod.net"
 }
 
 # docs      CNAME  h.b.nel.family.
