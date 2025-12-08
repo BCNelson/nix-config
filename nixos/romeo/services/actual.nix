@@ -19,10 +19,16 @@
   };
 
   # Agenix secret for OAuth client secret
-  # Note: Don't specify owner since actual uses DynamicUser=true
-  # The preStart script runs as root before dropping privileges
+  # Use a static group that we add to the service's SupplementaryGroups
   age.secrets.actual-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/actual_auth_client_secret.age;
     generator.script = "alnum";
+    mode = "0440";
+    group = "actual-secrets";
   };
+
+  users.groups.actual-secrets = {};
+
+  # Add the secrets group to the actual service
+  systemd.services.actual.serviceConfig.SupplementaryGroups = [ "actual-secrets" ];
 }
