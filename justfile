@@ -150,6 +150,10 @@ test machine='vm_test' type='vm':
 rekey:
     agenix rekey -a
 
+generate-secrets:
+    @echo "🔐 Generating age secrets..."
+    agenix generate -a
+
 # Sync age secrets to Bitwarden
 sync-secrets:
     @echo "🔐 Syncing age secrets to Bitwarden..."

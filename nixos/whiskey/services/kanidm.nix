@@ -100,6 +100,13 @@
     owner = "kanidm";
   };
 
+  age.secrets.actual-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/actual_auth_client_secret.age;
+    generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
+  };
+
   services.kanidm = {
     enableServer = true;
     package = pkgs.kanidmWithSecretProvisioning_1_8;
@@ -218,6 +225,16 @@
             };
           };
           basicSecretFile = config.age.secrets.grafana-oauth-client-secret.path;
+        };
+        "actual" = {
+          displayName = "Actual Budget";
+          originUrl = "https://budget.h.b.nel.family/openid/callback";
+          originLanding = "https://budget.h.b.nel.family/";
+          scopeMaps = {
+            "household" = [ "email" "openid" "profile" ];
+          };
+          basicSecretFile = config.age.secrets.actual-oauth-client-secret.path;
+          preferShortUsername = true;
         };
       };
       persons = {
