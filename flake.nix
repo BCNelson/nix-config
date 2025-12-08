@@ -95,7 +95,7 @@
         "golf-4" = libx.mkHost { hostname = "golf-4"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
-        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" ]; desktop = "kde6"; };
+        "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" "hlnelson" ]; desktop = "kde6"; };
         "ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; };
         "berg-1" = libx.mkHost { hostname = "berg-1"; usernames = [ "bcnelson" "dsross" ]; desktop = "kde6"; };
         "sierra-2" = libx.mkHost { hostname = "sierra-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
