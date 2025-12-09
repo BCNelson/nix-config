@@ -235,6 +235,8 @@
           };
           basicSecretFile = config.age.secrets.actual-oauth-client-secret.path;
           preferShortUsername = true;
+          # Actual Budget only supports RS256, not ES256
+          enableLegacyCrypto = true;
         };
       };
       persons = {
