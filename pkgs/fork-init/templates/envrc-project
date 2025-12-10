@@ -1,0 +1,1 @@
+use flake ~/dev-configs/PROJECT_NAME --impure

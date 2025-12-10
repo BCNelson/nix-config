@@ -2,6 +2,7 @@
 # You can build them using 'nix build .#example'
 pkgs: {
   # example = pkgs.callPackage ./example { };
+  fork-init = pkgs.callPackage ./fork-init { };
   mdns-reflector = pkgs.callPackage ./mdns-reflector.nix { };
   install-system = pkgs.callPackage ./install-system { };
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };

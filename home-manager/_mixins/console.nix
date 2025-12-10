@@ -6,6 +6,7 @@
     # A Modern Unix experience
     # https://jvns.ca/blog/2022/04/12/a-list-of-new-ish--command-line-tools/
     packages = with pkgs; [
+      fork-init # Initialize external devenv for forked repos
       asciinema # Terminal recorder
       bottom # Modern Unix `top`
       #   breezy # Terminal bzr client
