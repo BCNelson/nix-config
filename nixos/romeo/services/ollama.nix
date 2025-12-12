@@ -1,11 +1,11 @@
-{ config, ... }:
+{ pkgs, ... }:
 {
   services.ollama = {
     enable = true;
     host = "0.0.0.0";
     port = 11434;
     loadModels = [ "qwen3:4b" ];
-    acceleration = "vulkan";
+    package = pkgs.ollama-vulkan;
     environmentVariables = {
       # Enable Vulkan backend
       OLLAMA_VULKAN = "1";
