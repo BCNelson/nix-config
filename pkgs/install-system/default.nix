@@ -7,6 +7,7 @@ let
     git-crypt
     coreutils
     just
+    age
     age-plugin-yubikey
     age-plugin-fido2-hmac
     nix

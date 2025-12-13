@@ -19,5 +19,6 @@
     pkgs.inkscape
     pkgs.spec-kit
     pkgs.pince
+    pkgs.freecad-qt6
   ];
 }

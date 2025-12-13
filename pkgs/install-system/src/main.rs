@@ -6,6 +6,41 @@ use regex::Regex;
 use std::process::Command;
 use std::collections::HashMap;
 use std::fs;
+use serde::Deserialize;
+
+/// Configuration for repository unlock methods
+#[derive(Deserialize)]
+struct UnlockConfig {
+    methods: UnlockMethods,
+}
+
+#[derive(Deserialize)]
+struct UnlockMethods {
+    fido2: Option<Fido2Config>,
+    gpg: Option<GpgConfig>,
+}
+
+#[derive(Deserialize)]
+struct Fido2Config {
+    enabled: bool,
+    #[serde(rename = "keyFile")]
+    key_file: String,
+    identities: Vec<Fido2Identity>,
+}
+
+#[derive(Deserialize, Clone)]
+struct Fido2Identity {
+    name: String,
+    path: String,
+    default: bool,
+}
+
+#[derive(Deserialize)]
+struct GpgConfig {
+    enabled: bool,
+    #[serde(rename = "keyFile")]
+    key_file: String,
+}
 
 mod wifi;
 mod swap;
@@ -171,7 +206,71 @@ fn main() -> Result<()> {
     let git_config = std::fs::read_to_string(".git/config")?;
     if !git_config.contains("git-crypt") {
         println!("Decrypting Repository");
-        run_cmd!(gpg --decrypt local.key.asc | git-crypt unlock -)?;
+
+        // Load unlock configuration
+        let unlock_config: UnlockConfig = serde_json::from_str(
+            &std::fs::read_to_string("secrets/unlock-config.json")
+                .unwrap_or_else(|_| {
+                    // Fallback to GPG-only if config doesn't exist
+                    r#"{"methods":{"gpg":{"enabled":true,"keyFile":"local.key.asc"}}}"#.to_string()
+                })
+        )?;
+
+        // Build list of available unlock methods
+        let mut method_names: Vec<&str> = Vec::new();
+        if let Some(ref fido2) = unlock_config.methods.fido2 {
+            if fido2.enabled && std::path::Path::new(&fido2.key_file).exists() {
+                method_names.push("FIDO2 (security key)");
+            }
+        }
+        if let Some(ref gpg) = unlock_config.methods.gpg {
+            if gpg.enabled && std::path::Path::new(&gpg.key_file).exists() {
+                method_names.push("GPG");
+            }
+        }
+
+        if method_names.is_empty() {
+            bail!("No unlock methods available. Ensure local.key.asc or local.key.age exists.");
+        }
+
+        // If only one method available, use it automatically
+        let selected_method = if method_names.len() == 1 {
+            method_names[0]
+        } else {
+            inquire::Select::new("Select unlock method", method_names).prompt()?
+        };
+
+        match selected_method {
+            "FIDO2 (security key)" => {
+                let fido2 = unlock_config.methods.fido2.as_ref().unwrap();
+                let key_file = &fido2.key_file;
+
+                // Sort identities with default first
+                let mut identities = fido2.identities.clone();
+                identities.sort_by(|a, b| b.default.cmp(&a.default));
+
+                let mut unlocked = false;
+                for identity in &identities {
+                    println!("Trying {} (touch your security key)...", identity.name);
+                    let identity_path = &identity.path;
+
+                    if run_cmd!(age --decrypt -i $identity_path $key_file | git-crypt unlock -).is_ok() {
+                        println!("Unlocked with {}", identity.name);
+                        unlocked = true;
+                        break;
+                    }
+                }
+
+                if !unlocked {
+                    bail!("Failed to unlock with any FIDO2 identity");
+                }
+            },
+            _ => {
+                let gpg = unlock_config.methods.gpg.as_ref().unwrap();
+                let key_file = &gpg.key_file;
+                run_cmd!(gpg --decrypt $key_file | git-crypt unlock -)?;
+            }
+        }
     } else {
         println!("Repository already decrypted");
     }
