@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+_:
 
 {
   # Add your development tools here
