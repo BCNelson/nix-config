@@ -11,4 +11,5 @@ pkgs: {
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
   pince = pkgs.callPackage ./pince { };
+  distrobox-bazel = pkgs.callPackage ./distrobox-bazel.nix { };
 }
