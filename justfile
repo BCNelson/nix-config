@@ -25,6 +25,21 @@ update-os *additionalArgs:
         nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
     fi
 
+[linux]
+rollback:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    GEN=$(nixos-rebuild list-generations | fzf --tac --header="Select generation to switch to")
+    if [ -n "$GEN" ]; then
+        GEN_NUM=$(echo "$GEN" | awk '{print $1}')
+        echo "Switching to generation $GEN_NUM..."
+        if [ "$EUID" -ne 0 ]; then
+            sudo /nix/var/nix/profiles/system-${GEN_NUM}-link/bin/switch-to-configuration switch
+        else
+            /nix/var/nix/profiles/system-${GEN_NUM}-link/bin/switch-to-configuration switch
+        fi
+    fi
+
 [macos]
 update-os *additionalArgs:
     #!/usr/bin/env zsh
