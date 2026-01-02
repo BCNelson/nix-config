@@ -33,5 +33,7 @@
   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   # Elan fingerprint sensor TOD driver (04f3:0c4b)
+  services.fprintd.tod.enable = true;
   services.fprintd.tod.driver = pkgs.libfprint-2-tod1-elan;
+  services.udev.packages = [ pkgs.libfprint-2-tod1-elan ];
 }
