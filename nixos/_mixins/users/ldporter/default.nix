@@ -1,4 +1,4 @@
-{ ... }:
+_:
 {
   users.users.ldporter = {
     isNormalUser = true;
