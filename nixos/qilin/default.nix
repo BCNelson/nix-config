@@ -8,7 +8,7 @@
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/config";
-    reboot = true;  # Ensure updates are fully applied
+    reboot = false;
     refreshInterval = "24h";  # Daily updates
   };
 
