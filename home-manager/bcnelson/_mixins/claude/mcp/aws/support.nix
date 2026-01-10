@@ -8,7 +8,7 @@
           "awslabs.aws-support-mcp-server@latest"
           "--debug"
           "--log-file"
-          "./logs/mcp_support_server.log"
+          "~/.cache/mcp/logs/mcp_aws_support_server.log"
         ];
       };
     };
