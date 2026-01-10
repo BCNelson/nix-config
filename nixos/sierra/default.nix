@@ -13,6 +13,7 @@
       ../_mixins/hardware/streamdeck.nix
       ../_mixins/hardware/qmk.nix
       ../_mixins/hardware/platfromio.nix
+      ../_mixins/hardware/logitech.nix
       ../_mixins/roles/nfs.nix
       ../_mixins/roles/kanidmClient.nix
       ../_mixins/roles/workstation.nix

@@ -34,8 +34,6 @@
     #Dignostic tools
     pkgs.vulkan-tools
     pkgs.libva-utils
-
-    pkgs.solaar
   ];
 
   programs.bash.enable = true;
