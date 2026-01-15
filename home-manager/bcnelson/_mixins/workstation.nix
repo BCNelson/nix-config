@@ -5,6 +5,7 @@
     ../../_mixins/programs/libreOffice.nix
     ./claude
     ./claude/mcp/playwrite.nix
+    ./claude/skill/pr-review-response
     ./programs/trillium.nix
   ];
 
