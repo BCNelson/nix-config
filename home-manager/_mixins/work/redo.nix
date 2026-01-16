@@ -13,6 +13,7 @@
     # pkgs.zed-editor
     pkgs.cloudflared
     pkgs.zoom-us
+    pkgs.pulumi
   ];
 
   programs.firefox = {

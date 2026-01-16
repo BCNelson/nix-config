@@ -11,6 +11,7 @@
   home.packages = [
     pkgs.winbox4
     pkgs.gam # Google Workkspace CLI
+    pkgs.devpod-desktop
   ];
 
   programs.plasma = {
