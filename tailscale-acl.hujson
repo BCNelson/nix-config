@@ -13,7 +13,8 @@
 		"group:gaming": [
 			"brennonschow@gmail.com",
 			"nelson.7.jeffery@gmail.com"
-		]
+		],
+		"group:familyVPN": []
 	},
 
 	// Declare convenient hostname aliases to use in place of IP addresses.
@@ -51,6 +52,13 @@
 		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]},
 		//Loki
 		{"action": "accept", "src": ["tag:server"], "dst": ["whiskey:3100", "whiskey6:3100"]}
+	],
+	"grants": [
+		{
+			"src": ["group:familyVPN"],
+			"dst": ["autogroup:internet"],
+			"via": ["vor", "vor6"]
+		}
 	],
 	"ssh": [
 		{
