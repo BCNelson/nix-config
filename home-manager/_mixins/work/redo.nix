@@ -13,7 +13,10 @@
     # pkgs.zed-editor
     pkgs.cloudflared
     pkgs.zoom-us
+    # Infrastructure as Code Pulumi
     pkgs.pulumi
+    pkgs.pulumiPackages.pulumi-nodejs
+    pkgs.nodejs
   ];
 
   programs.firefox = {

@@ -2,6 +2,7 @@
 {
   imports = [
     ./nvim.nix
+    ./k8s.nix
     ../../_mixins/programs/libreOffice.nix
     ./claude
     ./claude/mcp/playwrite.nix

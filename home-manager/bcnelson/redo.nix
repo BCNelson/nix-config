@@ -12,6 +12,7 @@
     pkgs.winbox4
     pkgs.gam # Google Workkspace CLI
     pkgs.devpod-desktop
+    pkgs.coder
   ];
 
   programs.plasma = {
