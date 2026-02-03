@@ -7,6 +7,7 @@
   imports = [
     outputs.homeModules.autostart
     ./_mixins/firefox.nix
+    ./_mixins/zen.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
   ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;

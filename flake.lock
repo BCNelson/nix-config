@@ -797,7 +797,8 @@
         "nixvim": "nixvim",
         "nur": "nur",
         "plasma-manager": "plasma-manager",
-        "rust-overlay": "rust-overlay_2"
+        "rust-overlay": "rust-overlay_2",
+        "zen-browser": "zen-browser"
       }
     },
     "rust-overlay": {
@@ -961,6 +962,29 @@
       "original": {
         "owner": "rasmus-kirk",
         "repo": "website-builder",
+        "type": "github"
+      }
+    },
+    "zen-browser": {
+      "inputs": {
+        "home-manager": [
+          "home-manager-unstable"
+        ],
+        "nixpkgs": [
+          "nixpkgs-unstable"
+        ]
+      },
+      "locked": {
+        "lastModified": 1769589275,
+        "narHash": "sha256-hU6J/bU8mHhJrV/asVDQ9oY7gcH/MMSOGtr4iOYy8lc=",
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
+        "rev": "a318ae926a6f96cce4cb8498ad986b33a6d44b21",
+        "type": "github"
+      },
+      "original": {
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
         "type": "github"
       }
     }
