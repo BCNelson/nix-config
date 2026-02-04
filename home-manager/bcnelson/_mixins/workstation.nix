@@ -7,6 +7,7 @@
     ./claude
     ./claude/mcp/playwrite.nix
     ./claude/skill/pr-review-response
+    ./claude/skill/init-devenv
     ./programs/trillium.nix
   ];
 
