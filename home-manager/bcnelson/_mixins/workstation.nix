@@ -6,6 +6,7 @@
     ../../_mixins/programs/libreOffice.nix
     ./claude
     ./claude/mcp/playwrite.nix
+    ./claude/mcp/pulumi.nix
     ./claude/skill/pr-review-response
     ./claude/skill/init-devenv
     ./programs/trillium.nix
