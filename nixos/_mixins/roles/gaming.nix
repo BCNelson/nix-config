@@ -21,6 +21,7 @@
   environment.systemPackages = [
     pkgs.gamescope
     pkgs.steamtinkerlaunch
+    pkgs.opentrack
   ];
 
   services.hardware.openrgb.enable = true;
