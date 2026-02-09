@@ -66,6 +66,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
       inputs.home-manager.follows = "home-manager-unstable";
     };
+
+    jellyswarrm = {
+      url = "github:LLukas22/Jellyswarrm";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs = inputs@{ self, flake-utils-plus, ... }:
@@ -121,7 +126,7 @@
           nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix";
           desktop = "kde6";
         };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; };
+        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; nixosMods = inputs.jellyswarrm.nixosModules.default; };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; nixosMods = inputs.disko.nixosModules.disko; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; };
       };

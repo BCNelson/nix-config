@@ -8,6 +8,7 @@
     ./frigate.nix
     ./ollama.nix
     ./open-webui.nix
+    ./jellyswarrm.nix
   ];
 
   systemd.timers.podman-auto-update = {
