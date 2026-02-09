@@ -1,6 +1,37 @@
-{ config, ... }:
+{ config, pkgs, inputs, lib, ... }:
 let
   dataDirs = config.data.dirs;
+  # Rebuild jellyswarrm package with fixed cargoHash (upstream has incorrect hash)
+  jellyswarrmFixed = pkgs.rustPlatform.buildRustPackage rec {
+    pname = "jellyswarrm";
+    version = "0.2.0";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "LLukas22";
+      repo = "Jellyswarrm";
+      rev = "v${version}";
+      hash = "sha256-bf+HiZLS54abDV9wW/MZQT/UJrtUQMlmFcmN+5T2FYU=";
+    };
+
+    cargoHash = "sha256-aWMW/mACrdCQWCi+9+2jQXYYEE1e84xlFWexr+SzM2o=";
+
+    buildInputs = [ pkgs.jellyfin-web ];
+
+    env.JELLYSWARRM_SKIP_UI = "1";
+
+    preBuild = ''
+      mkdir -p crates/jellyswarrm-proxy/static
+      cp -r ${pkgs.jellyfin-web}/share/jellyfin-web/* crates/jellyswarrm-proxy/static/
+      echo "JELLYFIN_WEB_VERSION=${pkgs.jellyfin-web.version}" > crates/jellyswarrm-proxy/static/ui-version.env
+    '';
+
+    meta = {
+      description = "A reverse proxy for managing multiple Jellyfin servers";
+      homepage = "https://github.com/LLukas22/Jellyswarrm";
+      license = lib.licenses.gpl3;
+      mainProgram = "jellyswarrm";
+    };
+  };
 in
 {
   age.secrets.jellyswarrm-password = {
@@ -17,6 +48,7 @@ in
 
   services.jellyswarrm = {
     enable = true;
+    package = jellyswarrmFixed;
     host = "127.0.0.1";
     port = 3001;
     dataDir = "${dataDirs.level5}/jellyswarrm";
