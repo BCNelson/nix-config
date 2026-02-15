@@ -1,4 +1,4 @@
-{ desktop, lib, pkgs, ... }: {
+{ config, desktop, lib, pkgs, ... }: {
   imports = lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
 
   services = {
@@ -53,5 +53,19 @@
   programs.gnupg.agent = {
     enable = true;
     pinentryPackage = pkgs.pinentry-qt;
+  };
+
+  # Tailscale systray for desktop machines
+  systemd.user.services.tailscale-systray = lib.mkIf config.services.tailscale.enable {
+    description = "Tailscale system tray";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    path = [ pkgs.wl-clipboard ];
+    serviceConfig = {
+      ExecStart = "${config.services.tailscale.package}/bin/tailscale systray";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
   };
 }
