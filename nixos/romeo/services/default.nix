@@ -9,6 +9,8 @@
     ./ollama.nix
     ./open-webui.nix
     ./jellyswarrm.nix
+    ./immich.nix
+    ./immichframe.nix
   ];
 
   systemd.timers.podman-auto-update = {

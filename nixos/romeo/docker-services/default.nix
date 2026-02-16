@@ -8,7 +8,6 @@ let
   foundryvtt = import ./defs/foundryvtt.nix { inherit dataDirs libx; };
   fastenhealth = import ./defs/fastenhealth.nix { inherit dataDirs; };
   homebox = import ./defs/homebox.nix { inherit dataDirs; };
-  immich = import ./defs/immich.nix { inherit dataDirs libx; };
   paperless = import ./defs/paperless.nix { inherit dataDirs libx; };
   tubearchivist = import ./defs/tubearchivist.nix { inherit dataDirs libx; };
 in
@@ -26,7 +25,6 @@ in
         foundryvtt
         fastenhealth
         homebox
-        immich
         paperless
         tubearchivist
       ];
