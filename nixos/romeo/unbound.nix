@@ -23,7 +23,7 @@ in
     settings = {
       server = {
         module-config = ''"respip validator iterator"'';
-        interface = [ "0.0.0.0@53" "::@53" ];
+        interface = [ "127.0.0.1@53" "::1@53" "192.168.3.7@53" ];
         do-ip6 = "yes";
         access-control = [
           "127.0.0.1/32 allow"

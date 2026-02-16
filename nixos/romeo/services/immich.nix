@@ -34,6 +34,7 @@ in
     volumes = [
       "${dataDirs.level7}/immich:/cache"
     ];
+    dependsOn = [ "immich-redis" ];
     extraOptions = [ "--network=immich" ];
     labels = {
       "io.containers.autoupdate" = "registry";
@@ -58,15 +59,14 @@ in
     volumes = [
       "${dataDirs.level2}/immich/database:/var/lib/postgresql/data"
     ];
+    dependsOn = [ "immich-redis" ];
     extraOptions = [ "--network=immich" ];
     labels = {
       "io.containers.autoupdate" = "registry";
     };
   };
 
-  # Ensure the immich network exists before each container starts
-  systemd.services.podman-immich-server.serviceConfig.ExecStartPre = networkEnsure;
-  systemd.services.podman-immich-machine-learning.serviceConfig.ExecStartPre = networkEnsure;
+  # Ensure the immich network exists before the first container starts
+  # Redis starts first (others dependsOn it), so only it needs this
   systemd.services.podman-immich-redis.serviceConfig.ExecStartPre = networkEnsure;
-  systemd.services.podman-immich-postgres.serviceConfig.ExecStartPre = networkEnsure;
 }
