@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   age.secrets.immichframe-api-key = {
     rekeyFile = ../../../secrets/store/romeo/immichframe_api_key.age;
@@ -37,6 +37,7 @@
     };
   };
 
-  systemd.services.docker-immichframe.after = [ "docker-network-immich.service" ];
-  systemd.services.docker-immichframe.requires = [ "docker-network-immich.service" ];
+  systemd.services.podman-immichframe.serviceConfig.ExecStartPre = [
+    "-${pkgs.podman}/bin/podman network create immich"
+  ];
 }

@@ -1,7 +1,8 @@
 { config, libx, pkgs, ... }:
 let
   dataDirs = config.data.dirs;
-  immich_postgres_password = libx.getSecret ../sensitive.nix "immich_postgres_password";
+  immich_postgres_password = libx.getSecret ../../sensitive.nix "immich_postgres_password";
+  networkEnsure = [ "-${pkgs.podman}/bin/podman network create immich" ];
   commonVolumes = [
     "${dataDirs.level2}/immich/photos:/usr/src/app/upload"
     "${dataDirs.level6}/immich/encoded-video:/usr/src/app/upload/encoded-video"
@@ -10,18 +11,6 @@ let
   ];
 in
 {
-  systemd.services.docker-network-immich = {
-    description = "Create Docker network for Immich";
-    after = [ "docker.service" ];
-    requires = [ "docker.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = "${pkgs.docker}/bin/docker network inspect immich >/dev/null 2>&1 || ${pkgs.docker}/bin/docker network create immich";
-    wantedBy = [ "multi-user.target" ];
-  };
-
   virtualisation.oci-containers.containers.immich-server = {
     image = "ghcr.io/immich-app/immich-server:release";
     volumes = commonVolumes;
@@ -75,13 +64,9 @@ in
     };
   };
 
-  # Ensure all containers start after the network is created
-  systemd.services.docker-immich-server.after = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-server.requires = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-machine-learning.after = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-machine-learning.requires = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-redis.after = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-redis.requires = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-postgres.after = [ "docker-network-immich.service" ];
-  systemd.services.docker-immich-postgres.requires = [ "docker-network-immich.service" ];
+  # Ensure the immich network exists before each container starts
+  systemd.services.podman-immich-server.serviceConfig.ExecStartPre = networkEnsure;
+  systemd.services.podman-immich-machine-learning.serviceConfig.ExecStartPre = networkEnsure;
+  systemd.services.podman-immich-redis.serviceConfig.ExecStartPre = networkEnsure;
+  systemd.services.podman-immich-postgres.serviceConfig.ExecStartPre = networkEnsure;
 }
