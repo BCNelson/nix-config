@@ -42,7 +42,7 @@ in
   };
 
   virtualisation.oci-containers.containers.immich-redis = {
-    image = "redis:6.2-alpine";
+    image = "docker.io/redis:6.2-alpine";
     extraOptions = [ "--network=immich" ];
     labels = {
       "io.containers.autoupdate" = "registry";
@@ -50,7 +50,7 @@ in
   };
 
   virtualisation.oci-containers.containers.immich-postgres = {
-    image = "tensorchord/pgvecto-rs:pg14-v0.2.0";
+    image = "docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0";
     environment = {
       "POSTGRES_PASSWORD" = immich_postgres_password;
       "POSTGRES_USER" = "postgres";
