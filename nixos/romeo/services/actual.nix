@@ -1,4 +1,7 @@
 { config, pkgs, ... }:
+let
+  dataDirs = config.data.dirs;
+in
 {
   services.actual = {
     enable = true;
@@ -7,7 +10,7 @@
       hostname = "127.0.0.1";
       port = 5006;
       # Use existing data location from Docker deployment
-      dataDir = "/data/level3/actual";
+      dataDir = "${dataDirs.level3}/actual";
       # OpenID configuration (maps to config.json openId object)
       openId = {
         # Kanidm discovery URL
