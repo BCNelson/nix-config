@@ -25,6 +25,7 @@
       "ShowImageDesc" = "true";
       "ShowImageLocation" = "true";
       "ShowMemories" = "true";
+      "Albums" = "19f6fa9f-c028-4a64-a797-3656bd00cd42";
     };
     environmentFiles = [
       "${config.age-template.files.immichframe-env.path}"
