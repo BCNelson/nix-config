@@ -6,6 +6,8 @@ in
   services.actual = {
     enable = true;
     package = pkgs.actual-server-fork;
+    user = "actual";
+    group = "actual";
     settings = {
       hostname = "127.0.0.1";
       port = 5006;
@@ -31,7 +33,19 @@ in
     group = "actual-secrets";
   };
 
+  # Static user/group for stable ownership of pre-existing data directory
+  users.users.actual = {
+    isSystemUser = true;
+    group = "actual";
+  };
+  users.groups.actual = {};
+
   users.groups.actual-secrets = {};
+
+  # Ensure data directory ownership matches the static user
+  systemd.tmpfiles.rules = [
+    "d ${dataDirs.level3}/actual 0750 actual actual -"
+  ];
 
   # Add the secrets group to the actual service
   systemd.services.actual.serviceConfig.SupplementaryGroups = [ "actual-secrets" ];
