@@ -1,7 +1,8 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   services.actual = {
     enable = true;
+    package = pkgs.actual-server-fork;
     settings = {
       hostname = "127.0.0.1";
       port = 5006;
