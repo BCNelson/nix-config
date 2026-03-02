@@ -1,7 +1,14 @@
 { config, ... }: {
+  age.secrets.grafana-secret-key = {
+    rekeyFile = ./secrets/grafana_secret_key.age;
+    generator.script = "alnum";
+    owner = "grafana";
+  };
+
   # grafana configuration
   services.grafana = {
     enable = true;
+    settings.security.secret_key = "$__file{${config.age.secrets.grafana-secret-key.path}}";
     settings.server = {
       root_url = "https://grafana.b.nel.family";
       enable_gzip = true;
