@@ -1,11 +1,11 @@
-{ config, pkgs, ... }:
+{ config, ... }:
 let
   dataDirs = config.data.dirs;
 in
 {
   services.actual = {
     enable = true;
-    package = pkgs.actual-server-fork;
+
     user = "actual";
     group = "actual";
     settings = {

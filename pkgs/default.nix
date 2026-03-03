@@ -12,5 +12,4 @@ pkgs: {
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
   pince = pkgs.callPackage ./pince { };
   distrobox-bazel = pkgs.callPackage ./distrobox-bazel.nix { };
-  actual-server-fork = pkgs.callPackage ./actual-server-fork/package.nix { };
 }
