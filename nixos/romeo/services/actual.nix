@@ -13,6 +13,8 @@ in
       port = 5006;
       # Use existing data location from Docker deployment
       dataDir = "${dataDirs.level3}/actual";
+      loginMethod = "openid";
+      enforceOpenId = true;
       # OpenID configuration (maps to config.json openId object)
       openId = {
         # Kanidm discovery URL
