@@ -18,6 +18,10 @@ terraform {
       source  = "cullenmcdermott/porkbun"
       version = "0.3.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -29,9 +33,17 @@ variable "porkbun_secret_key" {
   type = string
 }
 
+variable "cloudflare_api_token" {
+  type = string
+}
+
 provider "porkbun" {
   api_key    = var.porkbun_api_key
   secret_key = var.porkbun_secret_key
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 resource "porkbun_dns_record" "CAA_nel_family" {
@@ -481,17 +493,23 @@ resource "porkbun_dns_record" "nel_to-CNAME" {
   content = "h.b.nel.family"
 }
 
-resource "porkbun_dns_record" "bcnelson_dev-CAA" {
-  domain = "bcnelson.dev"
-  type = "CAA"
-  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
+resource "cloudflare_record" "bcnelson_dev-CAA" {
+  zone_id = "2afab945023de6634b53f500f6a537fe"
+  name    = "bcnelson.dev"
+  type    = "CAA"
+  data {
+    flags = "0"
+    tag   = "issue"
+    value = "letsencrypt.org;validationmethods=dns-01"
+  }
 }
 
-resource "porkbun_dns_record" "git_bcnelson_dev-CNAME" {
-  domain = "bcnelson.dev"
-  type = "CNAME"
-  name = "git"
+resource "cloudflare_record" "git_bcnelson_dev-CNAME" {
+  zone_id = "2afab945023de6634b53f500f6a537fe"
+  name    = "git"
+  type    = "CNAME"
   content = "public.whiskey.b.nel.family"
+  proxied = false
 }
 
 resource "porkbun_dns_record" "idm_nel_family-CNAME" {
@@ -501,10 +519,10 @@ resource "porkbun_dns_record" "idm_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
-resource "porkbun_dns_record" "bcnelson_dev-github-verify" {
-  domain = "bcnelson.dev"
-  type = "TXT"
-  name = "_github-pages-challenge-bcnelson"
+resource "cloudflare_record" "bcnelson_dev-github-verify" {
+  zone_id = "2afab945023de6634b53f500f6a537fe"
+  name    = "_github-pages-challenge-bcnelson"
+  type    = "TXT"
   content = "e8a64353bcac28974a44be20b4b899"
 }
 

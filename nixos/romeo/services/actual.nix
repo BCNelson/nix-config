@@ -42,11 +42,12 @@ in
 
   users.groups.actual-secrets = {};
 
-  # Ensure data directory ownership matches the static user
-  systemd.tmpfiles.rules = [
-    "Z ${dataDirs.level3}/actual 0750 actual actual -"
-  ];
-
   # Add the secrets group to the actual service
-  systemd.services.actual.serviceConfig.SupplementaryGroups = [ "actual-secrets" ];
+  # Fix ownership of pre-existing Docker data before starting
+  systemd.services.actual.serviceConfig = {
+    SupplementaryGroups = [ "actual-secrets" ];
+    ExecStartPre = [
+      "+/run/current-system/sw/bin/chown -R actual:actual ${dataDirs.level3}/actual"
+    ];
+  };
 }

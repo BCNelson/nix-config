@@ -1,10 +1,21 @@
-_:
+{ config, ... }:
 let
   dataDirs = {
     level3 = "/data/level3"; # High
   };
 in
 {
+  age.secrets.cloudflare_dns_api_token.rekeyFile = ../../../secrets/store/cloudflare_dns_api_token.age;
+
+  age-template.files."cloudflare-acme-env" = {
+    vars.token = config.age.secrets.cloudflare_dns_api_token.path;
+    content = "CF_DNS_API_TOKEN=$token";
+  };
+
+  security.acme.certs."git.bcnelson.dev" = {
+    dnsProvider = "cloudflare";
+    environmentFile = config.age-template.files."cloudflare-acme-env".path;
+  };
   services.nginx = {
     enable = true;
     virtualHosts = {
