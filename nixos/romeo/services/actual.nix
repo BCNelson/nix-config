@@ -44,7 +44,7 @@ in
 
   # Ensure data directory ownership matches the static user
   systemd.tmpfiles.rules = [
-    "d ${dataDirs.level3}/actual 0750 actual actual -"
+    "Z ${dataDirs.level3}/actual 0750 actual actual -"
   ];
 
   # Add the secrets group to the actual service
