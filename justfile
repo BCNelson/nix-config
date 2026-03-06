@@ -98,9 +98,7 @@ push: unlock
 
 sync: pull update-os
 
-[linux]
-check *additionalArgs:
-    nix flake check {{ additionalArgs }}
+alias check := check-host
 
 [linux]
 check-host host *additionalArgs:

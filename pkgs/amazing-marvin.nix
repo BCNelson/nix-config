@@ -17,8 +17,8 @@ appimageTools.wrapType2 {
 
   extraPkgs = pkgs:
     with pkgs; [
-      xorg.libXScrnSaver
-      xorg.libXtst
+      libxscrnsaver
+      libxtst
       libappindicator-gtk2
       libnotify
     ];

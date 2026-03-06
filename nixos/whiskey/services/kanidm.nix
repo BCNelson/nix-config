@@ -108,9 +108,9 @@
   };
 
   services.kanidm = {
-    enableServer = true;
-    package = pkgs.kanidmWithSecretProvisioning_1_8;
-    serverSettings = {
+    server.enable = true;
+    package = pkgs.kanidmWithSecretProvisioning_1_9;
+    server.settings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
       tls_key = config.security.acme.certs."idm.nel.family".directory + "/key.pem";
@@ -263,8 +263,8 @@
         };
       };
     };
-    enableClient = true;
-    clientSettings = {
+    client.enable = true;
+    client.settings = {
       uri = "https://127.0.0.1:3001";
     };
   };
