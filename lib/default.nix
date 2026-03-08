@@ -123,5 +123,5 @@ in
       ] ++ modules;
     };
 
-  inherit getSecretWithDefault getSecret forAllSystems mkStandaloneHome mkSystemManager;
+  inherit getSecretWithDefault getSecret forAllSystems;
 }
