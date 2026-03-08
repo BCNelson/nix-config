@@ -105,5 +105,23 @@ in
     ];
   };
 
-  inherit getSecretWithDefault getSecret forAllSystems;
+  mkStandaloneHome = { hostname, username, desktop ? null, platform ? "x86_64-linux" }:
+    inputs.home-manager-unstable.lib.homeManagerConfiguration {
+      pkgs = inputs.nixpkgs-unstable.legacyPackages.${platform};
+      extraSpecialArgs = {
+        inherit inputs outputs stateVersion desktop hostname platform;
+      };
+      modules = [
+        (import ../home-manager { inherit username; })
+      ];
+    };
+
+  mkSystemManager = { hostname, modules ? [] }:
+    inputs.system-manager.lib.makeSystemConfig {
+      modules = [
+        ../system-manager
+      ] ++ modules;
+    };
+
+  inherit getSecretWithDefault getSecret forAllSystems mkStandaloneHome mkSystemManager;
 }

@@ -71,14 +71,22 @@
       url = "github:LLukas22/Jellyswarrm";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+
+    system-manager = {
+      url = "github:numtide/system-manager";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs = inputs@{ self, flake-utils-plus, ... }:
+    let
+      libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
+    in
     flake-utils-plus.lib.mkFlake {
       inherit self inputs;
-      
+
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
-      
+
       channels.nixpkgs.input = inputs.nixpkgs;
       channels.nixpkgs-unstable.input = inputs.nixpkgs-unstable;
       channels.nixpkgs-unstable-small.input = inputs.nixpkgs-unstable-small;
@@ -86,9 +94,9 @@
         input = inputs.nixpkgs-unstable-small;
         patches = [ ./patches/405787.patch ];
       };
-      
+
       channelsConfig.allowUnfree = true;
-      
+
       hostDefaults = {
         system = "x86_64-linux";
         modules = [
@@ -97,10 +105,8 @@
           inputs.agenix-template.nixosModules.default
         ] ++ (builtins.attrValues (import ./modules/nixos));
       };
-      
-      hosts = let
-        libx = import ./lib { inherit inputs; stateVersion = "23.05"; outputs = self; };
-      in {
+
+      hosts = {
         # INSERT_NEW_HOST_CONFIG_HERE
         "qilin-1" = libx.mkHost { hostname = "qilin-1"; usernames = [ "bcnelson" "ldporter" ]; desktop = "kde6"; };
         "xray-3" = libx.mkHost { hostname = "xray-3"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; };
@@ -166,6 +172,20 @@
       overlays = import ./overlays { inherit inputs; };
       nixosModules = import ./modules/nixos;
       homeModules = import ./modules/home-manager;
+
+      # Standalone home-manager for non-NixOS hosts
+      homeConfigurations = {
+        "bcnelson@redo-2" = libx.mkStandaloneHome {
+          hostname = "redo-2";
+          username = "bcnelson";
+          desktop = "kde6";
+        };
+      };
+
+      # system-manager for non-NixOS hosts
+      systemConfigs = {
+        "redo-2" = libx.mkSystemManager { hostname = "redo-2"; };
+      };
 
       agenix-rekey = inputs.agenix-rekey.configure {
         inherit (self) nixosConfigurations;
