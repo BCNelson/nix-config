@@ -6,7 +6,6 @@
 
   programs.zen-browser = {
     enable = true;
-    suppressXdgMigrationWarning = true;
     profiles = {
       personal = {
         name = "Personal";
