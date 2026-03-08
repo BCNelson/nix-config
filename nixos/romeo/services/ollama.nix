@@ -4,7 +4,7 @@
     enable = true;
     host = "0.0.0.0";
     port = 11434;
-    loadModels = [ "qwen3:4b" ];
+    loadModels = [ "qwen3:4b" "deepseek-r1:8b" ];
     package = pkgs.ollama-vulkan;
     environmentVariables = {
       # Enable Vulkan backend
