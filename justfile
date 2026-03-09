@@ -14,6 +14,13 @@ alias apply := update-os
 alias os := update-os
 alias o := update-os
 
+alias home := update-home
+alias h := update-home
+
+[unix]
+update-home *additionalArgs:
+    home-manager switch --flake .#bcnelson@$HOSTNAME {{ additionalArgs }}
+
 [linux]
 update-os *additionalArgs:
     #!/usr/bin/env bash
