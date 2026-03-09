@@ -175,8 +175,8 @@
 
       # Standalone home-manager for non-NixOS hosts
       homeConfigurations = {
-        "bcnelson@redo-2" = libx.mkStandaloneHome {
-          hostname = "redo-2";
+        "bcnelson@redo-3" = libx.mkStandaloneHome {
+          hostname = "redo-3";
           username = "bcnelson";
           desktop = "kde6";
         };
