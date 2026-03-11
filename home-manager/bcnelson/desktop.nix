@@ -1,4 +1,4 @@
-{ pkgs, lib, desktop, outputs, ... }:
+{ config, pkgs, lib, desktop, outputs, ... }:
 
 {
   # Home Manager needs a bit of information about you and the paths it should
@@ -19,17 +19,16 @@
     # pkgs.quickemu
     # pkgs.quickgui
 
-    pkgs.helvum
-    pkgs.easyeffects
+    (config.lib.nixGL.wrap pkgs.easyeffects)
 
-    pkgs.unstable.obsidian
+    (config.lib.nixGL.wrap pkgs.unstable.obsidian)
 
     pkgs.kdePackages.filelight
 
     pkgs.kdePackages.kate
 
     # Chat
-    pkgs.unstable.discord
+    (config.lib.nixGL.wrap pkgs.unstable.discord)
 
     pkgs.newsflash
 
