@@ -1,7 +1,7 @@
 {pkgs, ...}: {
   programs.claude-code = {
     enable = true;
-    package = pkgs.claude-code.overrideAttrs (_oldAttrs: {
+    package = pkgs.claude-code-bin.overrideAttrs (_oldAttrs: {
       postInstall = ''
         wrapProgram $out/bin/claude \
           --set DISABLE_AUTOUPDATER 1 \

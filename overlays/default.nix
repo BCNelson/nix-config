@@ -9,7 +9,7 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
-    claude-code = prev.claude-code.overrideAttrs (_oldAttrs: {
+    claude-code-bin = prev.claude-code-bin.overrideAttrs (_oldAttrs: {
       postInstall = ''
         wrapProgram $out/bin/claude \
           --set DISABLE_AUTOUPDATER 1 \
