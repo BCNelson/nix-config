@@ -133,6 +133,7 @@
         "extended_family" = {
           members = [
             "cwnelson"
+            "krnelson"
           ];
           overwriteMembers = false;
         };
@@ -259,6 +260,12 @@
           present = true;
           displayName = "Carter Nelson";
           mailAddresses = [ "cartern215@gmail.com" ];
+          groups = [ "extended_family" ];
+        };
+        "krnelson" = {
+          present = true;
+          displayName = "Kimberly Nelson";
+          mailAddresses = [ "cknelson8@gmail.com" ];
           groups = [ "extended_family" ];
         };
       };
