@@ -256,6 +256,7 @@
           };
           basicSecretFile = config.age.secrets.romm-oauth-client-secret.path;
           preferShortUsername = true;
+          allowInsecureClientDisablePkce = true;
         };
       };
       persons = {
