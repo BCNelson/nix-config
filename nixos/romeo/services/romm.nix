@@ -55,7 +55,7 @@ in
       "OIDC_PROVIDER" = "kanidm";
       "OIDC_CLIENT_ID" = "romm";
       "OIDC_REDIRECT_URI" = "https://rom.nel.family/api/oauth/openid";
-      "OIDC_SERVER_APPLICATION_URL" = "https://idm.nel.family/oauth2/openid/romm/.well-known/openid-configuration";
+      "OIDC_SERVER_APPLICATION_URL" = "https://idm.nel.family/oauth2/openid/romm";
     };
     environmentFiles = [
       "${config.age-template.files.romm-env.path}"
