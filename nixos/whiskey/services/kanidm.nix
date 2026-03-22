@@ -107,6 +107,13 @@
     owner = "kanidm";
   };
 
+  age.secrets.romm-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/romm_auth_client_secret.age;
+    generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
+  };
+
   services.kanidm = {
     server.enable = true;
     package = pkgs.kanidmWithSecretProvisioning_1_9;
@@ -238,6 +245,17 @@
           preferShortUsername = true;
           # Actual Budget only supports RS256, not ES256
           enableLegacyCrypto = true;
+        };
+        "romm" = {
+          displayName = "RomM";
+          originUrl = "https://rom.nel.family/api/oauth/openid";
+          originLanding = "https://rom.nel.family/";
+          scopeMaps = {
+            "household" = [ "email" "openid" "profile" ];
+            "extended_family" = [ "email" "openid" "profile" ];
+          };
+          basicSecretFile = config.age.secrets.romm-oauth-client-secret.path;
+          preferShortUsername = true;
         };
       };
       persons = {

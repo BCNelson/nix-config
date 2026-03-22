@@ -22,18 +22,25 @@ in
     rekeyFile = ../../../secrets/store/romeo/steamgriddb_api_key.age;
   };
 
+  age.secrets.romm-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/romm_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   age-template.files.romm-env = {
     vars = {
       DB_PASSWORD = config.age.secrets.romm-db-password.path;
       AUTH_SECRET_KEY = config.age.secrets.rom-auth-secret-key.path;
       IGDB_CLIENT_SECRET = config.age.secrets.romm-igdb-client-secret.path;
       STEAMGRIDDB_API_KEY = config.age.secrets.steamgriddb_api_key.path;
+      OIDC_CLIENT_SECRET = config.age.secrets.romm-oauth-client-secret.path;
     };
     content = ''
       DB_PASSWD=$DB_PASSWORD
       ROMM_AUTH_SECRET_KEY=$AUTH_SECRET_KEY
       IGDB_CLIENT_SECRET=$IGDB_CLIENT_SECRET
       STEAMGRIDDB_API_KEY=$STEAMGRIDDB_API_KEY
+      OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET
     '';
   };
 
@@ -44,6 +51,11 @@ in
       "DB_NAME" = "romm";
       "DB_USER" = "romm-user";
       "IGDB_CLIENT_ID" = "3xmoinnxfnx8caexrrx4mzq8sn3eli";
+      "OIDC_ENABLED" = "true";
+      "OIDC_PROVIDER" = "kanidm";
+      "OIDC_CLIENT_ID" = "romm";
+      "OIDC_REDIRECT_URI" = "https://rom.nel.family/api/oauth/openid";
+      "OIDC_SERVER_APPLICATION_URL" = "https://idm.nel.family/oauth2/openid/romm/.well-known/openid-configuration";
     };
     environmentFiles = [
       "${config.age-template.files.romm-env.path}"
