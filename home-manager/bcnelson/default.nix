@@ -61,4 +61,8 @@ in
   home.sessionVariables = {
     EDITOR = "vim";
   };
+
+  home.sessionVariablesExtra = ''
+    unset QT_PLUGIN_PATH
+  '';
 }

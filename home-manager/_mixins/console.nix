@@ -131,6 +131,37 @@
       };
       interactiveShellInit = ''
         set fish_greeting # Disable greeting
+
+        # Consistent syntax highlighting colors (classic fish dark palette)
+        set -g fish_color_normal normal
+        set -g fish_color_command 5c5cff
+        set -g fish_color_keyword 5c5cff
+        set -g fish_color_param 00cdcd
+        set -g fish_color_option 00cdcd
+        set -g fish_color_redirection 00cdcd --bold
+        set -g fish_color_comment cd5c5c
+        set -g fish_color_error ff0000
+        set -g fish_color_escape 00ffff
+        set -g fish_color_operator 00ffff
+        set -g fish_color_end 00ff00
+        set -g fish_color_quote cdcd00
+        set -g fish_color_autosuggestion 9f9f9f
+        set -g fish_color_user 00ff00
+        set -g fish_color_host normal
+        set -g fish_color_host_remote cdcd00
+        set -g fish_color_cwd 00ff00
+        set -g fish_color_cwd_root 00cd00
+        set -g fish_color_status 00cd00
+        set -g fish_color_cancel -r
+        set -g fish_color_search_match --bold --background=7f7f7f
+        set -g fish_color_selection --bold --background=7f7f7f
+        set -g fish_color_valid_path --underline
+        set -g fish_color_history_current --bold
+
+        # Unset QT_PLUGIN_PATH to prevent Nix Qt plugins from breaking system Qt apps.
+        # Nix Qt apps don't need this because wrapQtAppsHook sets it per-binary.
+        # This must be here (not in sessionVariables) because nix.sh re-sets it after session vars.
+        set -e QT_PLUGIN_PATH
       '';
       plugins = [
         {
