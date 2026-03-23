@@ -45,6 +45,7 @@ in
       repomix
       claude-code-bin
       bitwarden-cli
+      nil
     ] ++ lib.optional (lib.hasInfix "linux" system) [
       pkgs.quickemu
       pkgs.qemu

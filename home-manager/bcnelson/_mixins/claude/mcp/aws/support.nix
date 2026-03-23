@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+{pkgs, config, ...}: {
   programs.claude-code = {
     mcpServers = {
       aws-support-mcp-server = {
@@ -8,7 +8,7 @@
           "awslabs.aws-support-mcp-server@latest"
           "--debug"
           "--log-file"
-          "~/.cache/mcp/logs/mcp_aws_support_server.log"
+          "${config.home.homeDirectory}/.cache/mcp/logs/mcp_aws_support_server.log"
         ];
       };
     };
