@@ -14,6 +14,7 @@ in
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
     ../_mixins/programs/zed.nix
+    ../_mixins/programs/super-productivity.nix
   ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
 
   home.packages = [

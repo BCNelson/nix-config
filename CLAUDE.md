@@ -10,7 +10,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `just update` - Update flake inputs
 - `just sync` - Pull changes and update OS
 - `just format` - Format Nix files with Alejandra (alias: `fmt`)
-- `just check` - Run flake checks
 - `just check-host [hostname]` - Check specific host configuration
 - `just build [machine=vm_test] [type=vm]` - Build a VM or system type
 - `just test [machine=vm_test] [type=vm]` - Build and test a VM
