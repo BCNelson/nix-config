@@ -10,18 +10,29 @@
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
     claude-code-bin = prev.claude-code-bin.overrideAttrs (_oldAttrs: {
-      postInstall = ''
+      installPhase = ''
+        runHook preInstall
+        installBin $src
         wrapProgram $out/bin/claude \
           --set DISABLE_AUTOUPDATER 1 \
-          --prefix PATH ${final.lib.makeBinPath [
-            final.coreutils-full
-            final.findutils
-            final.gnumake
-            final.gnused
-            final.gnugrep
-            final.bash
-            final.ripgrep
-          ]}
+          --set USE_BUILTIN_RIPGREP 0 \
+          --prefix PATH : ${final.lib.makeBinPath (
+            [
+              final.procps
+              final.ripgrep
+              final.coreutils-full
+              final.findutils
+              final.gnumake
+              final.gnused
+              final.gnugrep
+              final.bash
+            ]
+            ++ final.lib.optionals final.stdenv.hostPlatform.isLinux [
+              final.bubblewrap
+              final.socat
+            ]
+          )}
+        runHook postInstall
       '';
     });
   };
