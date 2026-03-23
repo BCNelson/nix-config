@@ -1,8 +1,17 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
 
   cfg = config.services.freedesktop.autostart;
+
+  # Patch a .desktop file so that bare Exec= commands use full store paths.
+  # This ensures autostart works on non-NixOS systems where nix bin paths
+  # may not be on PATH when the desktop environment processes autostart entries.
+  patchDesktopFile = pkg: desktopFile:
+    pkgs.runCommand "${pkg.pname}-autostart.desktop" { } ''
+      ${pkgs.gnused}/bin/sed "s|^Exec=\([^/]\)|Exec=${pkg}/bin/\1|" \
+        "${desktopFile}" > $out
+    '';
 
 in
 {
@@ -33,18 +42,19 @@ in
     home.file = lib.mkMerge [
       (builtins.listToAttrs (map
         (pkg: {
-          name = # ".config/autostart/" + pkg.pname + ".desktop";
+          name =
             if pkg ? desktopItem then ".config/autostart/" + pkg.desktopItem.name else ".config/autostart/" + pkg.pname + ".desktop";
           value =
             if pkg ? desktopItem then {
-              # Application has a desktopItem entry. 
+              # Application has a desktopItem entry.
               # Assume that it was made with makeDesktopEntry, which exposes a
               # text attribute with the contents of the .desktop file
               inherit (pkg.desktopItem) text;
             } else {
               # Application does *not* have a desktopItem entry. Try to find a
-              # matching .desktop name in /share/applications
-              source = pkg + "/share/applications/" + pkg.pname + ".desktop";
+              # matching .desktop name in /share/applications.
+              # Patch Exec= to use full path for non-NixOS compatibility.
+              source = patchDesktopFile pkg (pkg + "/share/applications/" + pkg.pname + ".desktop");
             };
         })
         cfg.packages))
@@ -58,7 +68,7 @@ in
         (item: {
           name = ".config/autostart/" + item.package.pname + ".desktop";
           value = {
-            source = item.package + "/" + item.path;
+            source = patchDesktopFile item.package (item.package + "/" + item.path);
           };
         })
         cfg.packageSourced))
