@@ -6,6 +6,7 @@
       inputs.nur.overlays.default
       outputs.overlays.unstable-packages
       outputs.overlays.additions
+      outputs.overlays.modifications
     ];
     config = {
       allowUnfreePredicate = _pkg: true;

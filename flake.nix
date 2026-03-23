@@ -76,6 +76,11 @@
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs = inputs@{ self, flake-utils-plus, ... }:

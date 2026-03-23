@@ -113,6 +113,12 @@ in
       };
       modules = [
         (import ../home-manager { inherit username; })
+        {
+          targets.genericLinux.nixGL = {
+            packages = inputs.nixgl.packages;
+            defaultWrapper = "mesa";
+          };
+        }
       ];
     };
 
