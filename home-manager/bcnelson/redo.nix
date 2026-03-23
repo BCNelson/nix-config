@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   imports = [
@@ -6,12 +6,13 @@
     ./_mixins/workstation.nix
     ./_mixins/claude/mcp/aws/support.nix
     ./_mixins/claude/mcp/aws/cloudwatch.nix
+    ./_mixins/claude/mcp/datadog.nix
   ];
 
   home.packages = [
-    pkgs.winbox4
+    (config.lib.nixGL.wrap pkgs.winbox4)
     pkgs.gam # Google Workkspace CLI
-    pkgs.devpod-desktop
+    (config.lib.nixGL.wrap pkgs.devpod-desktop)
     pkgs.coder
   ];
 

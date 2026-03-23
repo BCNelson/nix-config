@@ -4,19 +4,19 @@
   home.packages = [
     pkgs.distrobox
     pkgs.awscli2
-    pkgs.slack
-    pkgs.distrobox-bazel # provides bazel/bazelisk wrappers that call into distrobox container
-    pkgs.mongodb-compass
-    pkgs.hoppscotch
+    (config.lib.nixGL.wrap pkgs.slack)
+    # pkgs.distrobox-bazel # provides bazel/bazelisk wrappers that call into distrobox container
+    (config.lib.nixGL.wrap pkgs.mongodb-compass)
+    (config.lib.nixGL.wrap pkgs.hoppscotch)
     pkgs.dive
     pkgs.bazel-buildtools
     # pkgs.zed-editor
     pkgs.cloudflared
-    pkgs.zoom-us
     # Infrastructure as Code Pulumi
     pkgs.pulumi
     pkgs.pulumiPackages.pulumi-nodejs
     pkgs.nodejs
+    pkgs.bazelisk
   ];
 
   programs.firefox = {
