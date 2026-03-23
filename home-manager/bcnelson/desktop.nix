@@ -1,5 +1,8 @@
 { config, pkgs, lib, desktop, outputs, ... }:
 
+let
+  wrappedYakuake = config.lib.nixGL.wrap pkgs.kdePackages.yakuake;
+in
 {
   # Home Manager needs a bit of information about you and the paths it should
   # manage
@@ -14,7 +17,8 @@
   ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
 
   home.packages = [
-    pkgs.kdePackages.yakuake
+    wrappedYakuake
+    (config.lib.nixGL.wrap pkgs.kdePackages.konsole) # Required for yakuake's terminal KPart component
 
     # pkgs.quickemu
     # pkgs.quickgui
@@ -23,14 +27,14 @@
 
     (config.lib.nixGL.wrap pkgs.unstable.obsidian)
 
-    pkgs.kdePackages.filelight
+    (config.lib.nixGL.wrap pkgs.kdePackages.filelight)
 
-    pkgs.kdePackages.kate
+    (config.lib.nixGL.wrap pkgs.kdePackages.kate)
 
     # Chat
     (config.lib.nixGL.wrap pkgs.unstable.discord)
 
-    pkgs.newsflash
+    (config.lib.nixGL.wrap pkgs.newsflash)
 
     #Dignostic tools
     pkgs.vulkan-tools
@@ -43,7 +47,7 @@
     enable = true;
     packageSourced = [
       {
-        package = pkgs.kdePackages.yakuake;
+        package = wrappedYakuake;
         path = "share/applications/org.kde.yakuake.desktop";
       }
     ];

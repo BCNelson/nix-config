@@ -1,9 +1,9 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   programs.zed-editor = {
     enable = true;
-    package = pkgs.unstable.zed-editor;
+    package = config.lib.nixGL.wrap pkgs.unstable.zed-editor;
     mutableUserSettings = true;
     userSettings = {
       terminal = {

@@ -1,8 +1,8 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
-  home.packages = with pkgs; [
-    libreoffice-qt6-fresh
-    hunspell
-    hunspellDicts.en_US
+  home.packages = [
+    (config.lib.nixGL.wrap pkgs.libreoffice-qt6-fresh)
+    pkgs.hunspell
+    pkgs.hunspellDicts.en_US
   ];
 }

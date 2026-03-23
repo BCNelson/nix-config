@@ -1,8 +1,9 @@
-_:
+{ config, pkgs, ... }:
 
 {
   programs.chromium = {
     enable = true;
+    package = config.lib.nixGL.wrap pkgs.chromium;
     extensions = [
       { id = "nngceckbapebfimnlniiiahkandclblb"; } # bitwarden
       { id = "eimadpbcbfnmbkopoojfekhnkhdbieeh"; } # darkreader

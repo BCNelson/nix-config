@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
   imports = [
     ./nvim.nix
@@ -13,13 +13,13 @@
   ];
 
   home.packages = [
-    pkgs.winbox4
-    pkgs.kdePackages.merkuro
+    (config.lib.nixGL.wrap pkgs.winbox4)
+    (config.lib.nixGL.wrap pkgs.kdePackages.merkuro)
     pkgs.mb4-extractor
-    pkgs.zoom-us
+    (config.lib.nixGL.wrap pkgs.zoom-us)
     pkgs.gh
-    pkgs.amazing-marvin
-    pkgs.todoist-electron
+    (config.lib.nixGL.wrap pkgs.amazing-marvin)
+    (config.lib.nixGL.wrap pkgs.todoist-electron)
   ];
 
   programs.ssh = {
