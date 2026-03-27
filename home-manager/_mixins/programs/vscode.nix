@@ -1,6 +1,6 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 let
-  mesa = pkgs.unstable.mesa;
+  inherit (pkgs.unstable) mesa;
 in
 {
   programs.vscode = {

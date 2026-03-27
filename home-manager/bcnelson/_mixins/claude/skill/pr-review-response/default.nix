@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+_: {
   programs.claude-code = {
     skills = {
       prReviewResponse = ./src;

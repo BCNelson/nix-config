@@ -115,14 +115,14 @@ in
         (import ../home-manager { inherit username; })
         {
           targets.genericLinux.nixGL = {
-            packages = inputs.nixgl.packages;
+            inherit (inputs.nixgl) packages;
             defaultWrapper = "mesa";
           };
         }
       ];
     };
 
-  mkSystemManager = { hostname, modules ? [] }:
+  mkSystemManager = { modules ? [] }:
     inputs.system-manager.lib.makeSystemConfig {
       modules = [
         ../system-manager

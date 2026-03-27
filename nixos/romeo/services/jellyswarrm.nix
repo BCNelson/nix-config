@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
   dataDirs = config.data.dirs;
   # Rebuild jellyswarrm package with fixed cargoHash (upstream has incorrect hash)
