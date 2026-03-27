@@ -26,6 +26,7 @@
               final.gnused
               final.gnugrep
               final.bash
+              final.sox
             ]
             ++ final.lib.optionals final.stdenv.hostPlatform.isLinux [
               final.bubblewrap
