@@ -25,5 +25,5 @@ in
 
   config.system.stateVersion = lib.mkForce lib.trivial.release;
   config.environment.systemPackages = [ pkgs.install-system ];
-  config.services.kmscon.autologinUser = "nixos";
+  config.services.getty.autologinUser = "nixos";
 }

@@ -10,5 +10,5 @@
   ];
   config.isoImage.edition = lib.mkForce "${desktop}";
   config.services.displayManager.autoLogin.user = "nixos";
-  config.services.kmscon.autologinUser = lib.mkForce null;
+  config.services.getty.autologinUser = lib.mkForce null;
 }
