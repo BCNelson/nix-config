@@ -2,13 +2,13 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "spec-kit";
-  version = "0.0.16";
+  version = "0.5.0";
 
   src = fetchFromGitHub {
     owner = "github";
     repo = "spec-kit";
     rev = "v${version}";
-    sha256 = "sha256-Om5e9GPwDlQPf8q9zqMcY+GWOEOpddzJPqlVflrMC1Y=";
+    sha256 = "sha256-HlUTpEIzNAgVOtKijgd2bxCSaM4hwjHey1i4c2b3yj8=";
   };
 
   format = "pyproject";
@@ -19,10 +19,17 @@ python3Packages.buildPythonApplication rec {
 
   propagatedBuildInputs = with python3Packages; [
     typer
+    click
     rich
     httpx
+    socksio
     platformdirs
     readchar
+    truststore
+    pyyaml
+    packaging
+    pathspec
+    json5
   ];
 
   pythonImportsCheck = [ "specify_cli" ];
