@@ -9,36 +9,18 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
-    claude-code-bin = prev.claude-code-bin.overrideAttrs (_oldAttrs: {
-      version = "2.1.90";
-      src = final.fetchurl {
-        url = "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/2.1.90/linux-x64/claude";
-        sha256 = "sha256-YHTjlZmJspWKmr7GCt97RBoPbxx+ZkAav/D+VNrQT9Y=";
-      };
-      installPhase = ''
-        runHook preInstall
-        installBin $src
+    claude-code-bin = prev.claude-code-bin.overrideAttrs (oldAttrs: {
+      postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
-          --set DISABLE_AUTOUPDATER 1 \
-          --set USE_BUILTIN_RIPGREP 0 \
-          --prefix PATH : ${final.lib.makeBinPath (
-            [
-              final.procps
-              final.ripgrep
-              final.coreutils-full
-              final.findutils
-              final.gnumake
-              final.gnused
-              final.gnugrep
-              final.bash
-              final.sox
-            ]
-            ++ final.lib.optionals final.stdenv.hostPlatform.isLinux [
-              final.bubblewrap
-              final.socat
-            ]
-          )}
-        runHook postInstall
+          --prefix PATH : ${final.lib.makeBinPath [
+            final.coreutils-full
+            final.findutils
+            final.gnumake
+            final.gnused
+            final.gnugrep
+            final.bash
+            final.sox
+          ]}
       '';
     });
   };

@@ -163,6 +163,7 @@
             overlays = [
               inputs.agenix-rekey.overlays.default
               inputs.rust-overlay.overlays.default
+              self.overlays.modifications
             ];
           };
         in import ./shell.nix {
