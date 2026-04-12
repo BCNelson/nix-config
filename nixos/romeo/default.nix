@@ -225,7 +225,6 @@ in
             proxyWebsockets = true;
             proxyPass = "http://192.168.3.6:8123";
             extraConfig = ''
-              proxy_set_header Host $host;
               proxy_set_header Upgrade $http_upgrade;
               proxy_set_header Connection "upgrade";
             '';
@@ -233,9 +232,6 @@ in
           "/api/hassio_ingress" = {
             proxyWebsockets = true;
             proxyPass = "http://192.168.3.6:8123";
-             extraConfig = ''
-              proxy_set_header Host $host;
-            '';
           };
         };
       };
