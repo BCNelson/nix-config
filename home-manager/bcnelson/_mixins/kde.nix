@@ -17,7 +17,13 @@
         "yakuake"."toggle-window-state" = "F12";
       };
       workspace.theme = "breeze-dark";
-      configFile = { };
+      configFile = {
+        kwinrc = {
+          Plugins = {
+            kzonesEnabled = true;
+          };
+        };
+      };
       panels = [{
         floating = true;
         height = 42;
@@ -79,5 +85,6 @@
 
   home.packages = [
     pkgs.dolphin-shred
+    pkgs.kdePackages.kzones
   ];
 }
