@@ -1,4 +1,4 @@
-{ hostname, desktop, config, lib, ... }:
+{ hostname, desktops, config, lib, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -6,7 +6,7 @@ let
 in
 {
   imports = lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
-    ++ lib.optional (builtins.isString desktop) ./desktop.nix;
+    ++ lib.optional (desktops != []) ./desktop.nix;
 
   xdg.enable = true;
   xdg.mime.enable = true;

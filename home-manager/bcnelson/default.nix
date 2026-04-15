@@ -1,4 +1,4 @@
-{ hostname, desktop, config, lib, pkgs, ... }:
+{ hostname, desktops, config, lib, pkgs, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -9,7 +9,7 @@ in
     ../_mixins/console.nix
   ]
   ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
-  ++ lib.optional (builtins.isString desktop) ./desktop.nix;
+  ++ lib.optional (desktops != []) ./desktop.nix;
 
   home.username = "bcnelson";
   home.homeDirectory = "/home/bcnelson";

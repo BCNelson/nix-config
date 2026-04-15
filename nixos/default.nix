@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ outputs, hostname, usernames, desktop, lib, stateVersion, ... }:
+{ outputs, hostname, usernames, desktops, lib, stateVersion, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -16,7 +16,7 @@ in
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix) ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix
     ++ builtins.filter builtins.pathExists (map (username: ./_mixins/users/${username}) usernames)
-    ++ lib.optional (builtins.isString desktop) ./_mixins/roles/desktop;
+    ++ lib.optional (desktops != []) ./_mixins/roles/desktop;
 
   networking.hostName = hostname;
   system.stateVersion = stateVersion;

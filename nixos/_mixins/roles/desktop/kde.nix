@@ -14,8 +14,4 @@
   ];
 
   programs.partition-manager.enable = true;
-  services.displayManager.sddm = {
-    enable = true;
-    autoNumlock = true;
-  };
 }

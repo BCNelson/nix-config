@@ -1,5 +1,5 @@
-{ config, desktop, lib, pkgs, ... }: {
-  imports = lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
+{ config, desktops, lib, pkgs, ... }: {
+  imports = builtins.concatMap (d: lib.optional (builtins.pathExists ./${d}.nix) ./${d}.nix) desktops;
 
   services = {
     pipewire = {
@@ -43,6 +43,17 @@
 
   # Enable sound with pipewire.
   # sound.enable = true; // Removed https://github.com/NixOS/nixpkgs/issues/319809
+
+  # Shared display manager for all desktop environments.
+  # SDDM presents all available sessions (KDE, Hyprland, etc.) at login.
+  services.displayManager.sddm = {
+    enable = true;
+    autoNumlock = true;
+    wayland = {
+      enable = true;
+      compositor = "kwin";
+    };
+  };
 
   security.polkit.enable = true;
 

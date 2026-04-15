@@ -1,4 +1,4 @@
-{ desktop, lib, pkgs, ... }: {
+{ desktops, lib, pkgs, ... }: {
   config.environment.systemPackages = with pkgs; [
     gparted
   ];
@@ -8,7 +8,7 @@
     "L+ /home/nixos/Desktop/io.elementary.terminal.desktop - - - - ${pkgs.pantheon.elementary-terminal}/share/applications/io.elementary.terminal.desktop"
     "L+ /home/nixos/Desktop/io.calamares.calamares.desktop - - - - ${pkgs.calamares-nixos}/share/applications/io.calamares.calamares.desktop"
   ];
-  config.isoImage.edition = lib.mkForce "${desktop}";
+  config.isoImage.edition = lib.mkForce (builtins.concatStringsSep "-" desktops);
   config.services.displayManager.autoLogin.user = "nixos";
   config.services.getty.autologinUser = lib.mkForce null;
 }

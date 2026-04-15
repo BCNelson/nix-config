@@ -1,10 +1,21 @@
 { inputs, outputs, stateVersion, ... }:
 let
-  mkHome = { hostname, usernames, desktop ? null, platform ? "x86_64-linux", ... }: {
+  # Normalize desktop parameter: accepts null, a string, or a list of strings.
+  # Always produces a list.
+  normalizeDesktops = desktop:
+    if builtins.isList desktop then desktop
+    else if desktop != null then [ desktop ]
+    else [];
+
+  mkHome = { hostname, usernames, desktop ? null, platform ? "x86_64-linux", ... }:
+  let
+    desktops = normalizeDesktops desktop;
+  in
+  {
     home-manager.useGlobalPkgs = false;
     home-manager.useUserPackages = false;
     home-manager.extraSpecialArgs = {
-      inherit inputs outputs stateVersion desktop hostname platform;
+      inherit inputs outputs stateVersion desktops hostname platform;
     };
     home-manager.users = builtins.listToAttrs (map
       (username: {
@@ -77,10 +88,14 @@ let
 in
 {
   # Helper function for generating flake-utils-plus host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }: {
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }:
+  let
+    desktops = normalizeDesktops desktop;
+  in
+  {
     inherit channelName;
     specialArgs = {
-      inherit inputs hostname usernames desktop stateVersion;
+      inherit inputs hostname usernames desktops stateVersion;
       inherit outputs;
       libx = { inherit getSecretWithDefault getSecret forAllSystems mkHome createDockerComposeStackPackage; };
     };
@@ -106,10 +121,13 @@ in
   };
 
   mkStandaloneHome = { hostname, username, desktop ? null, platform ? "x86_64-linux" }:
+  let
+    desktops = normalizeDesktops desktop;
+  in
     inputs.home-manager-unstable.lib.homeManagerConfiguration {
       pkgs = inputs.nixpkgs-unstable.legacyPackages.${platform};
       extraSpecialArgs = {
-        inherit inputs outputs stateVersion desktop hostname platform;
+        inherit inputs outputs stateVersion desktops hostname platform;
       };
       modules = [
         (import ../home-manager { inherit username; })

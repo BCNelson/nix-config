@@ -1,7 +1,7 @@
-{ config, pkgs, lib, desktop, outputs, ... }:
+{ config, pkgs, lib, desktops, outputs, ... }:
 
 let
-  isKde = builtins.elem desktop [ "kde" "kde5" "kde6" ];
+  isKde = builtins.any (d: builtins.elem d [ "kde" "kde5" "kde6" ]) desktops;
   wrappedYakuake = config.lib.nixGL.wrap pkgs.kdePackages.yakuake;
 in
 {
@@ -13,7 +13,7 @@ in
     ../_mixins/programs/vscode.nix
     ../_mixins/programs/zed.nix
     ../_mixins/programs/super-productivity.nix
-  ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
+  ] ++ builtins.concatMap (d: lib.optional (builtins.pathExists ./_mixins/${d}.nix) ./_mixins/${d}.nix) desktops;
 
   home.packages = [
     (config.lib.nixGL.wrap pkgs.easyeffects)

@@ -1,10 +1,10 @@
-{ config, desktop, lib, pkgs, ... }:
+{ config, desktops, lib, pkgs, ... }:
 let
   ifExists = groups: builtins.filter (group: builtins.hasAttr group config.users.groups) groups;
 in
 {
   # Only include desktop components if one is supplied.
-  imports = lib.optional (builtins.isString desktop) ./desktop.nix;
+  imports = lib.optional (desktops != []) ./desktop.nix;
 
   config.users.users.nixos = {
     description = "NixOS";
