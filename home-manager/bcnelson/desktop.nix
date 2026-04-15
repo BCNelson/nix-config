@@ -1,12 +1,10 @@
 { config, pkgs, lib, desktop, outputs, ... }:
 
 let
+  isKde = builtins.elem desktop [ "kde" "kde5" "kde6" ];
   wrappedYakuake = config.lib.nixGL.wrap pkgs.kdePackages.yakuake;
 in
 {
-  # Home Manager needs a bit of information about you and the paths it should
-  # manage
-
   imports = [
     outputs.homeModules.autostart
     ./_mixins/firefox.nix
@@ -18,19 +16,9 @@ in
   ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
 
   home.packages = [
-    wrappedYakuake
-    (config.lib.nixGL.wrap pkgs.kdePackages.konsole) # Required for yakuake's terminal KPart component
-
-    # pkgs.quickemu
-    # pkgs.quickgui
-
     (config.lib.nixGL.wrap pkgs.easyeffects)
 
     (config.lib.nixGL.wrap pkgs.unstable.obsidian)
-
-    (config.lib.nixGL.wrap pkgs.kdePackages.filelight)
-
-    (config.lib.nixGL.wrap pkgs.kdePackages.kate)
 
     # Chat
     (config.lib.nixGL.wrap pkgs.unstable.discord)
@@ -40,11 +28,16 @@ in
     #Dignostic tools
     pkgs.vulkan-tools
     pkgs.libva-utils
+  ] ++ lib.optionals isKde [
+    wrappedYakuake
+    (config.lib.nixGL.wrap pkgs.kdePackages.konsole) # Required for yakuake's terminal KPart component
+    (config.lib.nixGL.wrap pkgs.kdePackages.filelight)
+    (config.lib.nixGL.wrap pkgs.kdePackages.kate)
   ];
 
   programs.bash.enable = true;
 
-  services.freedesktop.autostart = {
+  services.freedesktop.autostart = lib.mkIf isKde {
     enable = true;
     packageSourced = [
       {
@@ -54,7 +47,7 @@ in
     ];
   };
 
-  services.kdeconnect = {
+  services.kdeconnect = lib.mkIf isKde {
     enable = true;
     indicator = true;
   };
@@ -72,7 +65,7 @@ in
 
   systemd.user.startServices = "sd-switch";
 
-  home.sessionVariables = {
+  home.sessionVariables = lib.mkIf isKde {
     VISUAL = "kwrite";
   };
 }
