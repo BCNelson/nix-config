@@ -9,6 +9,7 @@ in
 
   fileSystems."/export/photos" = {
     device = "${dataDirs.level2}/photos";
+    fsType = "none";
     options = [ "bind" "x-systemd.requires=zfs-import.target" ];
   };
 
