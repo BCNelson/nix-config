@@ -2,13 +2,13 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "spec-kit";
-  version = "0.5.0";
+  version = "0.8.0";
 
   src = fetchFromGitHub {
     owner = "github";
     repo = "spec-kit";
     rev = "v${version}";
-    sha256 = "sha256-HlUTpEIzNAgVOtKijgd2bxCSaM4hwjHey1i4c2b3yj8=";
+    sha256 = "sha256-BJfIlLWRY1EUtitNeqwp1THNVwnQpvSpd2IgNLMAeuo=";
   };
 
   format = "pyproject";
@@ -21,11 +21,8 @@ python3Packages.buildPythonApplication rec {
     typer
     click
     rich
-    httpx
-    socksio
     platformdirs
     readchar
-    truststore
     pyyaml
     packaging
     pathspec
