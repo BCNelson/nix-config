@@ -46,6 +46,21 @@ in
     restartIfChanged = false;
   };
 
+  systemd.services.docker-compose-shutdown = {
+    description = "Stop docker-compose stacks on shutdown";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "docker.service" ];
+    requires = [ "docker.service" ];
+    path = [ pkgs.docker ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.coreutils}/bin/true";
+      ExecStop = "${services.networkBacked}/bin/dockerStack-general down";
+      TimeoutStopSec = 30;
+    };
+  };
+
   services.nginx = {
     enable = true;
     virtualHosts = {
