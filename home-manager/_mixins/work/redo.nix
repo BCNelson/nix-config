@@ -8,6 +8,8 @@
     # pkgs.distrobox-bazel # provides bazel/bazelisk wrappers that call into distrobox container
     (config.lib.nixGL.wrap pkgs.mongodb-compass)
     (config.lib.nixGL.wrap pkgs.hoppscotch)
+    (config.lib.nixGL.wrap pkgs.dbeaver-bin)
+    pkgs.spec-kit
     pkgs.dive
     pkgs.bazel-buildtools
     # pkgs.zed-editor
@@ -16,7 +18,13 @@
     pkgs.pulumi
     pkgs.pulumiPackages.pulumi-nodejs
     pkgs.nodejs
-    pkgs.bazelisk
+    (pkgs.symlinkJoin {
+      name = "bazelisk-with-bazel";
+      paths = [ pkgs.bazelisk ];
+      postBuild = ''
+        ln -s $out/bin/bazelisk $out/bin/bazel
+      '';
+    })
   ];
 
   programs.firefox = {

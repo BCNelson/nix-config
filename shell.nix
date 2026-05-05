@@ -43,7 +43,7 @@ in
       age-plugin-yubikey
       age-plugin-fido2-hmac
       repomix
-      claude-code-bin
+
       bitwarden-cli
       nil
     ] ++ lib.optional (lib.hasInfix "linux" system) [
