@@ -27,6 +27,8 @@ in
       RUST_SRC_PATH = "${rustpkg}/lib/rustlib/src/rust/library";
     };
     nativeBuildInputs = with pkgs; [
+      go
+      gopls
       nix
       home-manager
       git

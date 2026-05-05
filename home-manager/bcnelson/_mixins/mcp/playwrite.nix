@@ -1,6 +1,6 @@
 {pkgs, ...}: {
-  programs.mcp.servers.playwrite = {
+  programs.mcp.servers.playwright = {
     command = "${pkgs.nodejs}/bin/npx";
-    args = [ "@playwright/mcp:latest" ];
+    args = [ "-y" "@playwright/mcp@latest" ];
   };
 }

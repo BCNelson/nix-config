@@ -9,6 +9,7 @@ pkgs: {
   mb4-extractor = pkgs.callPackage ./m4b-extractor { };
   amazing-marvin = pkgs.callPackage ./amazing-marvin.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
+  codex-config-merge = pkgs.callPackage ./codex-config-merge { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
   pince = pkgs.callPackage ./pince { };
   distrobox-bazel = pkgs.callPackage ./distrobox-bazel.nix { };
