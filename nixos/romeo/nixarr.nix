@@ -47,7 +47,6 @@ in
     bazarr.enable = true;
     prowlarr.enable = true;
     radarr.enable = true;
-    readarr.enable = true;
     sonarr.enable = true;
     lidarr.enable = true;
   };
@@ -83,22 +82,6 @@ in
         locations = {
           "/" = {
             proxyPass = "http://localhost:9696";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-      "readarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:8787";
             extraConfig = ''
               proxy_max_temp_file_size 2048m;
             '';
