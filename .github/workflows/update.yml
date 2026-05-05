@@ -38,6 +38,126 @@ jobs:
     with:
       updated_flake: true
 
+  copilot-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - update
+      - check-hosts
+    if: ${{ always() && (needs.update.result == 'failure' || needs.check-hosts.result == 'failure') }}
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ secrets.COPILOT_AGENT_TOKEN }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      UPDATE_RESULT: ${{ needs.update.result }}
+      CHECK_HOSTS_RESULT: ${{ needs.check-hosts.result }}
+      COPILOT_BASE_BRANCH: main
+      COPILOT_LOCK_BRANCH: copilot/flake-lock-bump-${{ github.run_id }}
+      COPILOT_UPDATED_LOCK_BRANCH: none
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download updated flake.lock
+        if: ${{ env.GH_TOKEN != '' && needs.update.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+          path: updated-flake-lock
+
+      - name: Push updated lock branch
+        if: ${{ env.GH_TOKEN != '' && needs.update.result == 'success' }}
+        run: |
+          git switch -c "$COPILOT_LOCK_BRANCH" origin/main
+          cp updated-flake-lock/flake.lock flake.lock
+
+          if git diff --quiet -- flake.lock; then
+            echo "Updated flake.lock matches main; using main as Copilot base." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git config user.name "Flake Bot"
+          git config user.email "actions@github.com"
+          git add flake.lock
+          git commit -m "Bump flake.lock"
+          git push --force-with-lease origin "$COPILOT_LOCK_BRANCH"
+
+          echo "COPILOT_UPDATED_LOCK_BRANCH=${COPILOT_LOCK_BRANCH}" >> "$GITHUB_ENV"
+          echo "Pushed updated lock branch: ${COPILOT_LOCK_BRANCH}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create Copilot fix issue
+        if: ${{ env.GH_TOKEN != '' }}
+        run: |
+          failed_logs="$(gh run view "${GITHUB_RUN_ID}" --repo "$REPO" --log-failed 2>/dev/null | tail -c 30000 || true)"
+
+          body="$(cat <<EOF
+          The scheduled flake.lock bump workflow failed.
+
+          Run: ${RUN_URL}
+          Commit: ${GITHUB_SHA}
+          Ref: ${GITHUB_REF}
+          Copilot PR base branch: ${COPILOT_BASE_BRANCH}
+          Updated lock branch: ${COPILOT_UPDATED_LOCK_BRANCH}
+
+          Job results:
+          - update: ${UPDATE_RESULT}
+          - check-hosts: ${CHECK_HOSTS_RESULT}
+
+          Please reproduce the failure using the updated lock branch when present, identify the smallest safe fix, and open a pull request against main.
+
+          Failed log excerpt:
+          \`\`\`text
+          ${failed_logs}
+          \`\`\`
+
+          Expected validation:
+          - Run \`nix flake update\`.
+          - Run \`nix eval .#nixosConfigurations --apply builtins.attrNames --json\`.
+          - Run \`nix build .#devShells.x86_64-linux.default --dry-run --show-trace\`.
+          - Run the failing host checks from the workflow logs with \`nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run --show-trace\`.
+
+          Keep unrelated refactors out of the PR. If a failing input cannot be fixed safely, open the PR with the best narrow mitigation and explain the remaining failure.
+          EOF
+          )"
+
+          jq -n \
+            --arg title "Fix failed flake.lock bump (${GITHUB_RUN_ID})" \
+            --arg body "$body" \
+            --arg repo "$REPO" \
+            --arg base_branch "$COPILOT_BASE_BRANCH" \
+            '{
+              title: $title,
+              body: $body,
+              assignees: ["copilot-swe-agent[bot]"],
+              agent_assignment: {
+                target_repo: $repo,
+                base_branch: $base_branch,
+                custom_instructions: "Fix the failed scheduled flake.lock bump. Open the pull request against main. If an updated lock branch is listed in the issue, fetch it first and include that flake.lock change in your work. Use the workflow logs to identify failures, make the smallest required Nix changes, and run the relevant Nix validation commands.",
+                custom_agent: "",
+                model: ""
+              }
+            }' > issue.json
+
+          issue_url="$(gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${REPO}/issues" \
+            --input issue.json \
+            --jq .html_url)"
+
+          echo "Created Copilot fix issue: ${issue_url}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Explain missing Copilot token
+        if: ${{ env.GH_TOKEN == '' }}
+        run: |
+          echo "Skipping Copilot fix issue because COPILOT_AGENT_TOKEN is not configured." >> "$GITHUB_STEP_SUMMARY"
+
   comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
