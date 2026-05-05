@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 {
   imports = [
-    ./claude/mcp/kubernetes.nix
+    ./mcp/kubernetes.nix
   ];
 
   home.sessionVariables = {

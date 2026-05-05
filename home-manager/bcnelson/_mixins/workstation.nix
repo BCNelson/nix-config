@@ -4,11 +4,13 @@
     ./nvim.nix
     ./k8s.nix
     ../../_mixins/programs/libreOffice.nix
+    ./mcp
+    ./mcp/playwrite.nix
+    ./mcp/pulumi.nix
     ./claude
-    ./claude/mcp/playwrite.nix
-    ./claude/mcp/pulumi.nix
     ./claude/skill/pr-review-response
     ./claude/skill/init-devenv
+    ./codex
     ./programs/trillium.nix
   ];
 
