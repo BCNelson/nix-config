@@ -22,6 +22,12 @@ let
   baseSettings =
     {
       experimental_use_rmcp_client = true;
+
+      features = {
+        memories = true;
+        prevent_idle_sleep = true;
+        terminal_resize_reflow = true;
+      };
     }
     // lib.optionalAttrs (transformedMcpServers != { }) {
       mcp_servers = transformedMcpServers;
