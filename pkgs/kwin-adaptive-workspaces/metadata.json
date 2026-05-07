@@ -1,0 +1,13 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Description": "Maps virtual desktops to physical outputs when docking and maps physical outputs back to virtual desktops when undocking.",
+        "Icon": "preferences-system-windows",
+        "Id": "adaptive-workspaces",
+        "License": "MIT",
+        "Name": "Adaptive Workspaces",
+        "Version": "0.1.0"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}

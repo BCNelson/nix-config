@@ -9,6 +9,7 @@ in
     ../_mixins/console.nix
   ]
   ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
+  ++ lib.optional (builtins.pathExists ./${hostname}.nix) ./${hostname}.nix
   ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
   home.username = "bcnelson";

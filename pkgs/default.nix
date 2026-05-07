@@ -10,6 +10,7 @@ pkgs: {
   amazing-marvin = pkgs.callPackage ./amazing-marvin.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   codex-config-merge = pkgs.callPackage ./codex-config-merge { };
+  kwin-adaptive-workspaces = pkgs.callPackage ./kwin-adaptive-workspaces { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
   pince = pkgs.callPackage ./pince { };
   distrobox-bazel = pkgs.callPackage ./distrobox-bazel.nix { };
