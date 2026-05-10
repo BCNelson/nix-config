@@ -1,6 +1,7 @@
 { config, pkgs, ... }:
 let
   ntfyTopicFile = "/run/agenix/happy_ntfy_topic";
+  happyHomeDir = "${config.xdg.dataHome}/happy";
 
   happyAuthNotify = pkgs.writeShellApplication {
     name = "happy-auth-notify";
@@ -11,7 +12,9 @@ let
       coreutils
     ];
     text = ''
-      if [[ -f "''${HOME}/.happy/access.key" ]]; then
+      HAPPY_HOME="''${HAPPY_HOME_DIR:-$HOME/.happy}"
+
+      if [[ -f "''${HAPPY_HOME}/access.key" ]]; then
         echo "happy-auth-notify: already authenticated, nothing to do"
         exit 0
       fi
@@ -61,13 +64,17 @@ in
     happyAuthNotify
   ];
 
+  home.sessionVariables = {
+    HAPPY_HOME_DIR = happyHomeDir;
+  };
+
   systemd.user.services.happy-auth-bootstrap = {
     Unit = {
       Description = "Bootstrap happy authentication via ntfy notification";
       After = [ "network-online.target" ];
       Wants = [ "network-online.target" ];
       Before = [ "happy-daemon.service" ];
-      ConditionPathExists = "!%h/.happy/access.key";
+      ConditionPathExists = "!${happyHomeDir}/access.key";
     };
 
     Service = {
@@ -75,6 +82,7 @@ in
       RemainAfterExit = true;
       Environment = [
         "PATH=${config.home.profileDirectory}/bin"
+        "HAPPY_HOME_DIR=${happyHomeDir}"
         "NTFY_TOPIC_FILE=${ntfyTopicFile}"
       ];
       ExecStart = "${happyAuthNotify}/bin/happy-auth-notify";
@@ -94,7 +102,10 @@ in
     };
 
     Service = {
-      Environment = [ "PATH=${config.home.profileDirectory}/bin" ];
+      Environment = [
+        "PATH=${config.home.profileDirectory}/bin"
+        "HAPPY_HOME_DIR=${happyHomeDir}"
+      ];
       ExecStart = "${pkgs.happy-coder}/bin/happy daemon start-sync";
       Restart = "on-failure";
       RestartSec = 5;
