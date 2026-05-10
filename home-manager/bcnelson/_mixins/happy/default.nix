@@ -3,6 +3,19 @@ let
   ntfyTopicFile = "/run/agenix/happy_ntfy_topic";
   happyHomeDir = "${config.xdg.dataHome}/happy";
 
+  happy-coder = pkgs.symlinkJoin {
+    name = "happy-coder-wrapped-${pkgs.happy-coder.version}";
+    paths = [ pkgs.happy-coder ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram $out/bin/happy \
+        --set-default HAPPY_HOME_DIR ${happyHomeDir}
+      wrapProgram $out/bin/happy-mcp \
+        --set-default HAPPY_HOME_DIR ${happyHomeDir}
+    '';
+    inherit (pkgs.happy-coder) meta;
+  };
+
   happyAuthNotify = pkgs.writeShellApplication {
     name = "happy-auth-notify";
     runtimeInputs = with pkgs; [
@@ -12,9 +25,7 @@ let
       coreutils
     ];
     text = ''
-      HAPPY_HOME="''${HAPPY_HOME_DIR:-$HOME/.happy}"
-
-      if [[ -f "''${HAPPY_HOME}/access.key" ]]; then
+      if [[ -f "${happyHomeDir}/access.key" ]]; then
         echo "happy-auth-notify: already authenticated, nothing to do"
         exit 0
       fi
@@ -60,13 +71,9 @@ let
 in
 {
   home.packages = [
-    pkgs.happy-coder
+    happy-coder
     happyAuthNotify
   ];
-
-  home.sessionVariables = {
-    HAPPY_HOME_DIR = happyHomeDir;
-  };
 
   systemd.user.services.happy-auth-bootstrap = {
     Unit = {
@@ -82,7 +89,6 @@ in
       RemainAfterExit = true;
       Environment = [
         "PATH=${config.home.profileDirectory}/bin"
-        "HAPPY_HOME_DIR=${happyHomeDir}"
         "NTFY_TOPIC_FILE=${ntfyTopicFile}"
       ];
       ExecStart = "${happyAuthNotify}/bin/happy-auth-notify";
@@ -102,11 +108,8 @@ in
     };
 
     Service = {
-      Environment = [
-        "PATH=${config.home.profileDirectory}/bin"
-        "HAPPY_HOME_DIR=${happyHomeDir}"
-      ];
-      ExecStart = "${pkgs.happy-coder}/bin/happy daemon start-sync";
+      Environment = [ "PATH=${config.home.profileDirectory}/bin" ];
+      ExecStart = "${happy-coder}/bin/happy daemon start-sync";
       Restart = "on-failure";
       RestartSec = 5;
     };
