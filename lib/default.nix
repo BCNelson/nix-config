@@ -89,7 +89,7 @@ in
       # Always use home-manager-unstable regardless of nixpkgs version
       inputs.home-manager-unstable.nixosModules.home-manager
       (mkHome { inherit hostname usernames desktop; })
-    ] ++ (if nixosMods != null then [ nixosMods ] else []);
+    ] ++ (if nixosMods != null then (if builtins.isList nixosMods then nixosMods else [ nixosMods ]) else []);
   };
 
 

@@ -72,6 +72,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    hermes-agent = {
+      url = "github:NousResearch/hermes-agent";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -137,7 +142,14 @@
           nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-graphical-calamares.nix";
           desktop = "kde6";
         };
-        "romeo-2" = libx.mkHost { hostname = "romeo-2"; usernames = [ "bcnelson" ]; nixosMods = inputs.jellyswarrm.nixosModules.default; };
+        "romeo-2" = libx.mkHost {
+          hostname = "romeo-2";
+          usernames = [ "bcnelson" ];
+          nixosMods = [
+            inputs.jellyswarrm.nixosModules.default
+            inputs.hermes-agent.nixosModules.default
+          ];
+        };
         "whiskey-1" = libx.mkHost { hostname = "whiskey-1"; usernames = [ "bcnelson" ]; nixosMods = inputs.disko.nixosModules.disko; };
         "vor-2" = libx.mkHost { hostname = "vor-2"; usernames = [ "bcnelson" ]; };
       };
