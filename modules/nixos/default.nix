@@ -8,4 +8,5 @@
   nixBinaryCacheProxy = import ./nixBinaryCacheProxy;
   sign = import ./sign.nix;
   bitwardenSync = import ./bitwarden-sync.nix;
+  happyDaemon = import ./happy-daemon.nix;
 }

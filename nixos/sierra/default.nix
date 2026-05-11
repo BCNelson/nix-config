@@ -73,5 +73,12 @@
     user = "bcnelson";
   };
 
+  services.bcnelson.happy-daemon = {
+    enable = true;
+    user = "bcnelson";
+    extraPackages = with pkgs; [ claude-code-bin codex ];
+    ntfyTopicFile = config.age.secrets.happy_ntfy_topic.path;
+  };
+
   zramSwap.enable = true;
 }

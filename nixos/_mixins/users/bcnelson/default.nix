@@ -3,6 +3,12 @@ let
   bcnelson_init_password = "bcnelson_init_password";
 in
 {
+  age.secrets.happy_ntfy_topic = {
+    rekeyFile = ../../../../secrets/store/ntfy_topic.age;
+    owner = "bcnelson";
+    mode = "0400";
+  };
+
   users.users.bcnelson = {
     # TODO: make this more generic
     isNormalUser = true;
