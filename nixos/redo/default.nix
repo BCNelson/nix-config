@@ -34,5 +34,11 @@
     kmscon.enable = true;
   };
 
+  services.bcnelson.happy-daemon = {
+    enable = true;
+    user = "bcnelson";
+    extraPackages = with pkgs; [ claude-code-bin codex ];
+  };
+
   programs.nix-ld.enable = true;
 }

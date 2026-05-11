@@ -27,7 +27,6 @@ in
       Description = "Bootstrap happy authentication via ntfy notification";
       After = [ "network-online.target" ];
       Wants = [ "network-online.target" ];
-      Before = [ "happy-daemon.service" ];
       ConditionPathExists = "!${happyHomeDir}/access.key";
     };
 
@@ -40,25 +39,6 @@ in
       ];
       ExecStart = "${pkgs.happy-auth-notify}/bin/happy-auth-notify";
       TimeoutStartSec = "1h";
-    };
-
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-  };
-
-  systemd.user.services.happy-daemon = {
-    Unit = {
-      Description = "Happy remote agent daemon";
-      After = [ "network-online.target" "happy-auth-bootstrap.service" ];
-      Wants = [ "network-online.target" "happy-auth-bootstrap.service" ];
-    };
-
-    Service = {
-      Environment = [ "PATH=${config.home.profileDirectory}/bin" ];
-      ExecStart = "${happy-coder}/bin/happy daemon start-sync";
-      Restart = "on-failure";
-      RestartSec = 5;
     };
 
     Install = {
