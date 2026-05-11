@@ -1,6 +1,5 @@
 { config, pkgs, ... }:
 let
-  ntfyTopicFile = "/run/agenix/happy_ntfy_topic";
   happyHomeDir = "${config.xdg.dataHome}/happy";
 
   happy-coder = pkgs.symlinkJoin {
@@ -21,28 +20,4 @@ in
     happy-coder
     pkgs.happy-auth-notify
   ];
-
-  systemd.user.services.happy-auth-bootstrap = {
-    Unit = {
-      Description = "Bootstrap happy authentication via ntfy notification";
-      After = [ "network-online.target" ];
-      Wants = [ "network-online.target" ];
-      ConditionPathExists = "!${happyHomeDir}/access.key";
-    };
-
-    Service = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      Environment = [
-        "HAPPY_HOME_DIR=${happyHomeDir}"
-        "NTFY_TOPIC_FILE=${ntfyTopicFile}"
-      ];
-      ExecStart = "${pkgs.happy-auth-notify}/bin/happy-auth-notify";
-      TimeoutStartSec = "1h";
-    };
-
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-  };
 }
