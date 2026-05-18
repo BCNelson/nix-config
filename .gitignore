@@ -2,6 +2,7 @@ result
 test/qemu/console
 test/qemu/desktop
 .direnv
+.devenv
 
 test/qemu/vm/**/*.qcow2
 test/working
