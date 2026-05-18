@@ -122,11 +122,34 @@ in
       ];
     };
 
-  mkSystemManager = { modules ? [] }:
+  mkSystemManager = { hostname, usernames ? [], desktop ? null, modules ? [], platform ? "x86_64-linux" }:
+    let
+      hostModule = ../system-manager/${hostname}.nix;
+      homeModules = inputs.nixpkgs-unstable.lib.optionals (usernames != []) [
+        inputs.home-manager-unstable.nixosModules.home-manager
+        (mkHome { inherit hostname usernames desktop platform; })
+        {
+          home-manager.sharedModules = [
+            {
+              targets.genericLinux.nixGL = {
+                inherit (inputs.nixgl) packages;
+                defaultWrapper = "mesa";
+              };
+            }
+          ];
+        }
+      ];
+    in
     inputs.system-manager.lib.makeSystemConfig {
+      specialArgs = {
+        inherit inputs outputs hostname platform stateVersion;
+      };
       modules = [
         ../system-manager
-      ] ++ modules;
+      ]
+      ++ inputs.nixpkgs-unstable.lib.optional (builtins.pathExists hostModule) hostModule
+      ++ homeModules
+      ++ modules;
     };
 
   inherit getSecretWithDefault getSecret forAllSystems;

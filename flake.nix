@@ -191,6 +191,11 @@
       # system-manager for non-NixOS hosts
       systemConfigs = {
         "redo-2" = libx.mkSystemManager { hostname = "redo-2"; };
+        "redo-3" = libx.mkSystemManager {
+          hostname = "redo-3";
+          usernames = [ "bcnelson" ];
+          desktop = "kde6";
+        };
       };
 
       agenix-rekey = inputs.agenix-rekey.configure {

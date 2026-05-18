@@ -24,12 +24,19 @@ update-home *additionalArgs:
 [linux]
 update-os *additionalArgs:
     #!/usr/bin/env bash
+    set -euo pipefail
     git rev-parse HEAD
-    if [ "$EUID" -ne 0 ]
-    then
-        sudo nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
+    if nix eval .#nixosConfigurations.$HOSTNAME --apply 'x: ""' --raw >/dev/null 2>&1; then
+        if [ "$EUID" -ne 0 ]; then
+            sudo nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
+        else
+            nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
+        fi
+    elif nix eval .#systemConfigs.$HOSTNAME --apply 'x: ""' --raw >/dev/null 2>&1; then
+        nix run github:numtide/system-manager -- switch --flake .#$HOSTNAME --sudo {{ additionalArgs }}
     else
-        nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
+        echo "No nixosConfigurations or systemConfigs entry for host $HOSTNAME" >&2
+        exit 1
     fi
 
 [linux]
@@ -116,6 +123,50 @@ alias fmt := format
 [unix]
 format:
     nix fmt
+
+# One-time bootstrap for SELinux-enforcing hosts (Fedora etc.). Installs the
+# nix_store SELinux policy module, registers the file context rule, relabels
+# the existing /nix/store (slow), and writes a sentinel so future `just apply`
+# runs can refresh the module automatically.
+[linux]
+bootstrap-selinux:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v getenforce >/dev/null 2>&1 || [ "$(getenforce)" != "Enforcing" ]; then
+        echo "SELinux is not enforcing on this host; nothing to do."
+        exit 0
+    fi
+    pp=$(nix build --no-link --print-out-paths .#nix-store-selinux)/nix_store.pp
+    sha=$(sha256sum "$pp" | cut -d' ' -f1)
+    sudo install -d -m 0755 /var/lib/system-manager
+    sudo semodule -i "$pp"
+    if ! sudo semanage fcontext -l | grep -q '^/nix/store'; then
+        sudo semanage fcontext -a -t nix_store_t '/nix/store(/.*)?'
+    fi
+    sudo -v   # prime sudo so the prompt doesn't break the progress line
+    echo "Counting /nix/store entries..."
+    total=$(find /nix/store -mindepth 1 | wc -l)
+    echo "Relabeling $total entries..."
+    # restorecon -p prints one '*' (or '.') per 1000 files. stdbuf disables
+    # libc buffering on both streams so each char arrives immediately; bash
+    # read -N1 consumes one byte at a time so there's no awk/pipe buffering
+    # in between.
+    sudo stdbuf -o0 -e0 restorecon -R -p /nix/store 2>&1 | (
+      count=0
+      while IFS= read -rN1 c; do
+        case "$c" in
+          '*'|'.')
+            count=$((count + 1000))
+            [ "$count" -gt "$total" ] && count=$total
+            printf "\r[%3d%%] %d/%d" "$((count*100/total))" "$count" "$total"
+            ;;
+        esac
+      done
+      printf "\r[100%%] %d/%d (done)\n" "$total" "$total"
+    )
+    echo "$sha" | sudo tee /var/lib/system-manager/nix-store-selinux.sha256 >/dev/null
+    sudo touch /var/lib/system-manager/nix-store-selinux-bootstrapped
+    echo "nix_store SELinux policy bootstrapped."
 
 isoCreate version='iso_desktop':
     #!/usr/bin/env bash

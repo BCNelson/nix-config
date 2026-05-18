@@ -1,6 +1,8 @@
-_:
+{ platform, ... }:
 {
+  imports = [ ./_mixins/selinux.nix ];
+
   config = {
-    nixpkgs.hostPlatform = "x86_64-linux";
+    nixpkgs.hostPlatform = platform;
   };
 }
