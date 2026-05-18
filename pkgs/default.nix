@@ -8,6 +8,7 @@ pkgs: {
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };
   mb4-extractor = pkgs.callPackage ./m4b-extractor { };
   amazing-marvin = pkgs.callPackage ./amazing-marvin.nix { };
+  openhuman = pkgs.callPackage ./openhuman.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   codex-config-merge = pkgs.callPackage ./codex-config-merge { };
   happy-auth-notify = pkgs.callPackage ./happy-auth-notify { };
