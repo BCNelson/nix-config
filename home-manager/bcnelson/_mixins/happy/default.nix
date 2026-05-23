@@ -8,9 +8,11 @@ let
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       wrapProgram $out/bin/happy \
-        --set-default HAPPY_HOME_DIR ${happyHomeDir}
+        --set-default HAPPY_HOME_DIR ${happyHomeDir} \
+        --set-default HAPPY_CLAUDE_PATH ${pkgs.claude-code-bin}/bin/claude
       wrapProgram $out/bin/happy-mcp \
-        --set-default HAPPY_HOME_DIR ${happyHomeDir}
+        --set-default HAPPY_HOME_DIR ${happyHomeDir} \
+        --set-default HAPPY_CLAUDE_PATH ${pkgs.claude-code-bin}/bin/claude
     '';
     inherit (pkgs.happy-coder) meta;
   };

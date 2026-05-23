@@ -9,6 +9,22 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
+
+    # happy-coder PR #492656 — monorepo migration, pre-merge testing.
+    # Remove once the PR lands in nixpkgs-unstable.
+    # The PR's wrapper invokes node by absolute path but the CLI spawns child
+    # `node` processes via PATH lookup (e.g. `happy daemon start-sync`),
+    # so add nodejs to PATH here.
+    happy-coder = (inputs.nixpkgs-happy-coder.legacyPackages.${final.stdenv.hostPlatform.system}.happy-coder).overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ final.makeWrapper ];
+      postFixup = (old.postFixup or "") + ''
+        wrapProgram $out/bin/happy \
+          --prefix PATH : ${final.lib.makeBinPath [ final.nodejs ]}
+        wrapProgram $out/bin/happy-mcp \
+          --prefix PATH : ${final.lib.makeBinPath [ final.nodejs ]}
+      '';
+    });
+
     claude-code-bin = prev.claude-code-bin.overrideAttrs (oldAttrs: {
       postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
