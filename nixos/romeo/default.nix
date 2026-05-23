@@ -263,7 +263,39 @@ in
           };
         };
       };
+      # Reverse-proxy *.cwnel.com (Carter's portfolio apps) to bulbasaur's k3s
+      # Traefik ingress over Tailscale. romeo terminates TLS here with a wildcard
+      # cert; Traefik routes by Host. recommendedProxySettings forwards Host +
+      # X-Forwarded-For so the apps see the real client IP.
+      "*.cwnel.com" = {
+        useACMEHost = "cwnel.com";
+        forceSSL = true;
+        extraConfig = ''
+          client_max_body_size 0;
+        '';
+        locations = {
+          "/" = {
+            proxyPass = "http://100.78.86.4:80";
+            proxyWebsockets = true;
+          };
+        };
+      };
     };
+  };
+
+  # *.cwnel.com lives on Cloudflare, so this cert overrides the host default
+  # (Porkbun) with a Cloudflare DNS-01 challenge. Pattern mirrors
+  # nixos/whiskey/services/forgejo.nix.
+  age.secrets.cwnel_cloudflare_dns_api_token.rekeyFile = ../../secrets/store/romeo/cwnel_cloudflare_dns_api_token.age;
+  age-template.files."cwnel-cloudflare-acme-env" = {
+    vars.token = config.age.secrets.cwnel_cloudflare_dns_api_token.path;
+    content = "CF_DNS_API_TOKEN=$token";
+  };
+  security.acme.certs."cwnel.com" = {
+    domain = "*.cwnel.com";
+    dnsProvider = "cloudflare";
+    environmentFile = config.age-template.files."cwnel-cloudflare-acme-env".path;
+    group = "nginx";
   };
 
   age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;
