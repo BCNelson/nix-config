@@ -968,6 +968,7 @@
         "nur": "nur",
         "plasma-manager": "plasma-manager",
         "rust-overlay": "rust-overlay_3",
+        "scaffold": "scaffold",
         "system-manager": "system-manager",
         "zen-browser": "zen-browser"
       }
@@ -1031,6 +1032,26 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "scaffold": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs-unstable"
+        ]
+      },
+      "locked": {
+        "lastModified": 1779670299,
+        "narHash": "sha256-m5KEfbeK9wAJDnWGI85XXdPawr3Tc0WAyV5q/TYMb20=",
+        "owner": "BCNelson",
+        "repo": "ProjectTemplate",
+        "rev": "e9031cdfe258124c975401a7337361e1aed8dd40",
+        "type": "github"
+      },
+      "original": {
+        "owner": "BCNelson",
+        "repo": "ProjectTemplate",
         "type": "github"
       }
     },

@@ -72,6 +72,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    scaffold = {
+      url = "github:BCNelson/ProjectTemplate";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 {
   imports = [
     ./nvim.nix
@@ -21,6 +21,7 @@
     pkgs.mb4-extractor
     (config.lib.nixGL.wrap pkgs.zoom-us)
     pkgs.gh
+    inputs.scaffold.packages.${pkgs.system}.default
     (config.lib.nixGL.wrap pkgs.amazing-marvin)
     (config.lib.nixGL.wrap pkgs.todoist-electron)
   ];

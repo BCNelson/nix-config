@@ -24,4 +24,14 @@
       rows = 1;
     };
   };
+
+  # nixGL exports LIBGL_DRIVERS_PATH / GBM_BACKENDS_PATH / LD_LIBRARY_PATH
+  # pointing into /nix/store, which Flatpak forwards into the sandbox where
+  # those paths don't resolve. Flatpak Zoom's bundled Qt6 aborts during
+  # GL/EGL init because of it; other Flatpaks tolerate it today but shouldn't
+  # have to. Strip them via a global per-user Flatpak override.
+  home.file.".local/share/flatpak/overrides/global".text = ''
+    [Environment]
+    unset-environment=LIBGL_DRIVERS_PATH;GBM_BACKENDS_PATH;__EGL_VENDOR_LIBRARY_FILENAMES;LIBVA_DRIVERS_PATH;LD_LIBRARY_PATH
+  '';
 }
