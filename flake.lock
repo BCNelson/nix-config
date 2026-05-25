@@ -1042,11 +1042,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779670299,
-        "narHash": "sha256-m5KEfbeK9wAJDnWGI85XXdPawr3Tc0WAyV5q/TYMb20=",
+        "lastModified": 1779747201,
+        "narHash": "sha256-JwBWNFh6OHPHAeiHqGJylEwpM737dtzxpxoBkwPrCJk=",
         "owner": "BCNelson",
         "repo": "ProjectTemplate",
-        "rev": "e9031cdfe258124c975401a7337361e1aed8dd40",
+        "rev": "043b289a52d150d164160b22f5d9123a721227b6",
         "type": "github"
       },
       "original": {
