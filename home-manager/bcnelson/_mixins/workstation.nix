@@ -1,4 +1,9 @@
-{ config, pkgs, inputs, ... }:
+{
+  config,
+  pkgs,
+  inputs,
+  ...
+}:
 {
   imports = [
     ./nvim.nix
@@ -24,6 +29,7 @@
     inputs.scaffold.packages.${pkgs.system}.default
     (config.lib.nixGL.wrap pkgs.amazing-marvin)
     (config.lib.nixGL.wrap pkgs.todoist-electron)
+    pkgs.yt-dlp
   ];
 
   programs.ssh = {

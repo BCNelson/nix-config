@@ -20,8 +20,9 @@ Set up a repository with direnv and devenv configuration files for reproducible 
 2. **Check existing files** - Look for flake.nix, devenv.nix, .envrc
 3. **Handle conflicts** - If files exist, ask whether to overwrite
 4. **Generate files** - Create all three files using appropriate template
+   - Use only the templates in this file — do not browse other repos or fetch external examples.
 5. **Customize** - Ask about optional additions (services, scripts, env vars)
-6. **Post-generation** - Remind user about `direnv allow` and `.gitignore`
+6. **Post-generation** - Append `.gitignore` entries and remind user about `direnv allow`
 
 ## Project Detection Indicators
 
@@ -36,29 +37,50 @@ Set up a repository with direnv and devenv configuration files for reproducible 
 
 ## Templates
 
-### Standard flake.nix (for devenv projects)
+### Standard flake.nix
 
 ```nix
 {
-  description = "PROJECT_NAME - Development Environment";
+  description = "PROJECT_NAME development environment";
 
   inputs = {
     nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
     devenv.url = "github:cachix/devenv";
+    devenv.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   nixConfig = {
-    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
-    extra-substituters = "https://devenv.cachix.org";
+    extra-trusted-public-keys = [
+      "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw="
+    ];
+    extra-substituters = [
+      "https://devenv.cachix.org"
+    ];
   };
 
-  outputs = { self, nixpkgs, devenv, ... } @ inputs:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      devenv,
+      ...
+    }@inputs:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSystem = nixpkgs.lib.genAttrs systems;
+      forEachSystem = nixpkgs.lib.genAttrs [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
     in
     {
-      devShells = forEachSystem (system:
+      packages = forEachSystem (system: {
+        devenv-up = self.devShells.${system}.default.config.procfileScript;
+        devenv-test = self.devShells.${system}.default.config.test;
+      });
+
+      devShells = forEachSystem (
+        system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
         in
@@ -80,7 +102,9 @@ if ! has nix_direnv_version || ! nix_direnv_version 3.0.6; then
   source_url "https://raw.githubusercontent.com/nix-community/nix-direnv/3.0.6/direnvrc" "sha256-RYcUJaRMf8oF5LznDrlCXbkOQrywm0HDv1VjYGaJGdM="
 fi
 
-use flake
+export DEVENV_ROOT="$PWD"
+
+use flake "path:$PWD" --no-pure-eval --impure
 ```
 
 ### Go devenv.nix
@@ -230,44 +254,30 @@ use flake
 }
 ```
 
-### Rust flake.nix (uses rust-overlay, NOT devenv)
+### Rust devenv.nix
 
 ```nix
+{ pkgs, ... }:
 {
-  description = "PROJECT_NAME - Development Environment";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    flake-utils.url = "github:numtide/flake-utils";
+  languages.rust = {
+    enable = true;
+    components = [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs { inherit system overlays; };
-        rust = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" "rust-analyzer" ];
-        };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rust
-            pkg-config
-            openssl
-          ];
+  packages = with pkgs; [
+    pkg-config
+    openssl
+    git
+  ];
 
-          shellHook = ''
-            echo "Rust $(rustc --version)"
-          '';
-        };
-      }
-    );
+  git-hooks.hooks = {
+    rustfmt.enable = true;
+    clippy.enable = true;
+  };
+
+  enterShell = ''
+    echo "Rust $(rustc --version)"
+  '';
 }
 ```
 
@@ -301,20 +311,26 @@ After generating base files, ask the user about:
 
 ## Post-Generation Steps
 
-After generating files, remind the user:
+After generating files, the skill itself writes the `.gitignore`
+entries — do not just tell the user to do it. Steps:
 
-1. **Allow direnv**: Run `direnv allow` to activate the environment
-2. **Update .gitignore**: Add these entries if not present:
+1. **Update .gitignore**: If `.gitignore` does not exist, create it.
+   If it exists and already contains `.devenv/`, skip this step to
+   avoid duplicates. Otherwise append:
    ```
+   # devenv / direnv
    .devenv/
    .direnv/
+   .devenv-state/
+   .env
    ```
-3. **First build**: The first `direnv allow` will download dependencies (may take a few minutes)
+2. **Tell the user to allow direnv**: Run `direnv allow` to activate
+   the environment. The first activation downloads dependencies and
+   may take a few minutes.
 
 ## Guidelines
 
 - Always check for existing files before writing
 - Use the project name from `package.json`, `Cargo.toml`, `go.mod`, or `pyproject.toml` when available
-- For Rust projects, use rust-overlay instead of devenv (better Rust toolchain support)
 - Keep generated configs minimal - users can add complexity as needed
 - Prefer latest LTS Node.js version (currently 22)
