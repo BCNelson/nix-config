@@ -37,10 +37,15 @@ in
           ''"atlas.h.b.nel.family" redirect''
           ''"hypnos.h.b.nel.family" redirect''
           ''"h.b.nel.family" redirect''
+          # Hairpin Carter's portfolio apps back to romeo for LAN clients
+          # (bulbasaur's ufw blocks direct LAN access, so traffic must go via
+          # romeo's reverse proxy). "redirect" answers every *.cwnel.com name.
+          ''"cwnel.com" redirect''
         ];
         local-data = [
           ''"atlas.h.b.nel.family. IN A 192.168.3.7"''
           ''"h.b.nel.family. IN A 192.168.3.7"''
+          ''"cwnel.com. IN A 192.168.3.7"''
         ];
         serve-expired = "yes";
       };
