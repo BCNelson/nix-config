@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, pkgs, ... }:
 {
   imports = [
     inputs.nixvim.homeModules.nixvim
@@ -6,6 +6,9 @@
 
   programs.nixvim = {
     enable = true;
+    nixpkgs.source = inputs.nixpkgs-unstable;
+    # Suppress while nixos-unstable is still on 26.05 and nixvim master is ahead.
+    version.enableNixpkgsReleaseCheck = pkgs.lib.trivial.release != "26.05";
     plugins = {
       lsp = {
         enable = true;

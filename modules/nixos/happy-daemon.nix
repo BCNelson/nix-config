@@ -25,7 +25,7 @@ in
     extraPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       default = [ ];
-      example = lib.literalExpression "with pkgs; [ claude-code-bin codex ]";
+      example = lib.literalExpression "with pkgs; [ claude-code codex ]";
       description = "Packages whose bin/ dirs are prepended to the daemon's PATH so it can find claude/codex.";
     };
 

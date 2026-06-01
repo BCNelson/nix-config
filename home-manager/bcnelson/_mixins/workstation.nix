@@ -26,7 +26,7 @@
     pkgs.mb4-extractor
     (config.lib.nixGL.wrap pkgs.zoom-us)
     pkgs.gh
-    inputs.scaffold.packages.${pkgs.system}.default
+    inputs.scaffold.packages.${pkgs.stdenv.hostPlatform.system}.default
     (config.lib.nixGL.wrap pkgs.amazing-marvin)
     (config.lib.nixGL.wrap pkgs.todoist-electron)
     pkgs.yt-dlp
@@ -35,24 +35,18 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    matchBlocks = {
+    settings = {
       "*.b.nel.family" = {
-        extraOptions = {
-          RemoteCommand = "tmux a";
-          RequestTTY = "yes";
-        };
+        RemoteCommand = "tmux a";
+        RequestTTY = "yes";
       };
       "ryuu.llp.nel.family" = {
-        extraOptions = {
-          RemoteCommand = "tmux a";
-          RequestTTY = "yes";
-        };
+        RemoteCommand = "tmux a";
+        RequestTTY = "yes";
       };
       "vor.ck.nel.family" = {
-        extraOptions = {
-          RemoteCommand = "tmux a";
-          RequestTTY = "yes";
-        };
+        RemoteCommand = "tmux a";
+        RequestTTY = "yes";
       };
     };
   };

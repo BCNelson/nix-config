@@ -4,7 +4,7 @@ _:
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    matchBlocks = {
+    settings = {
       # "*.b.nel.family" = {
       # };
     };

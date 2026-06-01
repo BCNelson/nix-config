@@ -9,7 +9,7 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
-    claude-code-bin = prev.claude-code-bin.overrideAttrs (oldAttrs: {
+    claude-code = prev.claude-code.overrideAttrs (oldAttrs: {
       postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
           --prefix PATH : ${final.lib.makeBinPath [
