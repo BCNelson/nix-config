@@ -452,6 +452,13 @@ resource "porkbun_dns_record" "rom_nel_family" {
   content = "h.b.nel.family"
 }
 
+resource "porkbun_dns_record" "journal_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "journal"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 # recipes      CNAME  recipes.h.b.nel.family.
 resource "porkbun_dns_record" "recipes_h_b_nel_family-CNAME" {
   domain  = "nel.family"
