@@ -17,6 +17,7 @@
     ./jellyswarrm.nix
     ./immich.nix
     ./immichframe.nix
+    ./journiv.nix
   ];
 
   systemd.timers.podman-auto-update = {

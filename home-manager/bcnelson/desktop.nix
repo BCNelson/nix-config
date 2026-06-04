@@ -1,4 +1,11 @@
-{ config, pkgs, lib, desktop, outputs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  desktop,
+  outputs,
+  ...
+}:
 
 let
   wrappedYakuake = config.lib.nixGL.wrap pkgs.kdePackages.yakuake;
@@ -15,7 +22,10 @@ in
     ../_mixins/programs/vscode.nix
     ../_mixins/programs/zed.nix
     ../_mixins/programs/super-productivity.nix
-  ] ++ lib.optional (builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix) ./_mixins/${desktop}.nix;
+  ]
+  ++ lib.optional (
+    builtins.isString desktop && builtins.pathExists ./_mixins/${desktop}.nix
+  ) ./_mixins/${desktop}.nix;
 
   home.packages = [
     wrappedYakuake

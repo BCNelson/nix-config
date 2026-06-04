@@ -114,6 +114,13 @@
     owner = "kanidm";
   };
 
+  age.secrets.journiv-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/journiv_auth_client_secret.age;
+    generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
+  };
+
   services.kanidm = {
     server.enable = true;
     package = pkgs.kanidmWithSecretProvisioning_1_9;
@@ -257,6 +264,16 @@
           basicSecretFile = config.age.secrets.romm-oauth-client-secret.path;
           preferShortUsername = true;
           allowInsecureClientDisablePkce = true;
+        };
+        "journiv" = {
+          displayName = "Journiv";
+          originUrl = "https://journal.nel.family/api/v1/auth/oidc/callback";
+          originLanding = "https://journal.nel.family/";
+          scopeMaps = {
+            "household" = [ "email" "openid" "profile" ];
+          };
+          basicSecretFile = config.age.secrets.journiv-oauth-client-secret.path;
+          preferShortUsername = true;
         };
       };
       persons = {
