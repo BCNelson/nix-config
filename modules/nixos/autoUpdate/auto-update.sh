@@ -94,11 +94,28 @@ if [ "$hashBefore" == "$hashAfter" ]; then
     cleanup_and_exit 0
 fi
 
-# Rebuild system
-if ! nixos-rebuild switch --flake ".#$(hostname -s)" |& tee -a "$tempfile"; then
-    log "Failed to rebuild"
-    cleanup_and_exit 1
+# Rebuild system. If `switch` is blocked by switchInhibitors (e.g. dbus
+# implementation or kernel changes that can't be applied live), fall back to
+# `boot` so the new generation is staged for the next reboot — otherwise the
+# build sits idle and the next run skips with "No changes".
+rebuild_output=$(mktemp)
+rebootRequired=0
+if ! nixos-rebuild switch --flake ".#$(hostname -s)" |& tee -a "$tempfile" "$rebuild_output"; then
+    if grep -qF "Pre-switch check 'switchInhibitors' failed" "$rebuild_output"; then
+        log "switch blocked by switchInhibitors; falling back to 'nixos-rebuild boot' and scheduling reboot"
+        if ! nixos-rebuild boot --flake ".#$(hostname -s)" |& tee -a "$tempfile"; then
+            log "Failed to rebuild (boot fallback)"
+            rm -f "$rebuild_output"
+            cleanup_and_exit 1
+        fi
+        rebootRequired=1
+    else
+        log "Failed to rebuild"
+        rm -f "$rebuild_output"
+        cleanup_and_exit 1
+    fi
 fi
+rm -f "$rebuild_output"
 
 # Check if a reboot is required
 current_system_initrd=$(readlink /run/current-system/initrd)
@@ -109,7 +126,8 @@ booted_system_initrd=$(readlink /run/booted-system/initrd)
 booted_system_kernel=$(readlink /run/booted-system/kernel)
 booted_system_kernel_modules=$(readlink /run/booted-system/kernel-modules)
 
-if [ "$current_system_initrd" != "$booted_system_initrd" ] ||
+if [ "$rebootRequired" -eq 1 ] ||
+   [ "$current_system_initrd" != "$booted_system_initrd" ] ||
    [ "$current_system_kernel" != "$booted_system_kernel" ] ||
    [ "$current_system_kernel_modules" != "$booted_system_kernel_modules" ]; then
     log "Reboot required"
