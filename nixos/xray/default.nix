@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ config, lib, ... }:
 {
   imports = [
     ../_mixins/roles/docker.nix
@@ -41,10 +41,18 @@
     };
   };
 
+  age.secrets.cadence_check_auto_update_xray.rekeyFile =
+    ../../secrets/store/cadence/checks/auto-update-xray.age;
+
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/home/config";
     reboot = false;
     refreshInterval = "1h";
+    healthCheck = {
+      enable = true;
+      url = "https://health.b.nel.family";
+      uuidFile = config.age.secrets.cadence_check_auto_update_xray.path;
+    };
   };
 }
