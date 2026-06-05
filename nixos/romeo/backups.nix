@@ -154,6 +154,11 @@ in
     ../../secrets/store/cadence/checks/syncoid-romeo-level1.age;
   age.secrets.cadence_check_syncoid_romeo_level2.rekeyFile =
     ../../secrets/store/cadence/checks/syncoid-romeo-level2.age;
+  age.secrets.cadence_check_zfs_scrub_romeo.rekeyFile =
+    ../../secrets/store/cadence/checks/zfs-scrub-romeo.age;
+
+  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
+    "+${cadencePingExec "zfs-scrub-romeo"}";
 
   services.borgbackup.jobs = {
     level1 = basicBorgJob {

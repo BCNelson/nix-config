@@ -2,6 +2,10 @@
 let
   dataDirs = config.data.dirs;
   services = import ./docker-services { inherit libx dataDirs pkgs; };
+  cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
+    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+  '';
 in
 {
   imports =
@@ -41,6 +45,7 @@ in
       Type = "oneshot";
       User = "root";
       ExecStart = "${services.networkBacked}/bin/dockerStack-general up -d --remove-orphans --pull always --quiet-pull";
+      ExecStartPost = "${cadencePingExec "auto-update-services-romeo"}";
     };
     restartTriggers = [ services.networkBacked ];
     restartIfChanged = false;
@@ -302,6 +307,8 @@ in
   age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
   age.secrets.cadence_check_auto_update_romeo.rekeyFile =
     ../../secrets/store/cadence/checks/auto-update-romeo.age;
+  age.secrets.cadence_check_auto_update_services_romeo.rekeyFile =
+    ../../secrets/store/cadence/checks/auto-update-services-romeo.age;
 
   services.bcnelson.autoUpdate = {
     enable = true;

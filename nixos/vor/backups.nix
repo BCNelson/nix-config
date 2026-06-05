@@ -8,6 +8,11 @@ in
 {
   age.secrets.cadence_check_syncoid_vor_NelsonData.rekeyFile =
     ../../secrets/store/cadence/checks/syncoid-vor-NelsonData.age;
+  age.secrets.cadence_check_zfs_scrub_vor.rekeyFile =
+    ../../secrets/store/cadence/checks/zfs-scrub-vor.age;
+
+  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
+    "+${cadencePingExec "zfs-scrub-vor"}";
 
   services.sanoid = {
     enable = true;
