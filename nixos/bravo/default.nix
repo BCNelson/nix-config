@@ -5,6 +5,8 @@
   ];
 
   age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+  age.secrets.cadence_check_auto_update_bravo.rekeyFile =
+    ../../secrets/store/cadence/checks/auto-update-bravo.age;
 
   services.bcnelson.autoUpdate = {
     enable = true;
@@ -14,6 +16,11 @@
     ntfy-refresh = {
       enable = true;
       topicFile = config.age.secrets.ntfy_refresh_topic.path;
+    };
+    healthCheck = {
+      enable = true;
+      url = "https://health.b.nel.family";
+      uuidFile = config.age.secrets.cadence_check_auto_update_bravo.path;
     };
   };
 

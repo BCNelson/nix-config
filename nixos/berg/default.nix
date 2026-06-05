@@ -1,8 +1,11 @@
-{ ... }:
+{ config, ... }:
 {
   imports = [
     ../_mixins/roles/tailscale.nix
   ];
+
+  age.secrets.cadence_check_auto_update_berg.rekeyFile =
+    ../../secrets/store/cadence/checks/auto-update-berg.age;
 
   # Automatic updates
   services.bcnelson.autoUpdate = {
@@ -10,6 +13,11 @@
     path = "/config";
     reboot = true;  # Ensure updates are fully applied
     refreshInterval = "24h";  # Daily updates
+    healthCheck = {
+      enable = true;
+      url = "https://health.b.nel.family";
+      uuidFile = config.age.secrets.cadence_check_auto_update_berg.path;
+    };
   };
 
   # Hide my user from the login screen it will still be accessible via the other users section

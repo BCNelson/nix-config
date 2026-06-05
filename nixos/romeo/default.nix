@@ -300,7 +300,8 @@ in
 
   age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;
   age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
-  age.secrets.auto_update_healthCheck_uuid.rekeyFile = ../../secrets/store/romeo/auto_update_healthCheck_uuid.age;
+  age.secrets.cadence_check_auto_update_romeo.rekeyFile =
+    ../../secrets/store/cadence/checks/auto-update-romeo.age;
 
   services.bcnelson.autoUpdate = {
     enable = true;
@@ -318,7 +319,7 @@ in
     healthCheck = {
       enable = true;
       url = "https://health.b.nel.family";
-      uuidFile = config.age.secrets.auto_update_healthCheck_uuid.path;
+      uuidFile = config.age.secrets.cadence_check_auto_update_romeo.path;
     };
   };
 
