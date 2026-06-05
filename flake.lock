@@ -106,11 +106,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780636547,
-        "narHash": "sha256-VYcJquTizHc6w6sm0hxTPkWJ8Z4D5XZaQxp38a2BcVI=",
+        "lastModified": 1780641444,
+        "narHash": "sha256-qieA5GfTzSIMrp6uX+RYLfHFjtOsn/egGg/4sIHsC4c=",
         "owner": "BCNelson",
         "repo": "cadence",
-        "rev": "8eb961f1da6fdab82e987a5bacb1063aef9b6a9c",
+        "rev": "14cc4b6144cf99aec5451d16625ac5c5bd0b7353",
         "type": "github"
       },
       "original": {

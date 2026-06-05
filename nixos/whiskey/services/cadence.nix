@@ -1,8 +1,18 @@
-{ config, inputs, ... }:
+{ config, inputs, pkgs, ... }:
 let
   dataDirs = {
     level3 = "/data/level3"; # High
   };
+  # The cadence NixOS module's typed `settings` schema doesn't yet expose
+  # `server.oidc` (added in the daemon at 14cc4b6). Use the documented
+  # `extraConfigFiles` escape hatch — the daemon merges YAML over `settings`.
+  oidcConfig = pkgs.writeText "cadence-oidc.yaml" ''
+    server:
+      oidc:
+        issuer: https://idm.nel.family/oauth2/openid/cadence
+        client_id: cadence
+        tier: read_write
+  '';
 in
 {
   imports = [ inputs.cadence.nixosModules.cadence ];
@@ -45,5 +55,6 @@ in
         api_keys.read_write = [ "\${env:CADENCE_API_RW_KEY}" ];
       };
     };
+    extraConfigFiles = [ oidcConfig ];
   };
 }
