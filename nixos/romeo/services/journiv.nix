@@ -166,7 +166,7 @@ in
     "d ${dataDirs.level2}/journiv          0755 root root - -"
     "d ${dataDirs.level2}/journiv/postgres 0755 root root - -"
     "d ${dataDirs.level3}/journiv          0755 root root - -"
-    "d ${dataDirs.level3}/journiv/data     0755 root root - -"
+    "d ${dataDirs.level3}/journiv/data     0755 1000 1000 - -"
     "d ${dataDirs.level7}/journiv          0755 root root - -"
     "d ${dataDirs.level7}/journiv/valkey   0755 root root - -"
   ];
