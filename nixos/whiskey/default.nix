@@ -5,6 +5,7 @@
       ../_mixins/roles/server
       ../_mixins/roles/server/nginx.nix
       ./backup.nix
+      ./services/cadence.nix
       ./services/forgejo.nix
       ./services/healthchecks.nix
       ./services/vaultwarden.nix
@@ -37,7 +38,7 @@
     };
     healthCheck = {
       enable = true;
-      url = "https://health.b.nel.family";
+      url = "https://healthchecks.b.nel.family";
       uuidFile = config.age.secrets.auto_update_healthCheck_uuid.path;
     };
   };

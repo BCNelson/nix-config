@@ -77,6 +77,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    cadence = {
+      url = "github:BCNelson/cadence";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

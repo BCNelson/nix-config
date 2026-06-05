@@ -8,7 +8,7 @@ in
   services.nginx = {
     enable = true;
     virtualHosts = {
-      "health.b.nel.family" = {
+      "healthchecks.b.nel.family" = {
         forceSSL = true;
         enableACME = true;
         acmeRoot = null;
@@ -27,8 +27,8 @@ in
     enable = true;
     dataDir = "${dataDirs.level3}/healthchecks";
     settings = {
-      ALLOWED_HOSTS = [ "health.b.nel.family" ];
-      SITE_ROOT = "https://health.b.nel.family";
+      ALLOWED_HOSTS = [ "healthchecks.b.nel.family" ];
+      SITE_ROOT = "https://healthchecks.b.nel.family";
       REGISTRATION_OPEN = false;
     };
     settingsFile = config.age.secrets.healthchecks.path;
