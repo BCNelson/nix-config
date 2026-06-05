@@ -10,6 +10,8 @@ in
       "PUID=1000"
       "PGID=1000"
       "TZ=America/Denver"
+      "S6_SERVICES_GRACETIME=5000"
+      "S6_KILL_GRACETIME=3000"
     ];
     volumes = [
       "${dataDirs.level5}/nextcloud/config:/config"
