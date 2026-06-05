@@ -275,6 +275,16 @@
           basicSecretFile = config.age.secrets.journiv-oauth-client-secret.path;
           preferShortUsername = true;
         };
+        "cadence" = {
+          displayName = "Cadence";
+          originUrl = "https://health.b.nel.family/callback";
+          originLanding = "https://health.b.nel.family/";
+          scopeMaps = {
+            "service_admins" = [ "email" "openid" "profile" ];
+          };
+          public = true;
+          preferShortUsername = true;
+        };
       };
       persons = {
         "bcnelson" = {

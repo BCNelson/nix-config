@@ -43,6 +43,11 @@ in
         base_url = "https://health.b.nel.family";
         uuid_salt = "\${env:CADENCE_UUID_SALT}";
         api_keys.read_write = [ "\${env:CADENCE_API_RW_KEY}" ];
+        oidc = {
+          issuer = "https://idm.nel.family/oauth2/openid/cadence";
+          client_id = "cadence";
+          tier = "read_write";
+        };
       };
     };
   };
