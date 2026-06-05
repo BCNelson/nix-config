@@ -1,5 +1,19 @@
 { lib, pkgs, ... }:
+let
+  cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
+    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+  '';
+in
 {
+  age.secrets.cadence_check_syncoid_vor_NelsonData.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-vor-NelsonData.age;
+  age.secrets.cadence_check_zfs_scrub_vor.rekeyFile =
+    ../../secrets/store/cadence/checks/zfs-scrub-vor.age;
+
+  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
+    "+${cadencePingExec "zfs-scrub-vor"}";
+
   services.sanoid = {
     enable = true;
     datasets = {
@@ -38,6 +52,7 @@
       "liveData/NelsonData Local Backup" = {
         source = "liveData/NelsonData";
         target = "vault/Backups/NelsonData";
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-vor-NelsonData"}";
       };
     };
   };

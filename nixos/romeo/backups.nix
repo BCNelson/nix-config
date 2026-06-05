@@ -1,6 +1,15 @@
-{ config, lib, libx, ... }:
+{ config, lib, pkgs, libx, ... }:
 let
-  basicBorgJob = { repo, paths, prune ? null }: {
+  cadencePostHook = slug: ''
+    url="https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+    if [ "$exitStatus" -ne 0 ]; then url="$url/fail"; fi
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 "$url" || true
+  '';
+  cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
+    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+  '';
+  basicBorgJob = { repo, paths, cadenceSlug, prune ? null }: {
     inherit repo paths;
     encryption.mode = "none";
     environment.BORG_RSH = "ssh -o 'StrictHostKeyChecking=no' -i ${config.age.secrets.borgbaseSshKey.path}";
@@ -9,6 +18,7 @@ let
     compression = "zstd,1";
     startAt = "*-*-* 0/6:00:00";
     prune = lib.mkIf (prune != null) prune;
+    postHook = cadencePostHook cadenceSlug;
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
@@ -103,6 +113,7 @@ in
           "--debug"
           "--sshoption=StrictHostKeyChecking=off"
         ];
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-NelsonData"}";
       };
       "vor/vault/Backups/level1" = {
         source = "vault/data/level1";
@@ -113,6 +124,7 @@ in
           "--debug"
           "--sshoption=StrictHostKeyChecking=off"
         ];
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-level1"}";
       };
       "vor/vault/Backups/level2" = {
         source = "vault/data/level2";
@@ -123,16 +135,36 @@ in
           "--debug"
           "--sshoption=StrictHostKeyChecking=off"
         ];
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-level2"}";
       };
     };
   };
 
   age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
 
+  age.secrets.cadence_check_borgbackup_romeo_level1.rekeyFile =
+    ../../secrets/store/cadence/checks/borgbackup-romeo-level1.age;
+  age.secrets.cadence_check_borgbackup_romeo_level2.rekeyFile =
+    ../../secrets/store/cadence/checks/borgbackup-romeo-level2.age;
+  age.secrets.cadence_check_borgbackup_romeo_level3.rekeyFile =
+    ../../secrets/store/cadence/checks/borgbackup-romeo-level3.age;
+  age.secrets.cadence_check_syncoid_romeo_NelsonData.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-NelsonData.age;
+  age.secrets.cadence_check_syncoid_romeo_level1.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-level1.age;
+  age.secrets.cadence_check_syncoid_romeo_level2.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-level2.age;
+  age.secrets.cadence_check_zfs_scrub_romeo.rekeyFile =
+    ../../secrets/store/cadence/checks/zfs-scrub-romeo.age;
+
+  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
+    "+${cadencePingExec "zfs-scrub-romeo"}";
+
   services.borgbackup.jobs = {
     level1 = basicBorgJob {
       repo = borgReposSecrets.level1;
       paths = "/mnt/vault/data/level1";
+      cadenceSlug = "borgbackup-romeo-level1";
       prune.keep = {
         within = "7d";
         daily = 31;
@@ -142,6 +174,7 @@ in
     level2 = basicBorgJob {
       repo = borgReposSecrets.level2;
       paths = "/mnt/vault/data/level2";
+      cadenceSlug = "borgbackup-romeo-level2";
       prune.keep = {
         within = "7d";
         daily = 7;
@@ -153,6 +186,7 @@ in
     level3 = basicBorgJob {
       repo = borgReposSecrets.level3;
       paths = "/mnt/vault/data/level3";
+      cadenceSlug = "borgbackup-romeo-level3";
       prune.keep = {
         within = "7d";
         daily = 7;
