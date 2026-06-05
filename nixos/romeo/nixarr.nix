@@ -5,6 +5,16 @@ let
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
+  patchedNixarrSource = pkgs.runCommandLocal "nixarr-jellyfin-openapi-hash-fix" {} ''
+    cp -r ${inputs.nixarr} $out
+    chmod -R u+w $out
+    substituteInPlace $out/nixarr/lib/nixarr-py/python-deps.nix \
+      --replace-fail \
+      '"10.11.8" = "sha256-Fqzv/r1ntNn9/wPSD1wRvH9rUyjjBV0lrxw3hdBgrtA=";' \
+      '"10.11.8" = "sha256-Fqzv/r1ntNn9/wPSD1wRvH9rUyjjBV0lrxw3hdBgrtA=";
+          "10.11.9" = "sha256-3+QrbX658CN46/qfAh3Yj7sRDn50fMlLQvckSHTVuFk=";
+          "10.11.10" = "sha256-3FfqhqQfuQdM/02NyhAWDW7H6OaTynWtaUBoSIxk4AQ=";'
+  '';
 in
 {
   imports =
@@ -19,6 +29,7 @@ in
 
   nixarr = {
     enable = true;
+    nixarr-py.package = pkgs.callPackage "${patchedNixarrSource}/nixarr/lib/nixarr-py" {};
 
     vpn = {
       enable = true;
