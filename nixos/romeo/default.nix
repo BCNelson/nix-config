@@ -56,7 +56,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = "${pkgs.coreutils}/bin/true";
-      ExecStop = "${services.networkBacked}/bin/dockerStack-general down";
+      ExecStop = "${services.networkBacked}/bin/dockerStack-general down -t 20";
       TimeoutStopSec = 30;
     };
   };
