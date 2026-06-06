@@ -69,7 +69,7 @@ in
   };
 
   tika = {
-    image = "ghcr.io/paperless-ngx/tika:latest";
+    image = "docker.io/apache/tika:latest";
     restart = "unless-stopped";
   };
 }
