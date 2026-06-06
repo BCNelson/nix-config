@@ -8,7 +8,13 @@ let
   cadencePostHook = slug: ''
     url="https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
     if [ "$exitStatus" -ne 0 ]; then url="$url/fail"; fi
-    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 "$url" || true
+    ${pkgs.systemd}/bin/journalctl _SYSTEMD_INVOCATION_ID="$INVOCATION_ID" \
+        --no-pager --no-hostname -o short-iso 2>/dev/null \
+      | tail -n 200 | tail -c 9000 \
+      | ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+          -H "Content-Type: text/plain; charset=utf-8" \
+          --data-binary @- \
+          "$url" || true
   '';
   cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
     exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
