@@ -10,7 +10,15 @@ let
   cadencePingResultExec = slug: pkgs.writeShellScript "cadence-ping-${slug}-result" ''
     url="https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
     if [ "$SERVICE_RESULT" != "success" ]; then url="$url/fail"; fi
-    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 "$url" || true
+    # Post this invocation's journal as the ping body so cadence captures
+    # failure context. 10 KiB cap on cadence side; leave headroom.
+    ${pkgs.systemd}/bin/journalctl _SYSTEMD_INVOCATION_ID="$INVOCATION_ID" \
+        --no-pager --no-hostname -o short-iso 2>/dev/null \
+      | tail -n 200 | tail -c 9000 \
+      | ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+          -H "Content-Type: text/plain; charset=utf-8" \
+          --data-binary @- \
+          "$url" || true
   '';
 in
 {
