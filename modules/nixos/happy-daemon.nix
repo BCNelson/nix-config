@@ -15,6 +15,8 @@ in
 
     authNotifyPackage = lib.mkPackageOption pkgs "happy-auth-notify" { };
 
+    claudePackage = lib.mkPackageOption pkgs "claude-code" { };
+
     happyHomeDir = lib.mkOption {
       type = lib.types.str;
       default = "/home/${cfg.user}/.local/share/happy";
@@ -60,6 +62,7 @@ in
           Environment = [
             "HOME=/home/${cfg.user}"
             "HAPPY_HOME_DIR=${cfg.happyHomeDir}"
+            "HAPPY_CLAUDE_PATH=${cfg.claudePackage}/bin/claude"
           ];
           ExecStart = "${cfg.package}/bin/happy daemon start-sync";
           Restart = "on-failure";
