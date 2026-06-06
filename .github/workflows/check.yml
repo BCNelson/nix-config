@@ -7,22 +7,24 @@ concurrency:
 on:
   pull_request:
     paths:
-      - '**.nix'
-      - '**.age'
-      - '.github/workflows/check.yml'
+      - "**.nix"
+      - "**.age"
+      - ".github/workflows/check.yml"
+      - "flake.lock"
   push:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - '**.nix'
-      - '**.age'
-      - '.github/workflows/check.yml'
+      - "**.nix"
+      - "**.age"
+      - ".github/workflows/check.yml"
+      - "flake.lock"
   workflow_dispatch:
 
 jobs:
   check-hosts:
     uses: ./.github/workflows/check-nix-config.yml
-  
+
   auto-update:
     runs-on: ubuntu-latest
     timeout-minutes: 5
