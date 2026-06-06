@@ -24,6 +24,10 @@ in
       TIMEZONE = "America/Denver";
       FOUNDRY_WORLD = "Lambda";
     };
+    extraOptions = [
+      "--health-startup-cmd=for i in $(seq 1 10); do wget -qO- http://127.0.0.1:30000 >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1"
+      "--health-startup-success=1"
+    ];
     labels = {
       "io.containers.autoupdate" = "registry";
     };
