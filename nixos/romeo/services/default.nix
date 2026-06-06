@@ -32,13 +32,9 @@ in
     wantedBy = ["multi-user.target"];
   };
 
-  # podman-auto-update.service is vendored by the podman package; use a
-  # systemd drop-in to add a cadence ping on success without redefining
-  # the unit's ExecStart.
-  environment.etc."systemd/system/podman-auto-update.service.d/cadence-ping.conf".text = ''
-    [Service]
-    ExecStartPost=+${cadencePingExec "podman-auto-update-romeo"}
-  '';
+  systemd.services.podman-auto-update.serviceConfig.ExecStartPost = [
+    "+${cadencePingExec "podman-auto-update-romeo"}"
+  ];
 
   age.secrets.cadence_check_podman_auto_update_romeo.rekeyFile =
     ../../../secrets/store/cadence/checks/podman-auto-update-romeo.age;
