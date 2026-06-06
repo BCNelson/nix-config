@@ -23,6 +23,23 @@
           ]}
       '';
     });
+
+    # happy-coder pinned to nixpkgs PR #492656 (monorepo migration) until it
+    # lands in unstable. Brings 1.1.x without the bundled @anthropic-ai/claude-code
+    # 2.0.14 that crashes with `Cannot read properties of null (reading
+    # 'alwaysThinking')` on first message (anthropics/claude-code#52225).
+    # The PR's wrapper invokes node by absolute path, but the CLI spawns child
+    # `node` processes via PATH lookup (e.g. `happy daemon start-sync`), so
+    # add nodejs to PATH.
+    happy-coder = (inputs.nixpkgs-happy-coder.legacyPackages.${final.stdenv.hostPlatform.system}.happy-coder).overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ final.makeWrapper ];
+      postFixup = (old.postFixup or "") + ''
+        wrapProgram $out/bin/happy \
+          --prefix PATH : ${final.lib.makeBinPath [ final.nodejs ]}
+        wrapProgram $out/bin/happy-mcp \
+          --prefix PATH : ${final.lib.makeBinPath [ final.nodejs ]}
+      '';
+    });
   };
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will

@@ -959,6 +959,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-happy-coder": {
+      "locked": {
+        "lastModified": 1777745641,
+        "narHash": "sha256-dbc8VuxY2zMr8xot6mY8+xg23iQ8dNMLMUK9dQgouMc=",
+        "owner": "colonelpanic8",
+        "repo": "nixpkgs",
+        "rev": "f74f4e07652a690834d5e02b3507607dc5a24698",
+        "type": "github"
+      },
+      "original": {
+        "owner": "colonelpanic8",
+        "ref": "happy-coder-monorepo-migration",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-src": {
       "flake": false,
       "locked": {
@@ -1296,6 +1312,7 @@
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_5",
+        "nixpkgs-happy-coder": "nixpkgs-happy-coder",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "nixpkgs-unstable-small": "nixpkgs-unstable-small",
         "nixvim": "nixvim",

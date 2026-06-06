@@ -10,6 +10,10 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable-small.url = "github:nixos/nixpkgs/nixos-unstable-small";
 
+    # happy-coder PR #492656 — monorepo migration, brings 1.1.x without bundled
+    # claude-code. Remove once merged into unstable.
+    nixpkgs-happy-coder.url = "github:colonelpanic8/nixpkgs/happy-coder-monorepo-migration";
+
     # Home manager - always use unstable
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
