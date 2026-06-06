@@ -31,7 +31,7 @@
     # The PR's wrapper invokes node by absolute path, but the CLI spawns child
     # `node` processes via PATH lookup (e.g. `happy daemon start-sync`), so
     # add nodejs to PATH.
-    happy-coder = (inputs.nixpkgs-happy-coder.legacyPackages.${final.stdenv.hostPlatform.system}.happy-coder).overrideAttrs (old: {
+    happy-coder = inputs.nixpkgs-happy-coder.legacyPackages.${final.stdenv.hostPlatform.system}.happy-coder.overrideAttrs (old: {
       nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ final.makeWrapper ];
       postFixup = (old.postFixup or "") + ''
         wrapProgram $out/bin/happy \

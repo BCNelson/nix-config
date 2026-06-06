@@ -1,5 +1,10 @@
 { config, lib, pkgs, libx, ... }:
 let
+  cadencePreHook = slug: ''
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})/start" \
+      || true
+  '';
   cadencePostHook = slug: ''
     url="https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
     if [ "$exitStatus" -ne 0 ]; then url="$url/fail"; fi
@@ -8,6 +13,34 @@ let
   cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
     exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
       "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+  '';
+  cadenceStartExec = slug: pkgs.writeShellScript "cadence-start-${slug}" ''
+    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})/start"
+  '';
+  cadenceZfsScrubReport = slug: pkgs.writeShellScript "cadence-zfs-scrub-${slug}" ''
+    set -u
+    uuid="$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+    base="https://health.b.nel.family/ping/$uuid"
+    result="''${SERVICE_RESULT:-unknown}"
+    exit_code="''${EXIT_STATUS:-?}"
+    status_output="$(${pkgs.zfs}/bin/zpool status 2>&1 || true)"
+    errors_output="$(${pkgs.zfs}/bin/zpool status -x 2>&1 || true)"
+    if [ "$result" = "success" ] && printf '%s\n' "$errors_output" | grep -q "all pools are healthy"; then
+      url="$base"
+    else
+      url="$base/fail"
+    fi
+    body="SERVICE_RESULT=$result EXIT_STATUS=$exit_code
+
+    zpool status -x:
+    $errors_output
+
+    zpool status:
+    $status_output
+    "
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      --data-binary "$body" "$url" || true
   '';
   basicBorgJob = { repo, paths, cadenceSlug, prune ? null }: {
     inherit repo paths;
@@ -18,6 +51,7 @@ let
     compression = "zstd,1";
     startAt = "*-*-* 0/6:00:00";
     prune = lib.mkIf (prune != null) prune;
+    preHook = cadencePreHook cadenceSlug;
     postHook = cadencePostHook cadenceSlug;
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
@@ -157,8 +191,10 @@ in
   age.secrets.cadence_check_zfs_scrub_romeo.rekeyFile =
     ../../secrets/store/cadence/checks/zfs-scrub-romeo.age;
 
-  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
-    "+${cadencePingExec "zfs-scrub-romeo"}";
+  systemd.services.zfs-scrub.serviceConfig = {
+    ExecStartPre = "+${cadenceStartExec "zfs-scrub-romeo"}";
+    ExecStopPost = "+${cadenceZfsScrubReport "zfs-scrub-romeo"}";
+  };
 
   services.borgbackup.jobs = {
     level1 = basicBorgJob {

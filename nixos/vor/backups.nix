@@ -4,6 +4,34 @@ let
     exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
       "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
   '';
+  cadenceStartExec = slug: pkgs.writeShellScript "cadence-start-${slug}" ''
+    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})/start"
+  '';
+  cadenceZfsScrubReport = slug: pkgs.writeShellScript "cadence-zfs-scrub-${slug}" ''
+    set -u
+    uuid="$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+    base="https://health.b.nel.family/ping/$uuid"
+    result="''${SERVICE_RESULT:-unknown}"
+    exit_code="''${EXIT_STATUS:-?}"
+    status_output="$(${pkgs.zfs}/bin/zpool status 2>&1 || true)"
+    errors_output="$(${pkgs.zfs}/bin/zpool status -x 2>&1 || true)"
+    if [ "$result" = "success" ] && printf '%s\n' "$errors_output" | grep -q "all pools are healthy"; then
+      url="$base"
+    else
+      url="$base/fail"
+    fi
+    body="SERVICE_RESULT=$result EXIT_STATUS=$exit_code
+
+    zpool status -x:
+    $errors_output
+
+    zpool status:
+    $status_output
+    "
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      --data-binary "$body" "$url" || true
+  '';
 in
 {
   age.secrets.cadence_check_syncoid_vor_NelsonData.rekeyFile =
@@ -11,8 +39,10 @@ in
   age.secrets.cadence_check_zfs_scrub_vor.rekeyFile =
     ../../secrets/store/cadence/checks/zfs-scrub-vor.age;
 
-  systemd.services.zfs-scrub.serviceConfig.ExecStartPost =
-    "+${cadencePingExec "zfs-scrub-vor"}";
+  systemd.services.zfs-scrub.serviceConfig = {
+    ExecStartPre = "+${cadenceStartExec "zfs-scrub-vor"}";
+    ExecStopPost = "+${cadenceZfsScrubReport "zfs-scrub-vor"}";
+  };
 
   services.sanoid = {
     enable = true;

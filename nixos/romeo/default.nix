@@ -2,9 +2,15 @@
 let
   dataDirs = config.data.dirs;
   services = import ./docker-services { inherit libx dataDirs pkgs; };
-  cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
-    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
-      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+  cadencePingStartExec = slug: pkgs.writeShellScript "cadence-ping-${slug}-start" ''
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})/start" \
+      || true
+  '';
+  cadencePingResultExec = slug: pkgs.writeShellScript "cadence-ping-${slug}-result" ''
+    url="https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
+    if [ "$SERVICE_RESULT" != "success" ]; then url="$url/fail"; fi
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 "$url" || true
   '';
 in
 {
@@ -44,8 +50,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       User = "root";
+      ExecStartPre = "${cadencePingStartExec "auto-update-services-romeo"}";
       ExecStart = "${services.networkBacked}/bin/dockerStack-general up -d --remove-orphans --pull always --quiet-pull";
-      ExecStartPost = "${cadencePingExec "auto-update-services-romeo"}";
+      ExecStopPost = "${cadencePingResultExec "auto-update-services-romeo"}";
     };
     restartTriggers = [ services.networkBacked ];
     restartIfChanged = false;
