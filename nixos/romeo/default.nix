@@ -284,9 +284,15 @@ in
         };
       };
       # Reverse-proxy *.cwnel.com (Carter's portfolio apps) to bulbasaur's k3s
-      # Traefik ingress over Tailscale. romeo terminates TLS here with a wildcard
-      # cert; Traefik routes by Host. recommendedProxySettings forwards Host +
-      # X-Forwarded-For so the apps see the real client IP.
+      # Traefik ingress. romeo terminates TLS here with a wildcard cert; Traefik
+      # routes by Host. recommendedProxySettings forwards Host + X-Forwarded-For
+      # so the apps see the real client IP.
+      #
+      # Reached over the shared physical LAN (bulbasaur is 192.168.3.82), NOT
+      # bulbasaur's Tailscale IP: bulbasaur is shared into our tailnet from
+      # Carter's, and Tailscale node-sharing is user-identity based, so romeo
+      # (a tagged device, tag:server) cannot reach a shared node over Tailscale
+      # at all. The LAN path sidesteps that entirely. See tailscale#5321.
       "*.cwnel.com" = {
         useACMEHost = "cwnel.com";
         forceSSL = true;
@@ -295,7 +301,7 @@ in
         '';
         locations = {
           "/" = {
-            proxyPass = "http://100.78.86.4:80";
+            proxyPass = "http://192.168.3.82:80";
             proxyWebsockets = true;
           };
         };
