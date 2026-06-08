@@ -86,6 +86,11 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    tendant = {
+      url = "github:BCNelson/tendant";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

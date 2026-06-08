@@ -25,6 +25,7 @@ in
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
+    ./tendant.nix
   ];
 
   systemd.timers.podman-auto-update = {
