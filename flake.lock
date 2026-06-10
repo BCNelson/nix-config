@@ -1890,11 +1890,11 @@
         "rust-overlay": "rust-overlay_6"
       },
       "locked": {
-        "lastModified": 1780986682,
-        "narHash": "sha256-RzVSYzGmDOMunHTjo0be8UuTCphIX7cbjotffzgLFX8=",
+        "lastModified": 1781069554,
+        "narHash": "sha256-6B6hJTH9a+iBbwVePxetsFB0MQP3I355KvbL8DR1F00=",
         "owner": "BCNelson",
         "repo": "tendant",
-        "rev": "aebd0a4d56534282b1f45af376320ab76248614a",
+        "rev": "9845e004d96737ebc555d61f248e728a74ba3296",
         "type": "github"
       },
       "original": {
