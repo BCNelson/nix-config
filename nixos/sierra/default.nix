@@ -17,6 +17,7 @@
       ../_mixins/roles/nfs.nix
       ../_mixins/roles/kanidmClient.nix
       ../_mixins/roles/workstation.nix
+      ./ollama.nix
     ];
   networking.firewall = {
     enable = true;
