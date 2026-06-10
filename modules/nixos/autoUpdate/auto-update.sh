@@ -39,9 +39,16 @@ fi
 cleanup_and_exit() {
     if [ -n "${HEALTHCHECK_UUID-}" ] && [ -n "${HEALTHCHECK_URL-}" ]; then
         if [ "$complete" -eq 0 ]; then
-            curl --silent --show-error --retry 5 --data-raw "$(cat "$tempfile")" "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/fail"
+            # Send the log as the request body via stdin, not as a CLI argument:
+            # a failed nixos-rebuild log can exceed the kernel's per-argument
+            # limit (~128KiB), which makes `--data-raw "$(cat ...)"` fail to exec
+            # curl at all, so the failure ping never reaches the health check.
+            # Cadence caps the stored body (DefaultMaxBodyBytes = 10KiB) and keeps
+            # the head, so send the *tail* — the actual error is at the end.
+            tail -c 10000 "$tempfile" | curl --silent --show-error --retry 5 \
+                --data-binary @- "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/fail" || true
         else
-            curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID"
+            curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID" || true
         fi
     fi
     rm -f "$tempfile"
@@ -50,6 +57,33 @@ cleanup_and_exit() {
 }
 
 trap 'cleanup_and_exit $?' EXIT
+
+# Persistent retry state across timer-spaced runs. systemd provides
+# $STATE_DIRECTORY via StateDirectory=; fall back for manual invocation.
+STATE_DIR="${STATE_DIRECTORY:-/var/lib/auto-update}"
+STATE_FILE="$STATE_DIR/state"
+MAX_RETRIES="${MAX_RETRIES:-3}"
+
+# BUILT_COMMIT  - last commit that built successfully
+# ATTEMPT_COMMIT - commit currently being retried
+# ATTEMPT_COUNT  - rebuild attempts made for ATTEMPT_COMMIT
+BUILT_COMMIT=""
+ATTEMPT_COMMIT=""
+ATTEMPT_COUNT=0
+
+mkdir -p "$STATE_DIR"
+if [ -f "$STATE_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$STATE_FILE"
+fi
+
+save_state() {
+    {
+        echo "BUILT_COMMIT=$BUILT_COMMIT"
+        echo "ATTEMPT_COMMIT=$ATTEMPT_COMMIT"
+        echo "ATTEMPT_COUNT=$ATTEMPT_COUNT"
+    } > "$STATE_FILE"
+}
 
 log "setting git safe directory"
 git config --global --add safe.directory "$CONFIG_PATH"
@@ -61,11 +95,6 @@ if ! git config --local --get filter.git-crypt.smudge > /dev/null; then
     log "Locked and must be unlocked before update"
     cleanup_and_exit 1
 fi
-
-hashBefore=$(git rev-parse HEAD) || {
-    log "Failed to get current commit hash"
-    cleanup_and_exit 1
-}
 
 # Pull changes
 sudo -u "$USER" bash <<EOF
@@ -83,16 +112,40 @@ if [[ $PULL_EXIT_CODE -ne 0 ]]; then
     cleanup_and_exit 1
 fi
 
-hashAfter=$(git rev-parse HEAD) || {
+targetCommit=$(git rev-parse HEAD) || {
     log "Failed to get new commit hash"
     cleanup_and_exit 1
 }
 
-if [ "$hashBefore" == "$hashAfter" ]; then
-    log "No changes"
+# Decide whether to build based on the last commit we actually built, not on
+# whether the pull moved HEAD. Otherwise a commit that fails to build is built
+# exactly once (HEAD moves to it) and every later run sees "No changes",
+# stops retrying, and falsely reports success.
+if [ "$targetCommit" == "$BUILT_COMMIT" ]; then
+    log "Already built $targetCommit; up to date"
     complete=1
     cleanup_and_exit 0
 fi
+
+# New commit to attempt -> reset the per-commit retry counter.
+if [ "$targetCommit" != "$ATTEMPT_COMMIT" ]; then
+    ATTEMPT_COMMIT="$targetCommit"
+    ATTEMPT_COUNT=0
+fi
+
+# Retry limit reached: stop rebuilding this commit but keep reporting failure
+# every interval until a new (fix) commit arrives.
+if [ "$ATTEMPT_COUNT" -ge "$MAX_RETRIES" ]; then
+    log "Commit $targetCommit failed $ATTEMPT_COUNT times; retry limit ($MAX_RETRIES) reached, not rebuilding"
+    save_state
+    complete=0
+    cleanup_and_exit 1
+fi
+
+# Persist the incremented count BEFORE building so a timeout/crash still counts.
+ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
+log "Rebuild attempt $ATTEMPT_COUNT/$MAX_RETRIES for $targetCommit"
+save_state
 
 # Rebuild system. If `switch` is blocked by switchInhibitors (e.g. dbus
 # implementation or kernel changes that can't be applied live), fall back to
@@ -116,6 +169,13 @@ if ! nixos-rebuild switch --flake ".#$(hostname -s)" |& tee -a "$tempfile" "$reb
     fi
 fi
 rm -f "$rebuild_output"
+
+# Rebuild succeeded: record it and clear the retry counter so later runs treat
+# this commit as up to date.
+BUILT_COMMIT="$targetCommit"
+ATTEMPT_COMMIT=""
+ATTEMPT_COUNT=0
+save_state
 
 # Check if a reboot is required
 current_system_initrd=$(readlink /run/current-system/initrd)

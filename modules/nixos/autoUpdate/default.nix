@@ -79,6 +79,11 @@ in
         default = "15m";
         description = "Refresh interval";
       };
+      maxRetries = lib.mkOption {
+        type = lib.types.int;
+        default = 3;
+        description = "Number of rebuild attempts per commit before giving up (still reports failure to health checks after).";
+      };
       user = lib.mkOption {
         type = lib.types.str;
         default = "root";
@@ -135,6 +140,7 @@ in
         HEALTHCHECK_UUID_FILE = if cfg.healthCheck.enable then cfg.healthCheck.uuidFile else "";
         HEALTHCHECK_URL = if cfg.healthCheck.enable then cfg.healthCheck.url else "";
         REBOOT = if cfg.reboot then "true" else "false";
+        MAX_RETRIES = toString cfg.maxRetries;
         CONFIG_PATH = cfg.path;
         GIT_COMMITTER_EMAIL = "admin@nel.family";
         GIT_COMMITTER_NAME = "Admin";
@@ -145,6 +151,7 @@ in
         User = "root";
         ExecStart = "${autoUpdateScript}/bin/auto-update";
         TimeoutStartSec = "6h";
+        StateDirectory = "auto-update";
         Slice = "system-autoupdate.slice";
       };
       restartIfChanged = false;
