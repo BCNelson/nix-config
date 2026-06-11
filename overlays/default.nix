@@ -9,7 +9,13 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
-    claude-code = prev.claude-code.overrideAttrs (oldAttrs: {
+    # claude-code 2.1.170 pinned to nixpkgs PR #530023 (samestep:claude-code-2.1.170)
+    # until it lands in nixos-unstable. Imported with allowUnfree because claude-code
+    # is unfree and a bare legacyPackages reference would fail the unfree check.
+    claude-code = (import inputs.nixpkgs-claude-code {
+      inherit (final.stdenv.hostPlatform) system;
+      config.allowUnfree = true;
+    }).claude-code.overrideAttrs (oldAttrs: {
       postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
           --prefix PATH : ${final.lib.makeBinPath [
