@@ -25,13 +25,16 @@
     bitwarden = {
       name = "Tendant Device Pairing";
       username = "owner";
-      uris = { uri = "https://tendant.nel.family"; matchType = "host"; };
+      uris = {
+        uri = "https://tendant.nel.family";
+        matchType = "host";
+      };
       notes = "Static device-pairing password for tendant on romeo-2. Enter it as the password in the pairDevice flow (displayName is any label for the device); each device then gets its own revocable session token.";
     };
   };
 
   services.tendant = {
-    enable = true;
+    enable = false;
     httpAddr = "127.0.0.1:8095";
     # Provisions a local PostgreSQL + pgvector and a tendant DB/role; DSN
     # defaults to the local socket.
