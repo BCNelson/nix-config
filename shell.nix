@@ -1,7 +1,7 @@
 # Shell for bootstrapping flake-enabled nix and home-manager
 # You can enter it through 'nix develop' or (legacy) 'nix-shell'
 
-{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, ... }:
+{ pkgs ? (import ./nixpkgs.nix) { }, system, lib, outputs, ... }:
 let
   rustpkg = pkgs.rust-bin.stable.latest.default.override {
     extensions = [ "rust-src" ];
@@ -48,6 +48,9 @@ in
 
       bitwarden-cli
       nil
+
+      # Local SSH MCP server, consumed by .mcp.json as a bare `ssh-mcp` command
+      outputs.packages.${system}.ssh-mcp
     ] ++ lib.optional (lib.hasInfix "linux" system) [
       pkgs.quickemu
       pkgs.qemu

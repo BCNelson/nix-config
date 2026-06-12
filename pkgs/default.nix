@@ -11,6 +11,7 @@ pkgs: {
   openhuman = pkgs.callPackage ./openhuman.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   codex-config-merge = pkgs.callPackage ./codex-config-merge { };
+  ssh-mcp = pkgs.callPackage ./ssh-mcp { };
   happy-auth-notify = pkgs.callPackage ./happy-auth-notify { };
   kwin-adaptive-workspaces = pkgs.callPackage ./kwin-adaptive-workspaces { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };

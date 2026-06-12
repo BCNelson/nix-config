@@ -9,6 +9,21 @@
     "nix": {
       "command": "nix",
       "args": ["run", "github:utensils/mcp-nixos", "--"]
+    },
+    "ssh": {
+      "command": "ssh-mcp",
+      "args": [
+        "--host",
+        "romeo=bcnelson@romeo.b.nel.family",
+        "--host",
+        "whiskey=bcnelson@whiskey.b.nel.family",
+        "--host",
+        "charlie=bcnelson@charlie.b.nel.family",
+        "--host",
+        "ryuu=bcnelson@ryuu.llp.nel.family",
+        "--host",
+        "vor=bcnelson@vor.ck.nel.family"
+      ]
     }
   }
 }
