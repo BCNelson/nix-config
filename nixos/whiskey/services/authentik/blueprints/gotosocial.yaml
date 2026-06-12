@@ -11,6 +11,12 @@ entries:
       name: gotosocial
       client_type: confidential
       client_id: gotosocial
+      # Authentik 2026.x requires grant_types to be set explicitly; the model
+      # default is an empty list, which rejects the auth-code flow with
+      # "Invalid grant_type for provider" -> "request is otherwise malformed".
+      grant_types:
+        - authorization_code
+        - refresh_token
       # Injected from the systemd EnvironmentFile (see authentik.nix).
       client_secret: !Env GOTOSOCIAL_OAUTH_CLIENT_SECRET
       authorization_flow:
