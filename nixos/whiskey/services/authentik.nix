@@ -79,6 +79,11 @@ in {
     # defaults, so the module's bundled nginx is disabled.
     nginx.enable = false;
 
+    # The worker's HTTP server defaults to [::1]:9001, which collides with
+    # Prometheus (services.prometheus.port = 9001 in monitoring.nix) and
+    # crashes the worker on bind. Move it off 9001; Prometheus was there first.
+    worker.listenHTTP = "[::1]:9002";
+
     settings = {
       disable_startup_analytics = true;
       avatars = "initials";
