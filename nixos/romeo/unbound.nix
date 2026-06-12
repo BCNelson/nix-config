@@ -7,6 +7,8 @@ let
       recipes.nel.family A 192.168.3.7
       h.b.nel.family A 192.168.3.7
       media.nel.family A 192.168.3.7
+      nel.family A 192.168.3.7
+      social.nel.family A 192.168.3.7
       audiobooks.nel.family A 192.168.3.7
       changedetection.nel.family A 192.168.3.7
       rom.nel.family A 192.168.3.7
@@ -23,7 +25,11 @@ in
     settings = {
       server = {
         module-config = ''"respip validator iterator"'';
-        interface = [ "127.0.0.1@53" "::1@53" "192.168.3.7@53" ];
+        interface = [
+          "127.0.0.1@53"
+          "::1@53"
+          "192.168.3.7@53"
+        ];
         do-ip6 = "yes";
         access-control = [
           "127.0.0.1/32 allow"
