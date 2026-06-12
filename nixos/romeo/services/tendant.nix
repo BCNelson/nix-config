@@ -3,7 +3,10 @@
   imports = [ inputs.tendant.nixosModules.tendant ];
 
   # base64 AES-256 key for the credentials vault (TENDANT_CREDENTIALS_KEY).
-  age.secrets.tendant-credentials-key = {
+  # Guarded on enable: owner/group default to the "tendant" system user, which
+  # the upstream module only creates when enabled. Activating the secret while
+  # disabled chowns to a nonexistent user ("chown: invalid user: tendant:tendant").
+  age.secrets.tendant-credentials-key = lib.mkIf config.services.tendant.enable {
     rekeyFile = ./secrets/tendant_credentials_key.age;
     generator.script = { pkgs, ... }: "${pkgs.openssl}/bin/openssl rand -base64 32";
     owner = config.services.tendant.user;
@@ -15,7 +18,7 @@
   # the pairDevice mutation; each device is then issued its own session token.
   # Retrieve the value to pair a device with: `agenix decrypt secrets/store/... `
   # (or read /run/agenix/tendant-password on the host).
-  age.secrets.tendant-password = {
+  age.secrets.tendant-password = lib.mkIf config.services.tendant.enable {
     rekeyFile = ./secrets/tendant_password.age;
     # Human-typeable passphrase (xkcdpass, 6 words) — entered during pairing.
     generator.script = "passphrase";
