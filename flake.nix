@@ -27,6 +27,11 @@
     agenix-rekey.inputs.nixpkgs.follows = "nixpkgs-unstable";
     agenix-template.url = "github:jhillyerd/agenix-template/1.0.0";
 
+    authentik-nix = {
+      url = "github:nix-community/authentik-nix";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -131,6 +136,7 @@
           inputs.agenix.nixosModules.default
           inputs.agenix-rekey.nixosModules.default
           inputs.agenix-template.nixosModules.default
+          inputs.authentik-nix.nixosModules.default
         ] ++ (builtins.attrValues (import ./modules/nixos));
       };
 

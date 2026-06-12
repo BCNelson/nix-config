@@ -1,11 +1,10 @@
-{ pkgs, ... }:
-let
-  cadencePingExec = slug: pkgs.writeShellScript "cadence-ping-${slug}" ''
-    exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
-      "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})"
-  '';
-in
-{
+{pkgs, ...}: let
+  cadencePingExec = slug:
+    pkgs.writeShellScript "cadence-ping-${slug}" ''
+      exec ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+        "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings ["-"] ["_"] slug})"
+    '';
+in {
   imports = [
     ./actual.nix
     ./audiobookshelf.nix
@@ -19,6 +18,7 @@ in
     ./syncthing.nix
     ./node-red.nix
     ./frigate.nix
+    ./gotosocial.nix
     ./ollama.nix
     ./open-webui.nix
     ./jellyswarrm.nix

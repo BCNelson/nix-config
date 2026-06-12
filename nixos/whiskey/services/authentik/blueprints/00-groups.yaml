@@ -1,0 +1,19 @@
+version: 1
+metadata:
+  name: nel-family-groups
+entries:
+  - model: authentik_core.group
+    identifiers:
+      name: household
+    attrs:
+      name: household
+  - model: authentik_core.group
+    identifiers:
+      name: extended_family
+    attrs:
+      name: extended_family
+  - model: authentik_core.group
+    identifiers:
+      name: service_admins
+    attrs:
+      name: service_admins

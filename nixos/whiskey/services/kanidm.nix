@@ -1,5 +1,8 @@
-{ config, pkgs, ... }:
 {
+  config,
+  pkgs,
+  ...
+}: {
   services.nginx = {
     enable = true;
     virtualHosts = {
@@ -20,7 +23,7 @@
   };
 
   users.groups.kanidm = {
-    members = [ "nginx" ];
+    members = ["nginx"];
   };
 
   security.acme = {
@@ -32,7 +35,7 @@
   age.secrets.kanidm-admin-password = {
     rekeyFile = ./secrets/kanidm_admin_password.age;
     generator.script = "passphrase";
-    mode= "0400";
+    mode = "0400";
     owner = "kanidm";
     bitwarden = {
       name = "Kanidm Admin Password";
@@ -114,6 +117,13 @@
     owner = "kanidm";
   };
 
+  age.secrets.gotosocial-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/gotosocial_auth_client_secret.age;
+    generator.script = "alnum";
+    mode = "0400";
+    owner = "kanidm";
+  };
+
   age.secrets.journiv-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/journiv_auth_client_secret.age;
     generator.script = "alnum";
@@ -161,14 +171,14 @@
       systems.oauth2 = {
         "audiobookshelf" = {
           displayName = "Audiobookshelf";
-          originUrl = [ 
+          originUrl = [
             "https://audiobooks.nel.family/auth/openid/callback"
             "https://audiobooks.nel.family/auth/openid/mobile-redirect"
           ];
           originLanding = "https://audiobooks.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile"];
-            "extended_family" = [ "email" "openid" "profile"];
+            "household" = ["email" "openid" "profile"];
+            "extended_family" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.audiobookshelf-oauth-client-secret.path;
           preferShortUsername = true;
@@ -182,7 +192,7 @@
           ];
           originLanding = "https://photos.h.b.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile"];
+            "household" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.immich-oauth-client-secret.path;
           preferShortUsername = true;
@@ -192,7 +202,7 @@
           originUrl = "https://todo.nel.family/auth/openid/";
           originLanding = "https://todo.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile"];
+            "household" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.vikunja-oauth-client-secret.path;
           allowInsecureClientDisablePkce = true;
@@ -202,8 +212,8 @@
           originUrl = "https://recipes.nel.family/login";
           originLanding = "https://recipes.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "groups" "openid" "profile"];
-            "extended_family" = [ "email" "groups" "openid" "profile"];
+            "household" = ["email" "groups" "openid" "profile"];
+            "extended_family" = ["email" "groups" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.mealie-oauth-client-secret.path;
         };
@@ -212,8 +222,8 @@
           originUrl = "https://jellyfin.example.com/sso/OID/redirect/kanidm";
           originLanding = "https://media.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "groups" "openid" "profile"];
-            "extended_family" = [ "email" "groups" "openid" "profile"];
+            "household" = ["email" "groups" "openid" "profile"];
+            "extended_family" = ["email" "groups" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.jellyfin-oauth-client-secret.path;
         };
@@ -222,7 +232,7 @@
           originUrl = "https://docs.h.b.nel.family/accounts/oidc/kanidm/login/callback/";
           originLanding = "https://docs.h.b.nel.family/";
           scopeMaps = {
-            "service_admins" = [ "email" "groups" "openid" "profile"];
+            "service_admins" = ["email" "groups" "openid" "profile"];
           };
         };
         "grafana" = {
@@ -230,12 +240,12 @@
           originUrl = "https://grafana.b.nel.family/login/generic_oauth";
           originLanding = "https://grafana.b.nel.family/";
           scopeMaps = {
-            "service_admins" = [ "email" "groups" "openid" "profile"];
+            "service_admins" = ["email" "groups" "openid" "profile"];
           };
           claimMaps = {
             "grafana_role" = {
               valuesByGroup = {
-                "service_admins" = [ "GrafanaAdmin" ];
+                "service_admins" = ["GrafanaAdmin"];
               };
             };
           };
@@ -246,7 +256,7 @@
           originUrl = "https://budget.h.b.nel.family/openid/callback";
           originLanding = "https://budget.h.b.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile" ];
+            "household" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.actual-oauth-client-secret.path;
           preferShortUsername = true;
@@ -258,8 +268,8 @@
           originUrl = "https://rom.nel.family/api/oauth/openid";
           originLanding = "https://rom.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile" ];
-            "extended_family" = [ "email" "openid" "profile" ];
+            "household" = ["email" "openid" "profile"];
+            "extended_family" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.romm-oauth-client-secret.path;
           preferShortUsername = true;
@@ -270,17 +280,32 @@
           originUrl = "https://journal.nel.family/api/v1/auth/oidc/callback";
           originLanding = "https://journal.nel.family/";
           scopeMaps = {
-            "household" = [ "email" "openid" "profile" ];
+            "household" = ["email" "openid" "profile"];
           };
           basicSecretFile = config.age.secrets.journiv-oauth-client-secret.path;
           preferShortUsername = true;
+        };
+        "gotosocial" = {
+          displayName = "GoToSocial";
+          originUrl = "https://social.nel.family/auth/callback";
+          originLanding = "https://social.nel.family/";
+          scopeMaps = {
+            "household" = ["email" "groups" "openid" "profile"];
+            "extended_family" = ["email" "groups" "openid" "profile"];
+          };
+          basicSecretFile = config.age.secrets.gotosocial-oauth-client-secret.path;
+          preferShortUsername = true;
+          # GoToSocial does not send a PKCE code challenge. It is a confidential
+          # client (authenticates with the secret above), so disabling PKCE
+          # enforcement here is an acceptable tradeoff, matching vikunja/romm.
+          allowInsecureClientDisablePkce = true;
         };
         "cadence" = {
           displayName = "Cadence";
           originUrl = "https://health.b.nel.family/callback";
           originLanding = "https://health.b.nel.family/";
           scopeMaps = {
-            "service_admins" = [ "email" "openid" "profile" ];
+            "service_admins" = ["email" "openid" "profile"];
           };
           public = true;
           preferShortUsername = true;
@@ -290,7 +315,7 @@
         "bcnelson" = {
           present = true;
           displayName = "Bradley Nelson";
-          mailAddresses = [ "bradley@nel.family" ];
+          mailAddresses = ["bradley@nel.family"];
           groups = [
             "household"
             "service_admins"
@@ -299,20 +324,20 @@
         "haleylyn" = {
           present = true;
           displayName = "Haley Nelson";
-          mailAddresses = [ "haley.lyn15@gmail.com" ];
-          groups = [ "household" ];
+          mailAddresses = ["haley.lyn15@gmail.com"];
+          groups = ["household"];
         };
         "cwnelson" = {
           present = true;
           displayName = "Carter Nelson";
-          mailAddresses = [ "cartern215@gmail.com" ];
-          groups = [ "extended_family" ];
+          mailAddresses = ["cartern215@gmail.com"];
+          groups = ["extended_family"];
         };
         "krnelson" = {
           present = true;
           displayName = "Kimberly Nelson";
-          mailAddresses = [ "cknelson8@gmail.com" ];
-          groups = [ "extended_family" ];
+          mailAddresses = ["cknelson8@gmail.com"];
+          groups = ["extended_family"];
         };
       };
     };

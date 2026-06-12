@@ -10,7 +10,6 @@ let
       audiobooks.nel.family A 192.168.3.7
       changedetection.nel.family A 192.168.3.7
       rom.nel.family A 192.168.3.7
-      auth.nel.family A 192.168.3.7
       nixcache.nel.family A 192.168.3.7
       journal.nel.family A 192.168.3.7
     '';

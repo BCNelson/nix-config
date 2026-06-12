@@ -526,6 +526,13 @@ resource "porkbun_dns_record" "idm_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+resource "porkbun_dns_record" "auth_nel_family-CNAME" {
+  domain = "nel.family"
+  type = "CNAME"
+  name = "auth"
+  content = "public.whiskey.b.nel.family"
+}
+
 resource "cloudflare_record" "bcnelson_dev-github-verify" {
   zone_id = "2afab945023de6634b53f500f6a537fe"
   name    = "_github-pages-challenge-bcnelson"
