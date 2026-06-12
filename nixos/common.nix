@@ -15,14 +15,25 @@
       auto-optimise-store = true;
       experimental-features = [ "nix-command" "flakes" ];
 
+      # Allow bcnelson to add substituters / push to the store without sudo.
+      trusted-users = [ "root" "@wheel" "bcnelson" ];
+
       # Avoid unwanted garbage collection when using nix-direnv
       keep-outputs = true;
       keep-derivations = true;
 
       warn-dirty = false;
 
-      extra-substituters = [ "https://devenv.cachix.org" ];
-      extra-trusted-public-keys = [ "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=" ];
+      extra-substituters = [
+        "https://devenv.cachix.org"
+        # Prebuilt authentik (frontend/rust/gopkgs/etc.) from authentik-nix CI,
+        # so RAM-constrained hosts like whiskey don't OOM building it from source.
+        "https://nix-community.cachix.org"
+      ];
+      extra-trusted-public-keys = [
+        "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw="
+        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+      ];
     };
   };
 

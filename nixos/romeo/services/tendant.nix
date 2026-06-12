@@ -1,4 +1,4 @@
-{ config, inputs, ... }:
+{ config, inputs, lib, ... }:
 {
   imports = [ inputs.tendant.nixosModules.tendant ];
 
@@ -61,12 +61,15 @@
   };
 
   # The overseer talks to the local ollama daemon; start tendant after it.
-  systemd.services.tendant = {
+  # Guarded on enable: when disabled the upstream module provides no ExecStart,
+  # and an unconditional override here would leave a unit with only wants/after
+  # ("Service has no ExecStart=. Refusing." -> bad unit file setting).
+  systemd.services.tendant = lib.mkIf config.services.tendant.enable {
     wants = [ "ollama.service" ];
     after = [ "ollama.service" ];
   };
 
-  services.nginx = {
+  services.nginx = lib.mkIf config.services.tendant.enable {
     enable = true;
     virtualHosts."tendant.nel.family" = {
       forceSSL = true;

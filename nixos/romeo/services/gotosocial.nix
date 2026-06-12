@@ -42,7 +42,7 @@ in {
       protocol = "https";
       # Only listen on loopback; nginx terminates TLS and proxies in.
       bind-address = "127.0.0.1";
-      port = 8080;
+      port = 8087;
       trusted-proxies = ["127.0.0.1/32" "::1"];
 
       # Media + attachments live on the vault dataset so they are captured by
@@ -129,7 +129,7 @@ in {
       # GoToSocial's default media limits top out around 40M.
       extraConfig = "client_max_body_size 40M;";
       locations."/" = {
-        proxyPass = "http://127.0.0.1:8080";
+        proxyPass = "http://127.0.0.1:8087";
         proxyWebsockets = true;
       };
     };
