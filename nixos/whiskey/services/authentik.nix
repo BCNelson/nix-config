@@ -7,17 +7,6 @@
   # Shared family Migadu SMTP password (git-crypt sensitive.nix), reused by
   # mealie/vikunja/vaultwarden. authenticates as admin@nel.family on :465 SSL.
   smtp_password = libx.getSecret ../../sensitive.nix "smtp_password";
-  # authentik scans a single blueprints directory recursively. The upstream
-  # package ships the default blueprints (default flows, stages, etc.) that our
-  # custom blueprints reference via !Find, so we merge upstream + ours into one
-  # directory and point blueprints_dir at the result.
-  mergedBlueprints = pkgs.symlinkJoin {
-    name = "authentik-blueprints";
-    paths = [
-      "${config.services.authentik.authentikComponents.staticWorkdirDeps}/blueprints"
-      ./authentik/blueprints
-    ];
-  };
 in {
   ##########################################################################
   # Secrets (agenix-rekey)
@@ -84,6 +73,10 @@ in {
     # crashes the worker on bind. Move it off 9001; Prometheus was there first.
     worker.listenHTTP = "[::1]:9002";
 
+    # Our custom blueprints (referenced via !Find from the upstream defaults),
+    # merged into blueprints_dir as real files by modules/nixos/authentik-blueprints.
+    extraBlueprints = [ ./authentik/blueprints ];
+
     settings = {
       disable_startup_analytics = true;
       avatars = "initials";
@@ -96,8 +89,6 @@ in {
         use_tls = false;
         from = "admin@nel.family";
       };
-      # Merge our custom blueprints with the upstream defaults.
-      blueprints_dir = "${mergedBlueprints}";
     };
   };
 
