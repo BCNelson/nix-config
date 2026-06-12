@@ -445,6 +445,25 @@ resource "porkbun_dns_record" "media_nel_family-CNAME" {
   content = "media.h.b.nel.family"
 }
 
+# social      CNAME  h.b.nel.family.   (GoToSocial public instance on romeo)
+resource "porkbun_dns_record" "social_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "social"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
+# nel.family apex -> ingress, so @user@nel.family webfinger/host-meta/nodeinfo
+# resolve for GoToSocial split-domain federation (account-domain = nel.family,
+# host = social.nel.family). Apex cannot be a CNAME; point at the ingress IP
+# (same target as the h.b A record above).
+resource "porkbun_dns_record" "nel_family-A" {
+  domain  = "nel.family"
+  type    = "A"
+  content = "66.118.47.137"
+  ttl     = 600
+}
+
 resource "porkbun_dns_record" "rom_nel_family" {
   domain = "nel.family"
   name = "rom"
