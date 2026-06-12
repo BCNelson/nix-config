@@ -1357,8 +1357,8 @@
       },
       "original": {
         "owner": "samestep",
-        "ref": "claude-code-2.1.170",
         "repo": "nixpkgs",
+        "rev": "5900fe6cf8eca7dc124309029a50c7f80e90b6c9",
         "type": "github"
       }
     },
