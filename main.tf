@@ -501,9 +501,10 @@ resource "porkbun_dns_record" "nel_to-CNAME" {
 }
 
 resource "cloudflare_record" "bcnelson_dev-CAA" {
-  zone_id = "2afab945023de6634b53f500f6a537fe"
-  name    = "bcnelson.dev"
-  type    = "CAA"
+  zone_id         = "2afab945023de6634b53f500f6a537fe"
+  name            = "bcnelson.dev"
+  type            = "CAA"
+  allow_overwrite = true
   data {
     flags = "0"
     tag   = "issue"
@@ -512,11 +513,12 @@ resource "cloudflare_record" "bcnelson_dev-CAA" {
 }
 
 resource "cloudflare_record" "git_bcnelson_dev-CNAME" {
-  zone_id = "2afab945023de6634b53f500f6a537fe"
-  name    = "git"
-  type    = "CNAME"
-  content = "public.whiskey.b.nel.family"
-  proxied = false
+  zone_id         = "2afab945023de6634b53f500f6a537fe"
+  name            = "git"
+  type            = "CNAME"
+  content         = "public.whiskey.b.nel.family"
+  proxied         = false
+  allow_overwrite = true
 }
 
 resource "porkbun_dns_record" "idm_nel_family-CNAME" {
