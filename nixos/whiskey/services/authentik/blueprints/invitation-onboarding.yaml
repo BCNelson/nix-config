@@ -1,0 +1,179 @@
+# Invitation-based onboarding flow.
+#
+# This defines a single enrollment flow that an admin sends/shares on demand —
+# sending is an explicit admin action, never automatic:
+#
+#   Directory -> Invitations -> New Invitation -> select the "nel.family
+#   enrollment" flow, set Name / Expires / Single use, optionally Custom
+#   attributes {"email": "...", "name": "..."} to pre-fill the recipient's form.
+#
+# To deliver the link, the admin then either:
+#   * clicks the native "Send via Email" action on the invitation (authentik
+#     2026.5+ sends the link via the global Migadu SMTP), or
+#   * expands the invitation and copies "Link to use the invitation"
+#     (https://auth.nel.family/if/flow/nel-family-enrollment/?itoken=<uuid>) to
+#     share however they like.
+#
+# The recipient lands on this flow, which requires a valid invitation token
+# (continue_flow_without_invitation: false), so it is not open to the public —
+# only people holding an invitation link can enroll.
+#
+# (For the Directory -> Users -> Create path, use the user's "Email recovery
+# link" action instead — see recovery-email.yaml.)
+version: 1
+metadata:
+  name: nel-family-invitation-onboarding
+entries:
+  ##########################################################################
+  # Enrollment flow
+  ##########################################################################
+  - identifiers:
+      slug: nel-family-enrollment
+    id: flow
+    model: authentik_flows.flow
+    attrs:
+      name: nel.family enrollment
+      title: Welcome to nel.family — set up your account
+      designation: enrollment
+      authentication: require_unauthenticated
+
+  # Requires a valid invitation token (?itoken=...). fixed_data from the
+  # invitation is loaded into the flow context, pre-filling matching prompts.
+  - identifiers:
+      name: nel-family-enrollment-invitation
+    id: stage-invitation
+    model: authentik_stages_invitation.invitationstage
+    attrs:
+      continue_flow_without_invitation: false
+
+  ##########################################################################
+  # Prompt fields (single stage collecting everything)
+  ##########################################################################
+  - identifiers:
+      name: nel-family-enrollment-field-name
+    id: prompt-field-name
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: name
+      label: Full name
+      type: text
+      required: true
+      placeholder: Full name
+      placeholder_expression: false
+      order: 0
+
+  - identifiers:
+      name: nel-family-enrollment-field-username
+    id: prompt-field-username
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: username
+      label: Username
+      type: username
+      required: true
+      placeholder: Username
+      placeholder_expression: false
+      order: 1
+
+  - identifiers:
+      name: nel-family-enrollment-field-email
+    id: prompt-field-email
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: email
+      label: Email
+      type: email
+      required: true
+      placeholder: Email
+      placeholder_expression: false
+      order: 2
+
+  - identifiers:
+      name: nel-family-enrollment-field-password
+    id: prompt-field-password
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: password
+      label: Password
+      type: password
+      required: true
+      placeholder: Password
+      placeholder_expression: false
+      order: 3
+
+  - identifiers:
+      name: nel-family-enrollment-field-password-repeat
+    id: prompt-field-password-repeat
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: password_repeat
+      label: Password (repeat)
+      type: password
+      required: true
+      placeholder: Password (repeat)
+      placeholder_expression: false
+      order: 4
+
+  - identifiers:
+      name: nel-family-enrollment-prompt
+    id: stage-prompt
+    model: authentik_stages_prompt.promptstage
+    attrs:
+      fields:
+        - !KeyOf prompt-field-name
+        - !KeyOf prompt-field-username
+        - !KeyOf prompt-field-email
+        - !KeyOf prompt-field-password
+        - !KeyOf prompt-field-password-repeat
+
+  ##########################################################################
+  # Write the new user + log them in
+  ##########################################################################
+  - identifiers:
+      name: nel-family-enrollment-user-write
+    id: stage-user-write
+    model: authentik_stages_user_write.userwritestage
+    attrs:
+      user_creation_mode: always_create
+      user_type: internal
+      user_path_template: users/nel-family
+
+  - identifiers:
+      name: nel-family-enrollment-user-login
+    id: stage-user-login
+    model: authentik_stages_user_login.userloginstage
+
+  ##########################################################################
+  # Flow stage bindings
+  ##########################################################################
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-invitation
+      order: 10
+    model: authentik_flows.flowstagebinding
+    attrs:
+      evaluate_on_plan: true
+      re_evaluate_policies: true
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-prompt
+      order: 20
+    model: authentik_flows.flowstagebinding
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-user-write
+      order: 30
+    model: authentik_flows.flowstagebinding
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-user-login
+      order: 100
+    model: authentik_flows.flowstagebinding
+
+  # Sending is intentionally a manual admin action — there is no auto-email
+  # policy. The admin creates an invitation and then either clicks the native
+  # "Send via Email" action (authentik 2026.5+) or copies the link to share.
+  # No standing/seeded invitation is created here; links are made on demand.
