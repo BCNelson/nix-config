@@ -270,8 +270,8 @@ entries:
   ##########################################################################
   # Standing multi-use registration link.
   #
-  # A single invitation that as many people as you like can use to self-register,
-  # valid until `expires`. Share the URL:
+  # A single invitation that as many people as you like can use to self-register.
+  # Share the URL:
   #
   #   https://auth.nel.family/if/flow/nel-family-enrollment/?itoken=<uuid>
   #
@@ -280,17 +280,25 @@ entries:
   # the invitation's primary key, assigned by authentik and stable across
   # blueprint re-applies).
   #
+  # state: created -> the blueprint only SEEDS this invitation the first time;
+  # it will not overwrite it afterwards. That means you can change the expiry
+  # (and single-use, etc.) directly in the admin UI -> Invitations ->
+  # nel-family-open-registration -> Edit, and your change sticks. The `expires`
+  # below is just the initial value used at first creation. (If you delete the
+  # invitation in the UI, the next blueprint apply re-seeds it with these values;
+  # to retire it for good, add `state: absent` here instead.)
+  #
   # fixed_data is empty, so the auto-email policy above intentionally skips it —
-  # no mail is sent when this invitation is (re)created.
+  # no mail is sent when this invitation is created.
   #
   # SECURITY: anyone holding this link can create an internal account while it is
-  # valid. To extend the window, bump `expires`. To revoke early, set `expires`
-  # to a past date or add `state: absent` to this entry and re-apply.
+  # valid. Shorten the expiry (or set it to the past) in the UI to revoke.
   ##########################################################################
   - identifiers:
       name: nel-family-open-registration
     id: invitation-open
     model: authentik_stages_invitation.invitation
+    state: created
     attrs:
       flow: !KeyOf flow
       single_use: false
