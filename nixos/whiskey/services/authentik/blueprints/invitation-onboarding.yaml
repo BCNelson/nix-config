@@ -267,41 +267,8 @@ entries:
     attrs:
       enabled: true
 
-  ##########################################################################
-  # Standing multi-use registration link.
-  #
-  # A single invitation that as many people as you like can use to self-register.
-  # Share the URL:
-  #
-  #   https://auth.nel.family/if/flow/nel-family-enrollment/?itoken=<uuid>
-  #
-  # Grab the real URL once from the admin UI: Flows & Stages -> Invitations ->
-  # nel-family-open-registration -> "Link to use the invitation" (the <uuid> is
-  # the invitation's primary key, assigned by authentik and stable across
-  # blueprint re-applies).
-  #
-  # state: created -> the blueprint only SEEDS this invitation the first time;
-  # it will not overwrite it afterwards. That means you can change the expiry
-  # (and single-use, etc.) directly in the admin UI -> Invitations ->
-  # nel-family-open-registration -> Edit, and your change sticks. The `expires`
-  # below is just the initial value used at first creation. (If you delete the
-  # invitation in the UI, the next blueprint apply re-seeds it with these values;
-  # to retire it for good, add `state: absent` here instead.)
-  #
-  # fixed_data is empty, so the auto-email policy above intentionally skips it —
-  # no mail is sent when this invitation is created.
-  #
-  # SECURITY: anyone holding this link can create an internal account while it is
-  # valid. Shorten the expiry (or set it to the past) in the UI to revoke.
-  ##########################################################################
-  - identifiers:
-      name: nel-family-open-registration
-    id: invitation-open
-    model: authentik_stages_invitation.invitation
-    state: created
-    attrs:
-      flow: !KeyOf flow
-      single_use: false
-      expiring: true
-      expires: "2027-06-13T00:00:00Z"
-      fixed_data: {}
+  # No standing/seeded invitation is created here on purpose. Registration links
+  # are created on demand from the admin UI: Directory -> Invitations -> New
+  # Invitation -> select the "nel.family enrollment" flow, set Name / Expires /
+  # Single use, and (optionally) Custom attributes {"email": "..."} to trigger
+  # the auto-email policy above. Expand the row for "Link to use the invitation".
