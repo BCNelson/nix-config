@@ -266,3 +266,34 @@ entries:
     model: authentik_policies.policybinding
     attrs:
       enabled: true
+
+  ##########################################################################
+  # Standing multi-use registration link.
+  #
+  # A single invitation that as many people as you like can use to self-register,
+  # valid until `expires`. Share the URL:
+  #
+  #   https://auth.nel.family/if/flow/nel-family-enrollment/?itoken=<uuid>
+  #
+  # Grab the real URL once from the admin UI: Flows & Stages -> Invitations ->
+  # nel-family-open-registration -> "Link to use the invitation" (the <uuid> is
+  # the invitation's primary key, assigned by authentik and stable across
+  # blueprint re-applies).
+  #
+  # fixed_data is empty, so the auto-email policy above intentionally skips it —
+  # no mail is sent when this invitation is (re)created.
+  #
+  # SECURITY: anyone holding this link can create an internal account while it is
+  # valid. To extend the window, bump `expires`. To revoke early, set `expires`
+  # to a past date or add `state: absent` to this entry and re-apply.
+  ##########################################################################
+  - identifiers:
+      name: nel-family-open-registration
+    id: invitation-open
+    model: authentik_stages_invitation.invitation
+    attrs:
+      flow: !KeyOf flow
+      single_use: false
+      expiring: true
+      expires: "2027-06-13T00:00:00Z"
+      fixed_data: {}
