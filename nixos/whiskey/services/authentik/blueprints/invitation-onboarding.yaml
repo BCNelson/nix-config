@@ -1,0 +1,268 @@
+# Invitation-based onboarding with automatic email.
+#
+# This gives us two onboarding paths off a single enrollment flow:
+#
+#   1. Auto-emailed onboarding — an admin creates an invitation (Directory ->
+#      Invitations, or Flows & Stages -> Invitations) and fills the "Custom
+#      attributes" with at least {"email": "person@example.com"} (optionally
+#      "name" / "username"). The expression policy below fires on the
+#      invitation's model_created event and emails that person their personal
+#      onboarding link via the global Migadu SMTP. Zero extra admin clicks.
+#
+#   2. Shareable link — an admin creates an invitation WITHOUT an email in the
+#      custom attributes (optionally single_use: false for a reusable link).
+#      No email is sent; the admin copies the invitation's link
+#      (https://auth.nel.family/if/flow/nel-family-enrollment/?itoken=<uuid>)
+#      and shares it however they like. The recipient sets their own username
+#      and password.
+#
+# Either way the recipient lands on the enrollment flow, which requires a valid
+# invitation token (continue_flow_without_invitation: false), so the flow is not
+# open to the public — only people holding an invitation link can enroll.
+version: 1
+metadata:
+  name: nel-family-invitation-onboarding
+entries:
+  ##########################################################################
+  # Enrollment flow
+  ##########################################################################
+  - identifiers:
+      slug: nel-family-enrollment
+    id: flow
+    model: authentik_flows.flow
+    attrs:
+      name: nel.family enrollment
+      title: Welcome to nel.family — set up your account
+      designation: enrollment
+      authentication: require_unauthenticated
+
+  # Requires a valid invitation token (?itoken=...). fixed_data from the
+  # invitation is loaded into the flow context, pre-filling matching prompts.
+  - identifiers:
+      name: nel-family-enrollment-invitation
+    id: stage-invitation
+    model: authentik_stages_invitation.invitationstage
+    attrs:
+      continue_flow_without_invitation: false
+
+  ##########################################################################
+  # Prompt fields (single stage collecting everything)
+  ##########################################################################
+  - identifiers:
+      name: nel-family-enrollment-field-name
+    id: prompt-field-name
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: name
+      label: Full name
+      type: text
+      required: true
+      placeholder: Full name
+      placeholder_expression: false
+      order: 0
+
+  - identifiers:
+      name: nel-family-enrollment-field-username
+    id: prompt-field-username
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: username
+      label: Username
+      type: username
+      required: true
+      placeholder: Username
+      placeholder_expression: false
+      order: 1
+
+  - identifiers:
+      name: nel-family-enrollment-field-email
+    id: prompt-field-email
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: email
+      label: Email
+      type: email
+      required: true
+      placeholder: Email
+      placeholder_expression: false
+      order: 2
+
+  - identifiers:
+      name: nel-family-enrollment-field-password
+    id: prompt-field-password
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: password
+      label: Password
+      type: password
+      required: true
+      placeholder: Password
+      placeholder_expression: false
+      order: 3
+
+  - identifiers:
+      name: nel-family-enrollment-field-password-repeat
+    id: prompt-field-password-repeat
+    model: authentik_stages_prompt.prompt
+    attrs:
+      field_key: password_repeat
+      label: Password (repeat)
+      type: password
+      required: true
+      placeholder: Password (repeat)
+      placeholder_expression: false
+      order: 4
+
+  - identifiers:
+      name: nel-family-enrollment-prompt
+    id: stage-prompt
+    model: authentik_stages_prompt.promptstage
+    attrs:
+      fields:
+        - !KeyOf prompt-field-name
+        - !KeyOf prompt-field-username
+        - !KeyOf prompt-field-email
+        - !KeyOf prompt-field-password
+        - !KeyOf prompt-field-password-repeat
+
+  ##########################################################################
+  # Write the new user + log them in
+  ##########################################################################
+  - identifiers:
+      name: nel-family-enrollment-user-write
+    id: stage-user-write
+    model: authentik_stages_user_write.userwritestage
+    attrs:
+      user_creation_mode: always_create
+      user_type: internal
+      user_path_template: users/nel-family
+
+  - identifiers:
+      name: nel-family-enrollment-user-login
+    id: stage-user-login
+    model: authentik_stages_user_login.userloginstage
+
+  ##########################################################################
+  # Flow stage bindings
+  ##########################################################################
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-invitation
+      order: 10
+    model: authentik_flows.flowstagebinding
+    attrs:
+      evaluate_on_plan: true
+      re_evaluate_policies: true
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-prompt
+      order: 20
+    model: authentik_flows.flowstagebinding
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-user-write
+      order: 30
+    model: authentik_flows.flowstagebinding
+
+  - identifiers:
+      target: !KeyOf flow
+      stage: !KeyOf stage-user-login
+      order: 100
+    model: authentik_flows.flowstagebinding
+
+  ##########################################################################
+  # Auto-email on invitation creation.
+  #
+  # Bound to a (transport-less) notification rule so it is evaluated for every
+  # event; it filters to invitation model_created and, when the invitation
+  # carries a fixed "email", sends the onboarding link. It always returns False
+  # so no actual notification is dispatched — the email is the side effect.
+  # SMTP settings are read from authentik's runtime CONFIG (same global Migadu
+  # connection used elsewhere), so no credentials live in this blueprint.
+  ##########################################################################
+  - identifiers:
+      name: nel-family-invitation-autoemail
+    id: policy-autoemail
+    model: authentik_policies_expression.expressionpolicy
+    attrs:
+      expression: |
+        if "event" not in request.context:
+            return False
+        event = request.context["event"]
+        if event.action != "model_created":
+            return False
+        model = event.context.get("model", {})
+        if model.get("app") != "authentik_stages_invitation" or model.get("model_name") != "invitation":
+            return False
+
+        from authentik.stages.invitation.models import Invitation
+        from authentik.lib.config import CONFIG
+        from email.mime.text import MIMEText
+        import smtplib
+        import ssl
+
+        invitation = Invitation.objects.filter(pk=model.get("pk")).first()
+        if invitation is None:
+            return False
+        fixed_data = invitation.fixed_data or {}
+        recipient = fixed_data.get("email")
+        if not recipient:
+            # No target email -> this invitation is a shareable link; send nothing.
+            return False
+
+        flow_slug = invitation.flow.slug if invitation.flow else "nel-family-enrollment"
+        invite_url = f"https://auth.nel.family/if/flow/{flow_slug}/?itoken={invitation.pk}"
+        name = fixed_data.get("name") or "there"
+
+        body = (
+            f"<p>Hi {name},</p>"
+            "<p>An account is ready for you on nel.family. Use the link below to "
+            "choose a password and finish setting up your account:</p>"
+            f'<p><a href="{invite_url}">{invite_url}</a></p>'
+            "<p>If you weren't expecting this, you can safely ignore this email.</p>"
+        )
+
+        sender = CONFIG.get("email.from")
+        message = MIMEText(body, "html")
+        message["Subject"] = "Set up your nel.family account"
+        message["From"] = sender
+        message["To"] = recipient
+
+        host = CONFIG.get("email.host")
+        port = CONFIG.get_int("email.port")
+        username = CONFIG.get("email.username")
+        password = CONFIG.get("email.password")
+        context = ssl.create_default_context()
+
+        if CONFIG.get_bool("email.use_ssl", False):
+            server = smtplib.SMTP_SSL(host, port, context=context)
+        else:
+            server = smtplib.SMTP(host, port)
+            if CONFIG.get_bool("email.use_tls", False):
+                server.starttls(context=context)
+        try:
+            if username and password:
+                server.login(username, password)
+            server.sendmail(sender, [recipient], message.as_string())
+        finally:
+            server.quit()
+
+        ak_logger.info("Sent onboarding invitation email", recipient=recipient, flow=flow_slug)
+        return False
+
+  - identifiers:
+      name: nel-family-invitation-autoemail
+    id: rule-autoemail
+    model: authentik_events.notificationrule
+    attrs:
+      severity: notice
+
+  - identifiers:
+      target: !KeyOf rule-autoemail
+      policy: !KeyOf policy-autoemail
+      order: 0
+    model: authentik_policies.policybinding
+    attrs:
+      enabled: true
