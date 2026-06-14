@@ -40,6 +40,14 @@ in {
     generator.script = "alnum";
   };
 
+  # OAuth2 client secret for the Open-WebUI (Family AI) provider. Shared with the
+  # open-webui service on romeo (same rekeyFile), which consumes it via its own
+  # EnvironmentFile as OAUTH_CLIENT_SECRET.
+  age.secrets.open-webui-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/open_webui_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -47,12 +55,14 @@ in {
       SECRET_KEY = config.age.secrets.authentik-secret-key.path;
       BOOTSTRAP_PASSWORD = config.age.secrets.authentik-bootstrap-password.path;
       GOTOSOCIAL_SECRET = config.age.secrets.gotosocial-oauth-client-secret.path;
+      OPEN_WEBUI_SECRET = config.age.secrets.open-webui-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
       AUTHENTIK_BOOTSTRAP_PASSWORD=$BOOTSTRAP_PASSWORD
       AUTHENTIK_BOOTSTRAP_EMAIL=bradley@nel.family
       GOTOSOCIAL_OAUTH_CLIENT_SECRET=$GOTOSOCIAL_SECRET
+      OPEN_WEBUI_OAUTH_CLIENT_SECRET=$OPEN_WEBUI_SECRET
     '';
   };
 
