@@ -1346,22 +1346,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-claude-code": {
-      "locked": {
-        "lastModified": 1781027305,
-        "narHash": "sha256-V181bdVDULVR29RUahJZvMN99rbRKCc/CbDwU9Owv/Y=",
-        "owner": "samestep",
-        "repo": "nixpkgs",
-        "rev": "5900fe6cf8eca7dc124309029a50c7f80e90b6c9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "samestep",
-        "ref": "claude-code-2.1.170",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs-happy-coder": {
       "locked": {
         "lastModified": 1777745641,
@@ -1817,7 +1801,9 @@
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_5",
-        "nixpkgs-claude-code": "nixpkgs-claude-code",
+        "nixpkgs-claude-code": [
+          "nixpkgs-unstable"
+        ],
         "nixpkgs-happy-coder": "nixpkgs-happy-coder",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "nixpkgs-unstable-small": "nixpkgs-unstable-small",
