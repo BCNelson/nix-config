@@ -44,6 +44,14 @@ in {
       bind-address = "127.0.0.1";
       port = 8087;
       trusted-proxies = ["127.0.0.1/32" "::1"];
+      # LAN clients legitimately reach the instance with private 192.168.x.x
+      # source IPs (resolved from nginx's X-Forwarded-For). GoToSocial otherwise
+      # heuristically flags those private client IPs as a misconfigured proxy
+      # ("trusted-proxies is not set correctly") and rate-limits them. Do NOT add
+      # the LAN range to trusted-proxies for this — that would trust real client
+      # devices as proxies and collapse per-IP rate limiting. Exempt the LAN from
+      # rate limiting instead, which also silences the warning.
+      advanced-rate-limit-exceptions = ["192.168.0.0/16"];
 
       # Media + attachments live on the vault dataset so they are captured by
       # the existing borg (level3) + sanoid snapshots. See backups note below.
