@@ -1,0 +1,24 @@
+# Login/flow branding for the default brand.
+#
+# Sets the background shown behind every flow page (login, recovery, enrollment)
+# to our custom looping animation. authentik backgrounds are static image fields,
+# so the source .mp4 was transcoded to an animated WebP (silent, looping) and is
+# served same-origin by our nginx vhost at /custom-static/ (see authentik.nix).
+#
+# The value is a full https:// URL so authentik's file picker resolves it via the
+# PassthroughBackend (returned as-is, no media/static path rewriting). It is the
+# same origin as the flow page, so the default CSP (img-src 'self') permits it.
+#
+# This patches the same default brand that recovery-email.yaml binds flow_recovery
+# on; both are independent attr updates on the one brand object (identified by
+# domain, matching authentik's bundled default-brand.yaml).
+version: 1
+metadata:
+  name: nel-family-branding
+entries:
+  - identifiers:
+      domain: authentik-default
+      default: true
+    model: authentik_brands.brand
+    attrs:
+      branding_default_flow_background: https://auth.nel.family/custom-static/login-bg.webp

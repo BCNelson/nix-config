@@ -104,6 +104,19 @@ in {
     extraConfig = ''
       client_max_body_size 512M;
     '';
+    # Custom branding assets (e.g. the animated login background) served
+    # directly from the nix store, same-origin so authentik's CSP (img-src
+    # 'self') allows them. Referenced from the default brand's
+    # branding_default_flow_background in authentik/blueprints/branding.yaml.
+    # Longest-prefix match means this wins over the "/" proxy for these paths.
+    locations."/custom-static/" = {
+      alias = "${./authentik/static}/";
+      extraConfig = ''
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+      '';
+    };
     locations."/" = {
       proxyPass = "https://localhost:9443";
       proxyWebsockets = true;
