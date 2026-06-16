@@ -14,10 +14,6 @@
     # claude-code. Remove once merged into unstable.
     nixpkgs-happy-coder.url = "github:colonelpanic8/nixpkgs/happy-coder-monorepo-migration";
 
-    # claude-code 2.1.170 via nixpkgs PR #530023 (samestep:claude-code-2.1.170).
-    # Remove once it lands in nixos-unstable.
-    nixpkgs-claude-code.url = "github:samestep/nixpkgs/claude-code-2.1.170";
-
     # Home manager - always use unstable
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";
