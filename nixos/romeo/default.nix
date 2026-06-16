@@ -320,6 +320,12 @@ in
   security.acme.certs."cwnel.com" = {
     domain = "*.cwnel.com";
     dnsProvider = "cloudflare";
+    # romeo's local unbound has a "cwnel.com" redirect local-zone (hairpin for
+    # Carter's portfolio apps) that synthesizes empty NODATA answers with no SOA
+    # for *.cwnel.com names. That breaks lego's zone auto-detection: it walks up
+    # to "com." and asks Cloudflare for a nonexistent "com" zone. Point lego at a
+    # public resolver so zone detection and propagation checks bypass unbound.
+    dnsResolver = "1.1.1.1:53";
     environmentFile = config.age-template.files."cwnel-cloudflare-acme-env".path;
     group = "nginx";
   };
