@@ -5,7 +5,7 @@ let
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
-  # Drop this once the nixarr dev branch ships Jellyfin 10.11.9/10.11.11
+  # Drop this once the nixarr dev branch ships Jellyfin 10.11.9 through 10.11.11
   # OpenAPI hashes. The nixpkgs bump in flake.lock moved Jellyfin forward first.
   patchedNixarrSource = pkgs.runCommandLocal "nixarr-jellyfin-openapi-hash-fix" {} ''
     cp -r ${inputs.nixarr} $out
