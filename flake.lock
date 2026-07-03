@@ -983,11 +983,11 @@
         "rust-overlay": "rust-overlay_3"
       },
       "locked": {
-        "lastModified": 1782947348,
-        "narHash": "sha256-Z+ZjTNP5KbzoBjgofECoSPiap+rOrTJw5zW0ADREIZk=",
+        "lastModified": 1783046846,
+        "narHash": "sha256-u6PV/vpQkN5EoTtX6XgmMPaAoibkn+5lkd+ERNPR1DY=",
         "ref": "refs/heads/main",
-        "rev": "64477329a5f07eff780beeb1dcf300a0d8ffa46e",
-        "revCount": 102,
+        "rev": "77a65ddd121e5e51d1275444497635434a317a45",
+        "revCount": 107,
         "type": "git",
         "url": "https://codeberg.org/home-first/homefirst.git"
       },
@@ -1004,11 +1004,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783034031,
-        "narHash": "sha256-AMvazUPCNRztA7xN3KgZyRxsA1sIPB7fXJ7ult7x+qw=",
+        "lastModified": 1783047151,
+        "narHash": "sha256-+fMLkrNBlwQLf/7QQEtW4fzhnfYLAtqdgQpcIRHKINA=",
         "ref": "refs/heads/main",
-        "rev": "2cbc03a84c841c025b8881257ef5585dbdf3b812",
-        "revCount": 1,
+        "rev": "7d2c13c346dcf3bce8336c79897a45e8d8496de8",
+        "revCount": 2,
         "type": "git",
         "url": "https://codeberg.org/home-first/nixos-modules.git"
       },
