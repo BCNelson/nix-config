@@ -1004,11 +1004,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783047151,
-        "narHash": "sha256-+fMLkrNBlwQLf/7QQEtW4fzhnfYLAtqdgQpcIRHKINA=",
+        "lastModified": 1783048749,
+        "narHash": "sha256-Kis7ly3v9WfQdHcapVXODNsjhRJ8faCbDs2lSwGb8Is=",
         "ref": "refs/heads/main",
-        "rev": "7d2c13c346dcf3bce8336c79897a45e8d8496de8",
-        "revCount": 2,
+        "rev": "80cdafdaf58577b1826e74cfc44692b0f63e889f",
+        "revCount": 3,
         "type": "git",
         "url": "https://codeberg.org/home-first/nixos-modules.git"
       },
