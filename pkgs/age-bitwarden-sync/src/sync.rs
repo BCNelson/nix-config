@@ -1,7 +1,9 @@
+use age::secrecy::SecretString;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-use std::process::{Command, Stdio};
+use std::io::Read;
+use std::sync::{Arc, Mutex};
 use tracing::{debug, info, warn};
 
 use crate::bitwarden::BitwardenClient;
@@ -14,6 +16,10 @@ pub struct SecretSyncer {
     folder_id: String,
     age_identities: Vec<String>,
     host_filter: Vec<String>,
+    /// FIDO PIN cached for the duration of a run. It is prompted for lazily (only
+    /// when the plugin actually asks) and reused across every secret, so the user
+    /// types it at most once per run and never when no decryption is needed.
+    pin: Arc<Mutex<Option<String>>>,
 }
 
 impl SecretSyncer {
@@ -31,6 +37,7 @@ impl SecretSyncer {
             folder_id: String::new(),
             age_identities,
             host_filter,
+            pin: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -109,13 +116,13 @@ impl SecretSyncer {
     async fn sync_secret(&self, secret: &AgeSecret) -> Result<SyncResult> {
         // Resolve the age file path
         let age_file_path = self.evaluator.resolve_age_file_path(secret)?;
-        
-        // Decrypt the secret
-        let secret_value = self.decrypt_age_file(&age_file_path)?;
-        
-        // Calculate checksum
-        let checksum = calculate_checksum(&secret_value);
-        
+
+        // Checksum the *encrypted* bytes so we can detect changes without decrypting
+        // (and therefore without triggering a FIDO PIN/touch prompt).
+        let encrypted = std::fs::read(&age_file_path)
+            .with_context(|| format!("Failed to read {}", age_file_path))?;
+        let source_checksum = calculate_checksum_bytes(&encrypted);
+
         // Build the unique identifier for this secret
         let age_path = format!(
             "hosts/{}/{}",
@@ -133,19 +140,28 @@ impl SecretSyncer {
             .find_item_by_field("age_path", &age_path, &folder_id)
             .await?;
 
-        let item_name = format!("{} - {}", secret.bitwarden.name, secret.hostname);
-
-        if let Some(mut existing) = existing_item {
-            // Check if update is needed
+        // If the encrypted source is unchanged, skip without decrypting (no FIDO prompt).
+        if let Some(existing) = &existing_item {
             if let Some(fields) = &existing.fields {
                 for field in fields {
-                    if field.name.as_deref() == Some("age_checksum") && field.value.as_deref() == Some(&checksum) {
+                    if field.name.as_deref() == Some("age_source_checksum")
+                        && field.value.as_deref() == Some(&source_checksum)
+                    {
                         return Ok(SyncResult::Skipped);
                     }
                 }
             }
+        }
 
-            // Update existing item
+        // Source changed (or new item): decrypt now. This is the only path that
+        // touches the FIDO key; the PIN is prompted once per run and cached.
+        let secret_value = self.decrypt_age_file(&age_file_path)?;
+        let checksum = calculate_checksum(&secret_value);
+
+        let item_name = format!("{} - {}", secret.bitwarden.name, secret.hostname);
+
+        if let Some(mut existing) = existing_item {
+            // Update existing item (source changed, so always refresh)
             existing.name = item_name;
             existing.folder_id = Some(folder_id.clone());
             existing.favorite = secret.bitwarden.favorite;
@@ -176,7 +192,7 @@ impl SecretSyncer {
             }
 
             // Update fields
-            existing.fields = Some(self.build_fields(secret, &age_path, &checksum));
+            existing.fields = Some(self.build_fields(secret, &age_path, &checksum, &source_checksum));
 
             self.bitwarden.update_item(&existing).await?;
             Ok(SyncResult::Updated)
@@ -189,7 +205,7 @@ impl SecretSyncer {
                 notes: None,
                 login: None,
                 secure_note: None,
-                fields: Some(self.build_fields(secret, &age_path, &checksum)),
+                fields: Some(self.build_fields(secret, &age_path, &checksum, &source_checksum)),
                 folder_id: Some(folder_id),
                 favorite: secret.bitwarden.favorite,
                 reprompt: if secret.bitwarden.reprompt { 1 } else { 0 },
@@ -226,7 +242,13 @@ impl SecretSyncer {
         }
     }
 
-    fn build_fields(&self, secret: &AgeSecret, age_path: &str, checksum: &str) -> Vec<BitwardenField> {
+    fn build_fields(
+        &self,
+        secret: &AgeSecret,
+        age_path: &str,
+        checksum: &str,
+        source_checksum: &str,
+    ) -> Vec<BitwardenField> {
         let mut fields = vec![
             BitwardenField {
                 name: Some("age_path".to_string()),
@@ -249,6 +271,14 @@ impl SecretSyncer {
             BitwardenField {
                 name: Some("age_checksum".to_string()),
                 value: Some(checksum.to_string()),
+                field_type: 1, // Hidden
+                linked_id: None,
+            },
+            BitwardenField {
+                // Checksum of the encrypted source file; used to skip unchanged
+                // secrets without decrypting them (avoids a FIDO prompt).
+                name: Some("age_source_checksum".to_string()),
+                value: Some(source_checksum.to_string()),
                 field_type: 1, // Hidden
                 linked_id: None,
             },
@@ -300,62 +330,125 @@ impl SecretSyncer {
     fn decrypt_age_file(&self, path: &str) -> Result<String> {
         debug!("Decrypting: {}", path);
 
-        // First ensure the FIDO plugin is available
-        let plugin_check = Command::new("age-plugin-fido2-hmac")
-            .arg("--version")
-            .output();
-        
-        if plugin_check.is_err() {
-            warn!("age-plugin-fido2-hmac not found, FIDO key decryption may fail");
-        }
-
-        // Set up environment for age to find plugins
-        let mut cmd = Command::new("age");
-        cmd.args(&["-d"]);
-        
-        // Add all identity files that exist
-        let mut has_identity = false;
-        for identity in &self.age_identities {
-            if !identity.is_empty() && std::path::Path::new(identity).exists() {
-                cmd.args(&["-i", identity]);
-                has_identity = true;
-                debug!("Using identity: {}", identity);
+        // Parse the plugin identities (e.g. AGE-PLUGIN-FIDO2-HMAC-...) out of the
+        // configured identity files.
+        let mut plugin_identities: Vec<age::plugin::Identity> = Vec::new();
+        for id_path in &self.age_identities {
+            if id_path.is_empty() || !std::path::Path::new(id_path).exists() {
+                continue;
+            }
+            let content = std::fs::read_to_string(id_path)
+                .with_context(|| format!("Failed to read identity file {}", id_path))?;
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                match line.parse::<age::plugin::Identity>() {
+                    Ok(identity) => plugin_identities.push(identity),
+                    Err(e) => debug!("Skipping non-plugin identity in {}: {}", id_path, e),
+                }
             }
         }
-        
-        cmd.arg(path);
-        
-        // Set environment to ensure plugins are found
-        cmd.env("PATH", std::env::var("PATH").unwrap_or_default());
-        
-        // For FIDO keys, we need to allow interactive input
-        if has_identity {
-            info!("Attempting to decrypt {}. Touch your FIDO key when it blinks...", path);
-            cmd.stdin(Stdio::inherit());
-            cmd.stderr(Stdio::inherit());
-        } else {
-            warn!("No valid identity files found for decryption");
+        if plugin_identities.is_empty() {
+            return Err(anyhow::anyhow!(
+                "No plugin identities found for decryption of {}",
+                path
+            ));
         }
-        
-        let output = cmd
-            .output()
-            .context(format!("Failed to decrypt {}", path))?;
 
-        if !output.status.success() {
-            let error = String::from_utf8_lossy(&output.stderr);
-            
-            // Check if it's a plugin-related error
-            if error.contains("plugin") || error.contains("fido") {
-                return Err(anyhow::anyhow!(
-                    "Failed to decrypt {} - FIDO key issue: {}. Make sure your FIDO key is connected and you touch it when prompted.",
-                    path, error
-                ));
+        // Decrypt in-process via the age crate. It speaks the age-plugin protocol
+        // to the plugin binary, and routes the plugin's PIN request to our
+        // PinCallbacks, which prompts once and caches — so the PIN is entered at
+        // most once per run even across many secrets. The physical touch still
+        // happens per secret (the plugin performs a fresh FIDO2 assertion).
+        let callbacks = PinCallbacks {
+            pin: Arc::clone(&self.pin),
+        };
+
+        let mut plugin_names: Vec<String> =
+            plugin_identities.iter().map(|i| i.plugin().to_string()).collect();
+        plugin_names.sort();
+        plugin_names.dedup();
+
+        let mut plugins: Vec<age::plugin::IdentityPluginV1<PinCallbacks>> = Vec::new();
+        for name in &plugin_names {
+            let plugin =
+                age::plugin::IdentityPluginV1::new(name, &plugin_identities, callbacks.clone())
+                    .with_context(|| format!("Failed to initialise age plugin '{}'", name))?;
+            plugins.push(plugin);
+        }
+
+        info!("Decrypting {} (touch your FIDO key when prompted)...", path);
+
+        let file =
+            std::fs::File::open(path).with_context(|| format!("Failed to open {}", path))?;
+        let decryptor = age::Decryptor::new(std::io::BufReader::new(file))
+            .with_context(|| format!("Failed to parse age header of {}", path))?;
+        if decryptor.is_scrypt() {
+            return Err(anyhow::anyhow!(
+                "{} is passphrase-encrypted; expected identity-encrypted",
+                path
+            ));
+        }
+
+        let mut reader = decryptor
+            .decrypt(plugins.iter().map(|p| p as &dyn age::Identity))
+            .with_context(|| {
+                format!(
+                    "Failed to decrypt {} — check your FIDO key is connected, the PIN is correct, \
+                     and you touch it when prompted",
+                    path
+                )
+            })?;
+
+        // Reaching here means the plugin completed its FIDO2 assertion, i.e. the
+        // touch was accepted. Confirm it immediately.
+        eprintln!("  ✅ Touch confirmed.");
+
+        let mut plaintext = String::new();
+        reader
+            .read_to_string(&mut plaintext)
+            .with_context(|| format!("Failed to read plaintext of {}", path))?;
+        Ok(plaintext)
+    }
+}
+
+/// age plugin callbacks that answer the plugin's PIN request from a per-run
+/// cache, so the FIDO PIN is entered at most once even across many secrets.
+#[derive(Clone)]
+struct PinCallbacks {
+    pin: Arc<Mutex<Option<String>>>,
+}
+
+impl age::Callbacks for PinCallbacks {
+    fn display_message(&self, message: &str) {
+        // Surfaces plugin prompts such as "Please touch your token...".
+        eprintln!("{}", message.trim_end());
+    }
+
+    fn confirm(&self, message: &str, yes_string: &str, _no_string: Option<&str>) -> Option<bool> {
+        // No confirmations are expected during decryption; default to "yes".
+        debug!("Auto-confirming plugin prompt: {} [{}]", message, yes_string);
+        Some(true)
+    }
+
+    fn request_public_string(&self, _description: &str) -> Option<String> {
+        None
+    }
+
+    fn request_passphrase(&self, description: &str) -> Option<SecretString> {
+        let mut guard = self.pin.lock().unwrap();
+        if guard.is_none() {
+            match rpassword::prompt_password(format!("{} ", description.trim())) {
+                Ok(p) => *guard = Some(p),
+                Err(e) => {
+                    warn!("Failed to read PIN: {}", e);
+                    return None;
+                }
             }
-            
-            return Err(anyhow::anyhow!("Failed to decrypt {}: {}", path, error));
         }
-
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        guard.clone().map(SecretString::from)
     }
 }
 
@@ -367,7 +460,11 @@ enum SyncResult {
 }
 
 fn calculate_checksum(data: &str) -> String {
+    calculate_checksum_bytes(data.as_bytes())
+}
+
+fn calculate_checksum_bytes(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(data.as_bytes());
+    hasher.update(data);
     format!("{:x}", hasher.finalize())
 }
