@@ -22,6 +22,8 @@ let
   '';
 in
 {
+  nixpkgs.config.problems.handlers.ai-edge-litert.broken = "warn";
+
   imports =
     [
       ../_mixins/roles/tailscale.nix
