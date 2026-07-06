@@ -22,6 +22,8 @@ let
   '';
 in
 {
+  # Temporary workaround for nixpkgs marking ai-edge-litert as broken after
+  # flake input updates; remove when upstream package metadata is fixed.
   nixpkgs.config.problems.handlers.ai-edge-litert.broken = "warn";
 
   imports =
