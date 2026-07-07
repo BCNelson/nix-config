@@ -18,6 +18,9 @@ in
                   libopenvino_tensorflow_lite_frontend.so "$so"
               done < <(find "$out" -type f \( -name '*.so' -o -name '*.so.*' \) -print0)
             '';
+            # nixpkgs marked ai-edge-litert broken after OpenVINO soname changes
+            # left the bundled wheel with unresolved libopenvino*.so.2620
+            # references; the preFixup above applies the upstream rename fix.
             meta = old.meta // { broken = false; };
           });
         };
