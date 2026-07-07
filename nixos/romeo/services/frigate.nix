@@ -11,9 +11,10 @@ in
             # Mirror nixpkgs PR #538661 until nixos-unstable picks it up.
             preFixup = (old.preFixup or "") + ''
               while IFS= read -r -d "" so; do
-                # OpenVINO 2026.2 now installs unversioned sonames; the wheel still
-                # references the old *.so.2620 names. Drop this once unstable
-                # contains nixpkgs PR #538661.
+                # OpenVINO 2026.2 used the `.so.2620` soname suffix; the newer
+                # package now installs unversioned symlinks instead, but the
+                # bundled wheel still references the old names. Drop this once
+                # unstable contains nixpkgs PR #538661.
                 ${final.patchelf}/bin/patchelf \
                   --replace-needed libopenvino.so.2620 libopenvino.so "$so"
                 ${final.patchelf}/bin/patchelf \
