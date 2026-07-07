@@ -13,7 +13,7 @@
   '';
 in {
   programs.mcp.servers.aws-support-mcp-server = {
-    command = "${awsSupportLauncher}";
+    command = builtins.toString awsSupportLauncher;
     startup_timeout_sec = 90;
     env = {
       AWS_PROFILE = "default";
