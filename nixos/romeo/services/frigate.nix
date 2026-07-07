@@ -3,6 +3,29 @@ let
   dataDirs = config.data.dirs;
 in
 {
+  nixpkgs.overlays = [
+    (final: prev: {
+      python313 = prev.python313.override {
+        packageOverrides = _pyFinal: pyPrev: {
+          ai-edge-litert = pyPrev.ai-edge-litert.overridePythonAttrs (old: {
+            # Mirror nixpkgs PR #538661 until nixos-unstable picks it up.
+            preFixup = (old.preFixup or "") + ''
+              while IFS= read -r -d "" so; do
+                ${final.patchelf}/bin/patchelf \
+                  --replace-needed libopenvino.so.2620 libopenvino.so "$so"
+                ${final.patchelf}/bin/patchelf \
+                  --replace-needed libopenvino_tensorflow_lite_frontend.so.2620 \
+                  libopenvino_tensorflow_lite_frontend.so "$so"
+              done < <(find "$out" -type f \( -name '*.so' -o -name '*.so.*' \) -print0)
+            '';
+            meta = old.meta // { broken = false; };
+          });
+        };
+      };
+      python313Packages = final.python313.pkgs;
+    })
+  ];
+
   services.frigate = {
     enable = true;
     checkConfig = false;
