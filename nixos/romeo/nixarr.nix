@@ -29,6 +29,8 @@ in
     "aspnetcore-runtime-6.0.36"
   ];
 
+  nixpkgs.config.problems.handlers.ai-edge-litert.broken = "warn";
+
   nixarr = {
     enable = true;
     nixarr-py.package = pkgs.callPackage "${patchedNixarrSource}/nixarr/lib/nixarr-py" {};
