@@ -29,6 +29,7 @@ in
     "aspnetcore-runtime-6.0.36"
   ];
 
+  # Temporary lock-bump mitigation: nixpkgs currently marks ai-edge-litert broken.
   nixpkgs.config.problems.handlers.ai-edge-litert.broken = "warn";
 
   nixarr = {
