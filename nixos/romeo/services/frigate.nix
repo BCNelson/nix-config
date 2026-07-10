@@ -3,6 +3,15 @@ let
   dataDirs = config.data.dirs;
 in
 {
+  # ai-edge-litert is a transitive dependency of frigate that is currently
+  # marked broken in nixpkgs. Allow it to evaluate with a warning until the
+  # upstream nixpkgs package is fixed.
+  nixpkgs.config = {
+    problems.handlers = {
+      ai-edge-litert.broken = "warn";
+    };
+  };
+
   services.frigate = {
     enable = true;
     checkConfig = false;
