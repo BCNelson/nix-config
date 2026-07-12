@@ -67,6 +67,10 @@
       profiles = {
         Fish = {
           command = "${pkgs.fish}/bin/fish";
+          font = {
+            name = "Monaspace Neon";
+            size = 10;
+          };
           extraConfig = {
             "Scrolling" = {
               HistoryMode = 2;
