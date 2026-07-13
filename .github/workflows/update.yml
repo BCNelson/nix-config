@@ -55,8 +55,11 @@ jobs:
       UPDATE_RESULT: ${{ needs.update.result }}
       CHECK_HOSTS_RESULT: ${{ needs.check-hosts.result }}
       COPILOT_BASE_BRANCH: main
-      COPILOT_LOCK_BRANCH: copilot/flake-lock-bump-${{ github.run_id }}
+      # Stable branch/label so recurring failures reuse one issue+PR instead of
+      # piling up a new one every day the fix goes unmerged.
+      COPILOT_LOCK_BRANCH: copilot/flake-lock-bump
       COPILOT_UPDATED_LOCK_BRANCH: none
+      COPILOT_ISSUE_LABEL: flake-lock-fix
 
     steps:
       - uses: actions/checkout@v4
@@ -85,15 +88,60 @@ jobs:
           git config user.email "actions@github.com"
           git add flake.lock
           git commit -m "Bump flake.lock"
-          git push --force-with-lease origin "$COPILOT_LOCK_BRANCH"
+          # Automation-owned branch; a fresh checkout has no remote-tracking ref
+          # to lease against, so force-push to refresh the stable branch.
+          git push --force origin "$COPILOT_LOCK_BRANCH"
 
           echo "COPILOT_UPDATED_LOCK_BRANCH=${COPILOT_LOCK_BRANCH}" >> "$GITHUB_ENV"
           echo "Pushed updated lock branch: ${COPILOT_LOCK_BRANCH}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create Copilot fix issue
+      - name: Create or update Copilot fix issue
         if: ${{ env.GH_TOKEN != '' }}
         run: |
           failed_logs="$(gh run view "${GITHUB_RUN_ID}" --repo "$REPO" --log-failed 2>/dev/null | tail -c 30000 || true)"
+
+          # Ensure the dedup label exists so `gh issue list --label` works and new
+          # issues can be tagged. Idempotent: no-op if it already exists.
+          gh label create "$COPILOT_ISSUE_LABEL" \
+            --repo "$REPO" \
+            --description "Recurring automated flake.lock bump fix" \
+            --color BFD4F2 2>/dev/null || true
+
+          # If a fix issue is already open, the previous day's fix is still
+          # unmerged. Re-notify that same issue with the latest failure instead of
+          # opening a duplicate that spawns a second Copilot PR.
+          existing_issue="$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --label "$COPILOT_ISSUE_LABEL" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty' 2>/dev/null || true)"
+
+          if [ -n "$existing_issue" ]; then
+            comment="$(cat <<EOF
+          The scheduled flake.lock bump is **still failing** on a later run.
+
+          Run: ${RUN_URL}
+          Commit: ${GITHUB_SHA}
+          Updated lock branch: ${COPILOT_UPDATED_LOCK_BRANCH}
+
+          Job results:
+          - update: ${UPDATE_RESULT}
+          - check-hosts: ${CHECK_HOSTS_RESULT}
+
+          @copilot please re-check against this latest failure and **update your existing pull request** for this issue — do not open a new one.
+
+          Failed log excerpt:
+          \`\`\`text
+          ${failed_logs}
+          \`\`\`
+          EOF
+          )"
+            gh issue comment "$existing_issue" --repo "$REPO" --body "$comment"
+            echo "Reused open Copilot fix issue #${existing_issue} (no duplicate created)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           body="$(cat <<EOF
           The scheduled flake.lock bump workflow failed.
@@ -121,23 +169,25 @@ jobs:
           - Run \`nix build .#devShells.x86_64-linux.default --dry-run --show-trace\`.
           - Run the failing host checks from the workflow logs with \`nix build .#nixosConfigurations.<host>.config.system.build.toplevel --dry-run --show-trace\`.
 
-          Keep unrelated refactors out of the PR. If a failing input cannot be fixed safely, open the PR with the best narrow mitigation and explain the remaining failure.
+          Keep unrelated refactors out of the PR. If a failing input cannot be fixed safely, open the PR with the best narrow mitigation and explain the remaining failure. This issue is reused across runs while the fix is unmerged, so update this same PR rather than opening a new one.
           EOF
           )"
 
           jq -n \
-            --arg title "Fix failed flake.lock bump (${GITHUB_RUN_ID})" \
+            --arg title "Fix failed flake.lock bump" \
             --arg body "$body" \
             --arg repo "$REPO" \
             --arg base_branch "$COPILOT_BASE_BRANCH" \
+            --arg label "$COPILOT_ISSUE_LABEL" \
             '{
               title: $title,
               body: $body,
+              labels: [$label],
               assignees: ["copilot-swe-agent[bot]"],
               agent_assignment: {
                 target_repo: $repo,
                 base_branch: $base_branch,
-                custom_instructions: "Fix the failed scheduled flake.lock bump. Open the pull request against main. If an updated lock branch is listed in the issue, fetch it first and include that flake.lock change in your work. Use the workflow logs to identify failures, make the smallest required Nix changes, and run the relevant Nix validation commands.",
+                custom_instructions: "Fix the failed scheduled flake.lock bump. Open the pull request against main. If an updated lock branch is listed in the issue, fetch it first and include that flake.lock change in your work. Use the workflow logs to identify failures, make the smallest required Nix changes, and run the relevant Nix validation commands. This issue is reused across scheduled runs while unmerged, so keep updating the same pull request instead of opening new ones.",
                 custom_agent: "",
                 model: ""
               }

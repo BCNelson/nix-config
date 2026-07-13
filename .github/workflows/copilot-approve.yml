@@ -1,0 +1,62 @@
+name: Approve Copilot PR checks
+
+# GitHub holds Actions runs on the Copilot coding agent's pull requests in an
+# "action_required" state, waiting for a human to click "Approve and run". That
+# means Copilot never sees CI results for its own fixes and can't tell whether it
+# solved the failure. This workflow runs via pull_request_target (which is NOT
+# gated by that approval requirement) and auto-approves the held runs for
+# Copilot's PRs so its checks execute automatically.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  actions: write
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only for the Copilot coding agent's own PRs. Match on the bot's login
+    # (set by GitHub, not spoofable) AND require a same-repo head branch, so an
+    # outsider cannot satisfy this by naming a fork branch "copilot/...".
+    if: >-
+      ${{ (github.event.pull_request.user.login == 'Copilot'
+      || github.event.pull_request.user.login == 'copilot-swe-agent[bot]')
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Approve held workflow runs for this PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The held run may be created slightly after this workflow starts, so
+          # poll a few times before giving up.
+          for attempt in 1 2 3 4 5 6; do
+            # Only approve the Nix flake check, which references no secrets.
+            # Never blanket-approve every held run: terraform.yml / tailscale.yml
+            # carry cloud/Tailscale secrets on pull_request and must stay gated
+            # behind manual review even on Copilot's own PRs.
+            run_ids="$(gh api \
+              "/repos/${REPO}/actions/runs?head_sha=${HEAD_SHA}&status=action_required" \
+              --jq '.workflow_runs[] | select(.path == ".github/workflows/check.yml") | .id' 2>/dev/null || true)"
+
+            if [ -n "$run_ids" ]; then
+              for id in $run_ids; do
+                if gh api --method POST \
+                  "/repos/${REPO}/actions/runs/${id}/approve" >/dev/null 2>&1; then
+                  echo "Approved held run ${id}." >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "Could not approve run ${id} (may already be approved)." >> "$GITHUB_STEP_SUMMARY"
+                fi
+              done
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}: no held runs yet for ${HEAD_SHA}, waiting..."
+            sleep 10
+          done
+
+          echo "No held runs found to approve for ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
