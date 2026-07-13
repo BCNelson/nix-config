@@ -1,0 +1,95 @@
+name: Nudge Copilot on failed checks
+
+# When "Nix Flake Check" fails on one of the Copilot coding agent's OWN pull
+# requests, re-ping @copilot so it opens a new session and fixes the failure on
+# the same PR, instead of the failure sitting until the next daily scheduled run.
+#
+# Uses workflow_run (runs from the base branch, not gated by the PR approval
+# requirement) so it works even for Copilot's approval-gated PRs. Comments are
+# posted with COPILOT_AGENT_TOKEN (a licensed-user token) because a mention from
+# the default github-actions[bot] token does not wake the agent.
+
+on:
+  workflow_run:
+    workflows: ["Nix Flake Check"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  nudge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only failed check runs that came from a pull request.
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.event == 'pull_request' }}
+    env:
+      GH_TOKEN: ${{ secrets.COPILOT_AGENT_TOKEN }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      MAX_NUDGES: "5"
+
+    steps:
+      - name: Re-ping Copilot on its own failing PR
+        if: ${{ env.GH_TOKEN != '' }}
+        run: |
+          # Find the open PR for this commit and confirm Copilot authored it and
+          # it lives in this repo (Copilot pushes same-repo branches).
+          pr_numbers="$(gh api "/repos/${REPO}/commits/${HEAD_SHA}/pulls" \
+            --jq '.[]
+                  | select(.state == "open")
+                  | select(.head.repo.full_name == "'"${REPO}"'")
+                  | select(.user.login == "Copilot" or .user.login == "copilot-swe-agent[bot]")
+                  | .number' 2>/dev/null || true)"
+
+          if [ -z "$pr_numbers" ]; then
+            echo "No open Copilot-authored PR for ${HEAD_SHA}; nothing to nudge." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          for number in $pr_numbers; do
+            comments="$(gh api "/repos/${REPO}/issues/${number}/comments" --paginate \
+              --jq '.[].body // ""' 2>/dev/null || true)"
+
+            # One nudge per commit: skip if we already pinged for this exact SHA.
+            sha_marker="<!-- copilot-ci-nudge:${HEAD_SHA} -->"
+            if printf '%s\n' "$comments" | grep -qF "$sha_marker"; then
+              echo "Already nudged PR #${number} for ${HEAD_SHA}; skipping." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            # Bail out to a human after too many failed attempts, so we don't
+            # spin Copilot sessions forever on something it can't fix.
+            nudge_count="$(printf '%s\n' "$comments" | grep -cF "copilot-ci-nudge:" || true)"
+            if [ "${nudge_count:-0}" -ge "$MAX_NUDGES" ]; then
+              giveup_marker="<!-- copilot-ci-nudge-giveup -->"
+              if ! printf '%s\n' "$comments" | grep -qF "$giveup_marker"; then
+                gh issue comment "$number" --repo "$REPO" --body "$(cat <<EOF
+          ${giveup_marker}
+          The \`Nix Flake Check\` has failed on this PR ${MAX_NUDGES} times after Copilot retries. Pausing automatic nudges — this needs manual attention.
+
+          Latest failed run: ${RUN_URL}
+          EOF
+          )"
+                echo "Reached nudge cap on PR #${number}; asked for manual attention." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              continue
+            fi
+
+            gh issue comment "$number" --repo "$REPO" --body "$(cat <<EOF
+          ${sha_marker}
+          @copilot the \`Nix Flake Check\` failed on this pull request. Please review the failing run, fix the issue on this same PR, and do not open a new one.
+
+          Failed run: ${RUN_URL}
+          EOF
+          )"
+            echo "Nudged Copilot on PR #${number} for ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Explain missing Copilot token
+        if: ${{ env.GH_TOKEN == '' }}
+        run: |
+          echo "Skipping Copilot nudge because COPILOT_AGENT_TOKEN is not configured." >> "$GITHUB_STEP_SUMMARY"
