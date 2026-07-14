@@ -16,7 +16,6 @@ in {
     ./nixBinaryCacheProxy.nix
     ./romm.nix
     ./syncthing.nix
-    ./node-red.nix
     ./frigate.nix
     ./gotosocial.nix
     ./ollama.nix
