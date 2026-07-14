@@ -26,6 +26,7 @@ in {
     ./immichframe.nix
     ./journiv.nix
     ./tendant.nix
+    ./woodpecker-agent.nix
   ];
 
   systemd.timers.podman-auto-update = {
