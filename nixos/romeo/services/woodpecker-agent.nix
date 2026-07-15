@@ -33,6 +33,8 @@
       WOODPECKER_BACKEND = "docker";
       # Friendly name shown on Codeberg's agents list.
       WOODPECKER_HOSTNAME = "romeo";
+      # Number of workflows this agent runs in parallel (default 1).
+      WOODPECKER_MAX_WORKFLOWS = "4";
     };
     # The docker backend drives builds through the host docker socket.
     extraGroups = [ "docker" ];
