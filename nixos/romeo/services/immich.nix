@@ -50,7 +50,10 @@ in
   };
 
   virtualisation.oci-containers.containers.immich-postgres = {
-    image = "docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0";
+    # immich v3 dropped pgvecto.rs; this image ships both pgvectors 0.2.0
+    # (reads existing data) and vectorchord 0.4.3 (v3 target) so immich
+    # auto-migrates the vector extension on boot.
+    image = "ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0";
     environment = {
       "POSTGRES_PASSWORD" = immich_postgres_password;
       "POSTGRES_USER" = "postgres";
