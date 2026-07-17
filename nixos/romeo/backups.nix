@@ -112,7 +112,7 @@ in
         yearly = 2;
         useTemplate = [ "common" ];
       };
-      "scary/replaceable" = {
+      "trove/replaceable" = {
         hourly = 24;
         daily = 31;
         weekly = 8;

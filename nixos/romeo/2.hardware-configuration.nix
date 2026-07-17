@@ -26,7 +26,7 @@
   boot = {
     kernelPackages = pkgs.linuxPackages_6_12;
     zfs = {
-      extraPools = [ "vault" "scary" ];
+      extraPools = [ "vault" "trove" ];
       forceImportRoot = false;
       devNodes = "/dev/disk/by-partlabel";
     };
