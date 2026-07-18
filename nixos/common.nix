@@ -83,6 +83,7 @@
     nano
     git
     git-crypt
+    powertop
   ];
 
   programs.tmux.enable = true;

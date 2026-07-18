@@ -4,6 +4,7 @@
   imports = [
     ../_mixins/work/redo.nix
     ./_mixins/kwin-adaptive-workspaces.nix
+    ./_mixins/power-saver-refresh.nix
     ./_mixins/workstation.nix
     ./_mixins/mcp/aws/support.nix
     ./_mixins/mcp/aws/cloudwatch.nix
@@ -17,6 +18,7 @@
     pkgs.gam # Google Workkspace CLI
     (config.lib.nixGL.wrap pkgs.devpod-desktop)
     pkgs.coder
+    pkgs.robocode # Robocode Tank Royale
   ];
 
   programs.plasma = {

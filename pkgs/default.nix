@@ -19,4 +19,5 @@ pkgs: {
   pince = pkgs.callPackage ./pince { };
   distrobox-bazel = pkgs.callPackage ./distrobox-bazel.nix { };
   nix-store-selinux = pkgs.callPackage ./nix-store-selinux.nix { };
+  robocode = pkgs.callPackage ./robocode.nix { };
 }

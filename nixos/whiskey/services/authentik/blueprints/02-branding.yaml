@@ -1,0 +1,71 @@
+version: 1
+metadata:
+  name: nel-family-branding
+entries:
+  # Personalize the default brand (the one upstream creates as
+  # default/default-brand.yaml with `domain: authentik-default`,
+  # `default: true`). We match on the domain key and reconcile on every apply
+  # (state defaults to `present`), so the branding is enforced from git.
+  #
+  # `default` is intentionally NOT set here — leaving it out preserves the
+  # existing `default: true` rather than risking unsetting it.
+  - model: authentik_brands.brand
+    identifiers:
+      domain: authentik-default
+    attrs:
+      branding_title: Nelson Auth
+      # Theme variables come from authentik's web base styles
+      # (web/src/styles/authentik/base/{variables,colors,colors-dark}.css).
+      # `--ak-accent` drives authentik's own highlights; the `--pf-global--*`
+      # primary/active/link vars drive PatternFly buttons and links. Light-mode
+      # overrides go under :root; dark-mode vars are defined upstream under
+      # html[data-theme="dark"], so we must match that selector to win.
+      branding_custom_css: |
+        /* === Nelson Auth — teal brand palette === */
+
+        /* Light theme */
+        :root {
+          --ak-accent: #0d9488;                          /* teal-600 */
+          --pf-global--primary-color--100: #0f766e;      /* teal-700 — button bg */
+          --pf-global--primary-color--200: #115e59;      /* teal-800 — darker */
+          --pf-global--primary-color--300: #0f766e;
+          --pf-global--active-color--100: #0d9488;
+          --pf-global--link--Color: #0f766e;
+          --pf-global--link--Color--hover: #115e59;
+          --pf-global--link--Color--light: #0d9488;
+          --pf-global--link--Color--light--hover: #14b8a6;
+        }
+
+        /* Dark theme — upstream sets these under this exact selector. */
+        html[data-theme="dark"] {
+          --ak-accent: #2dd4bf;                          /* teal-400 */
+          --pf-global--primary-color--100: #14b8a6;      /* teal-500 */
+          --pf-global--primary-color--300: #14b8a6;
+          --pf-global--active-color--100: #2dd4bf;
+          --pf-global--link--Color: #2dd4bf;
+          --pf-global--link--Color--hover: #5eead4;
+          --pf-global--link--Color--light: #2dd4bf;
+          --pf-global--link--Color--light--hover: #5eead4;
+        }
+
+        /* Subtle accent bar across the top of the login/flow card. */
+        .pf-c-login__main {
+          border-top: 3px solid var(--ak-accent);
+        }
+
+        /* Give the brand title in the login header a touch more presence. */
+        .pf-c-brand {
+          font-weight: 700;
+          letter-spacing: 0.01em;
+        }
+
+        /* Soft branded backdrop behind the login flow. */
+        .pf-c-login,
+        .pf-c-background-image {
+          background-image:
+            radial-gradient(
+              1200px circle at 50% -10%,
+              rgba(13, 148, 136, 0.18),
+              transparent 60%
+            );
+        }

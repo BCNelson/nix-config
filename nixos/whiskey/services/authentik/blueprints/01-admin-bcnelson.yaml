@@ -1,0 +1,22 @@
+version: 1
+metadata:
+  name: admin-bcnelson
+entries:
+  # Reproducible admin account. No password is baked in — the credential
+  # (password/passkey) is set on first login via the UI or recovery flow.
+  # "authentik Admins" is the built-in superuser group. household +
+  # service_admins come from 00-groups.yaml (the apply loop converges if this
+  # runs before those groups exist).
+  - model: authentik_core.user
+    identifiers:
+      username: bcnelson
+    attrs:
+      name: Bradley Nelson
+      email: bradley@nel.family
+      path: users
+      is_active: true
+      type: internal
+      groups:
+        - !Find [authentik_core.group, [name, "authentik Admins"]]
+        - !Find [authentik_core.group, [name, service_admins]]
+        - !Find [authentik_core.group, [name, household]]
