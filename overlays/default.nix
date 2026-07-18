@@ -9,6 +9,18 @@
   # https://nixos.wiki/wiki/Overlays
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
+
+    # gdal 3.13.1's zarr sharding test expects a `zarr.json.gmac` sidecar that
+    # isn't produced in the `useMinimalFeatures = true` build (pulled in by
+    # vtk -> freecad), so it fails with `assert None is not None` in
+    # gdrivers/zarr_driver.py. Deselect just that test to unblock the build.
+    # overrideAttrs survives vtk's `.override { useMinimalFeatures = true; }`.
+    gdal = prev.gdal.overrideAttrs (old: {
+      disabledTestPaths = (old.disabledTestPaths or [ ]) ++ [
+        "gdrivers/zarr_driver.py::test_zarr_read_simple_sharding"
+      ];
+    });
+
     # Wrap claude-code with extra tools it needs on PATH.
     claude-code = prev.claude-code.overrideAttrs (oldAttrs: {
       postFixup = (oldAttrs.postFixup or "") + ''

@@ -6,16 +6,21 @@ let
   transformedMcpServers = lib.optionalAttrs config.programs.mcp.enable (
     lib.mapAttrs (
       _name: server:
-      (lib.removeAttrs server [
-        "disabled"
-        "headers"
-      ])
-      // (lib.optionalAttrs (server ? headers && !(server ? http_headers)) {
-        http_headers = server.headers;
-      })
-      // {
-        enabled = !(server.disabled or false);
-      }
+      # Drop null-valued attrs: the home-manager mcp module declares
+      # command/url/enabled as nullOr options defaulting to null, and the
+      # TOML formatter cannot serialize null ("unsupported unit type").
+      lib.filterAttrs (_: v: v != null) (
+        (lib.removeAttrs server [
+          "disabled"
+          "headers"
+        ])
+        // (lib.optionalAttrs (server ? headers && !(server ? http_headers)) {
+          http_headers = server.headers;
+        })
+        // {
+          enabled = !(server.disabled or false);
+        }
+      )
     ) config.programs.mcp.servers
   );
 
