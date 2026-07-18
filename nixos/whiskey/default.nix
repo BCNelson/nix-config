@@ -16,6 +16,17 @@
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 
+  # whiskey runs zero OCI containers (every oci-containers.* lives on romeo),
+  # but the shared server role unconditionally pulls in roles/docker.nix. Force
+  # docker off here so we don't run dockerd+containerd (and their socket) for
+  # nothing. The Alloy docker log-scraping in services/monitoring.nix is dropped
+  # in lockstep, since it depended on the docker socket and the `docker` group.
+  virtualisation.docker.enable = lib.mkForce false;
+  # roles/docker.nix sets systemd.services.docker.serviceConfig unconditionally,
+  # which otherwise leaves a dead, ExecStart-less docker.service behind once the
+  # docker module is disabled. Mask it so no vestigial unit lingers.
+  systemd.services.docker.enable = lib.mkForce false;
+
   zramSwap.enable = true;
 
   # Disk-backed swap as a backstop beneath zram. zram has priority 5, so the

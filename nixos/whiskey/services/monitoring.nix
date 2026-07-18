@@ -144,18 +144,5 @@
       relabel_rules = loki.relabel.journal.rules
       forward_to    = [loki.relabel.journal.receiver]
     }
-
-    discovery.docker "containers" {
-      host = "unix:///var/run/docker.sock"
-    }
-
-    loki.source.docker "containers" {
-      host    = "unix:///var/run/docker.sock"
-      targets = discovery.docker.containers.targets
-
-      forward_to = [loki.write.loki.receiver]
-    }
   '';
-
-  systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "docker" ];
 }
