@@ -17,7 +17,7 @@
   '';
 in {
   programs.mcp.servers.mongodb-redo-production = {
-    command = launcher;
+    command = "${launcher}";
     args = [ "--readOnly" ];
     startup_timeout_sec = 60;
   };
