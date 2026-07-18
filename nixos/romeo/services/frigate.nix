@@ -10,8 +10,14 @@ in
     settings = {
       database.path = "${dataDirs.level5}/frigate/db/frigate.db";
       ffmpeg = {
-        # Use VA-API on the A380 (i915) render device
+        # Use VA-API on the A380 (i915) render device.
+        # NOTE: -hwaccel_device alone is a no-op; the -hwaccel method must be
+        # set or ffmpeg silently decodes on the CPU. Output format is left
+        # unset so decoded frames are auto-downloaded to RAM for the software
+        # scale filter Frigate adds to the detect role.
         hwaccel_args = [
+          "-hwaccel"
+          "vaapi"
           "-hwaccel_device"
           "/dev/dri/by-driver/i915-render"
         ];
