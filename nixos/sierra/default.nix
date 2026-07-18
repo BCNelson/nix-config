@@ -42,6 +42,7 @@
   };
 
   environment.systemPackages = [
+    pkgs.opendeck # Stream Deck controller (native; replaces the Flatpak, which rendered tofu)
     pkgs.qemu
     (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''
       ${pkgs.qemu}/bin/qemu-system-x86_64 \
