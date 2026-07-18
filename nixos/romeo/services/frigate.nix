@@ -170,6 +170,11 @@ in
   # Force OpenVINO/Level Zero to only use the A380 (first GPU)
   systemd.services.frigate.environment = {
     ZE_AFFINITY_MASK = "0";
+    # Pin VA-API's default device to the A380. Frigate's vainfo stats poll
+    # runs with no device arg, so libva otherwise defaults to renderD128 (the
+    # B580/Battlemage), where intel-media-driver segfaults on init. Decode
+    # already targets this device explicitly; this fixes the stats poll too.
+    LIBVA_DRI_DEVICE = "/dev/dri/by-driver/i915-render";
   };
 
   services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
