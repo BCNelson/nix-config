@@ -10,15 +10,25 @@
   # WOODPECKER_AGENT_SECRET below. An agent may belong to only ONE user/org, so
   # this one is bound to the home-first org.
 
-  # Raw agent token from Codeberg. Manually entered (not generated): create it
-  # with `agenix edit nixos/romeo/services/secrets/woodpecker_agent_secret.age`,
-  # paste the token from Codeberg, then `just rekey` and `git add`.
+  # An agent may belong to only ONE user/org, so each Codeberg org/user romeo
+  # contributes to needs its own registered agent with its own token.
+
+  # Raw agent tokens from Codeberg. Manually entered (not generated): create each
+  # with `agenix edit nixos/romeo/services/secrets/<file>.age`, paste the token
+  # from Codeberg, then `just rekey` and `git add`.
+  #   - woodpecker_agent_secret.age          -> home-first org (ci.codeberg.org/orgs/2684)
+  #   - woodpecker_agent_secret_personal.age -> personal account (bcnelson)
   age.secrets.woodpecker_agent_secret.rekeyFile = ./secrets/woodpecker_agent_secret.age;
+  age.secrets.woodpecker_agent_secret_personal.rekeyFile = ./secrets/woodpecker_agent_secret_personal.age;
 
   # woodpecker-agent reads its secret from an env file (KEY=value). Compose that
   # file from the raw token, mirroring the acme env-file pattern in default.nix.
   age-template.files."woodpecker-agent-env" = {
     vars.token = config.age.secrets.woodpecker_agent_secret.path;
+    content = "WOODPECKER_AGENT_SECRET=$token";
+  };
+  age-template.files."woodpecker-agent-env-personal" = {
+    vars.token = config.age.secrets.woodpecker_agent_secret_personal.path;
     content = "WOODPECKER_AGENT_SECRET=$token";
   };
 
@@ -39,5 +49,21 @@
     # The docker backend drives builds through the host docker socket.
     extraGroups = [ "docker" ];
     environmentFile = [ config.age-template.files."woodpecker-agent-env".path ];
+  };
+
+  # Second agent, bound to the personal Codeberg account (bcnelson). Same
+  # Codeberg server and local docker backend as the home-first agent above; only
+  # the token (and the hostname label) differ.
+  services.woodpecker-agents.agents.personal = {
+    enable = true;
+    environment = {
+      WOODPECKER_SERVER = "grpc.ci.codeberg.org:443";
+      WOODPECKER_GRPC_SECURE = "true";
+      WOODPECKER_BACKEND = "docker";
+      WOODPECKER_HOSTNAME = "romeo-personal";
+      WOODPECKER_MAX_WORKFLOWS = "4";
+    };
+    extraGroups = [ "docker" ];
+    environmentFile = [ config.age-template.files."woodpecker-agent-env-personal".path ];
   };
 }
