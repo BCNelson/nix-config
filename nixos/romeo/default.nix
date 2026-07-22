@@ -29,6 +29,7 @@ in
       ../_mixins/roles/server/zfs.nix
       ../_mixins/roles/server/monitoring.nix
       ../_mixins/roles/server/nginx.nix
+      ../_mixins/roles/server/recovery.nix
       ./unbound.nix
       ./backups.nix
       ./nfs.nix
