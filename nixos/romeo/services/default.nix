@@ -26,6 +26,7 @@ in {
     ./immichframe.nix
     ./journiv.nix
     ./tendant.nix
+    ./forgejo-runner.nix
     ./woodpecker-agent.nix
   ];
 
