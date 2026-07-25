@@ -29,6 +29,8 @@ let
       experimental_use_rmcp_client = true;
 
       features = {
+        # Required by the herdr codex integration (see ../herdr)
+        hooks = true;
         memories = true;
         prevent_idle_sleep = true;
         terminal_resize_reflow = true;
@@ -41,6 +43,8 @@ let
   codexHome = "${config.xdg.configHome}/${codexConfigDir}";
 in
 {
+  imports = [ ../../../_mixins/services/config-merge.nix ];
+
   home.sessionVariables = {
     CODEX_HOME = codexHome;
   };
@@ -49,21 +53,12 @@ in
     enable = true;
   };
 
-  xdg.configFile."${codexConfigDir}/config.base.toml".source = tomlFormat.generate "codex-config-base" baseSettings;
-
-  systemd.user.services.codex-config-merge = {
-    Unit = {
-      Description = "Codex config merge daemon";
-    };
-
-    Service = {
-      ExecStart = "${pkgs.codex-config-merge}/bin/codex-config-merge --base ${codexHome}/config.base.toml --runtime ${codexHome}/config.runtime.toml --live ${codexHome}/config.toml";
-      Restart = "on-failure";
-      RestartSec = 2;
-    };
-
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
+  # Codex records per-project trust decisions in the same config.toml it reads,
+  # so the declarative half cannot be a read-only symlink. config-merge owns the
+  # live file and replays those decisions on top of the base.
+  services.config-merge.codex = {
+    settings = baseSettings;
+    live = "${codexHome}/config.toml";
+    runtimeKeys = [ "projects.*.trust_level" ];
   };
 }

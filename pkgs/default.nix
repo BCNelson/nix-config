@@ -11,7 +11,7 @@ pkgs: {
   opendeck = pkgs.callPackage ./opendeck.nix { };
   openhuman = pkgs.callPackage ./openhuman.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
-  codex-config-merge = pkgs.callPackage ./codex-config-merge { };
+  config-merge = pkgs.callPackage ./config-merge { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
   happy-auth-notify = pkgs.callPackage ./happy-auth-notify { };
   kwin-adaptive-workspaces = pkgs.callPackage ./kwin-adaptive-workspaces { };

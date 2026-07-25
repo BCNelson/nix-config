@@ -1,4 +1,4 @@
-module codex-config-merge
+module config-merge
 
 go 1.23.0
 
