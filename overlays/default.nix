@@ -21,8 +21,60 @@
       ];
     });
 
+    # GAM 7.43.04 pins chardet==5.2.0 in its pyproject, but nixpkgs now ships
+    # chardet 6.0.0, so pythonRuntimeDepsCheckHook fails with
+    # `chardet==5.2.0 not satisfied by version 6.0.0.post1`. Relax the pin;
+    # chardet 6.x is API-compatible for GAM's CSV encoding detection.
+    # Setting pythonRelaxDeps via overrideAttrs works because gam uses the
+    # finalAttrs fixpoint, so mk-python-derivation auto-adds pythonRelaxDepsHook.
+    gam = prev.gam.overrideAttrs (old: {
+      pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "chardet" ];
+    });
+
+    # mongodb-compass builds via a custom `buildCommand`, which skips the
+    # standard fixupPhase and so calls `wrapGAppsHook` manually. nixpkgs
+    # redesigned wrapGAppsHook to be output-aware (it indexes
+    # `wrapGAppsHookHasRunForOutput["$output"]` and auto-discovers binaries in
+    # `$prefix/bin`), but inside buildCommand neither `$output` nor `$prefix`
+    # is set, so the empty associative-array subscript aborts with
+    # `wrapGAppsHookHasRunForOutput: bad array subscript`. The new hook also no
+    # longer takes a program-path argument. Set output/prefix and drop the arg.
+    mongodb-compass = prev.mongodb-compass.overrideAttrs (old: {
+      buildCommand = builtins.replaceStrings
+        [ "wrapGAppsHook $out/bin/mongodb-compass" ]
+        [ "output=out prefix=\"$out\" wrapGAppsHook" ]
+        old.buildCommand;
+    });
+
     # Wrap claude-code with extra tools it needs on PATH.
-    claude-code = prev.claude-code.overrideAttrs (oldAttrs: {
+    #
+    # We also carry a pinned bump (nixpkgs PR #545319, a plain version bump).
+    # The package fetches a prebuilt binary keyed by version + per-platform
+    # checksum, so overriding version and src with the PR's manifest values is
+    # enough. The pin is only applied when it's *newer* than what the channel
+    # already ships, so whichever version is later wins and the override
+    # becomes a no-op automatically once the channel catches up.
+    claude-code =
+      let
+        pinnedVersion = "2.1.219";
+        # sha256 checksums from the PR's manifest.json, per node platform-arch key.
+        checksums = {
+          "linux-x64" = "22cfd6f5b3061c0391ba84e9cf8c9deaa37783aac18b004d42ec061e98f00691";
+          "linux-arm64" = "1f834b322ba9d1291cc7ffeff16a6795a59145bda279dbd59cd7ecebc7b7f15a";
+          "darwin-arm64" = "a8e806faaefac53c7a0f26523d8a45c60dbef3407b14ef990c75765d08febc82";
+        };
+        platformKey = "${final.stdenv.hostPlatform.node.platform}-${final.stdenv.hostPlatform.node.arch}";
+        # Only override version/src when the channel's claude-code is older.
+        usePin = builtins.compareVersions prev.claude-code.version pinnedVersion < 0;
+        versionOverride = final.lib.optionalAttrs usePin {
+          version = pinnedVersion;
+          src = final.fetchurl {
+            url = "https://downloads.claude.ai/claude-code-releases/${pinnedVersion}/${platformKey}/claude";
+            sha256 = checksums.${platformKey};
+          };
+        };
+      in
+      prev.claude-code.overrideAttrs (oldAttrs: versionOverride // {
       postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
           --prefix PATH : ${final.lib.makeBinPath [
