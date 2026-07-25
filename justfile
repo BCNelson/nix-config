@@ -26,16 +26,35 @@ update-os *additionalArgs:
     #!/usr/bin/env bash
     set -euo pipefail
     git rev-parse HEAD
-    if nix eval .#nixosConfigurations.$HOSTNAME --apply 'x: ""' --raw >/dev/null 2>&1; then
+    # Pick the builder from attribute *names* only. attrNames does not force the
+    # configurations themselves, so a host whose own config fails to evaluate
+    # still routes to its builder and reports the real error there, instead of
+    # the failure being swallowed into a misleading "no entry for host". A flake
+    # that is broken outright fails here, loudly, with nix's own message.
+    hostNames() {
+        nix eval ".#$1" --apply 'set: builtins.concatStringsSep "\n" (builtins.attrNames set)' --raw
+    }
+    nixosHosts=$(hostNames nixosConfigurations)
+    systemHosts=$(hostNames systemConfigs)
+    if grep -qxF "$HOSTNAME" <<<"$nixosHosts"; then
         if [ "$EUID" -ne 0 ]; then
             sudo nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
         else
             nixos-rebuild switch --flake .#$HOSTNAME {{ additionalArgs }}
         fi
-    elif nix eval .#systemConfigs.$HOSTNAME --apply 'x: ""' --raw >/dev/null 2>&1; then
-        nix run github:numtide/system-manager -- switch --flake .#$HOSTNAME --sudo {{ additionalArgs }}
+    elif grep -qxF "$HOSTNAME" <<<"$systemHosts"; then
+        # Run activation as root with our full PATH intact. system-manager's own
+        # --sudo re-execs `activate` under a reset PATH (sudoers secure_path)
+        # that lacks /usr/bin, so the engine's bare-name `systemd-tmpfiles` (and
+        # the SELinux assertion's getenforce/semodule) fail to exec and it
+        # panics. `env` — not sudo — sets the final PATH, sidestepping
+        # secure_path precedence; absolute /usr/bin/env needs no PATH lookup,
+        # and $PATH here already has both the nix profile and /usr/bin.
+        sudo /usr/bin/env "PATH=$PATH" nix run github:numtide/system-manager -- switch --flake .#$HOSTNAME {{ additionalArgs }}
     else
         echo "No nixosConfigurations or systemConfigs entry for host $HOSTNAME" >&2
+        echo "  nixosConfigurations: $(tr '\n' ' ' <<<"$nixosHosts")" >&2
+        echo "  systemConfigs:       $(tr '\n' ' ' <<<"$systemHosts")" >&2
         exit 1
     fi
 
