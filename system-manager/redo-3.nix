@@ -8,6 +8,25 @@ _:
     # home-manager activation service that depends on a stable User= lookup.
     services.userborn.enable = false;
 
+    # system-manager unconditionally emits `After=userborn.service` in its
+    # generated suid-sgid-wrappers.service, and its engine unconditionally
+    # restarts userborn.service before tmpfiles. With userborn disabled the unit
+    # doesn't exist, so systemd pins a not-found stub (the dangling After keeps
+    # it referenced, surviving daemon-reload) and every activation logs
+    # "Unit userborn.service not found". Provide a real no-op oneshot: it
+    # satisfies the ordering and the restart probe without touching /etc/passwd.
+    environment.etc."systemd/system/userborn.service" = {
+      mode = "0644";
+      text = ''
+        [Unit]
+        Description=No-op userborn (userborn disabled on redo-3)
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/true
+      '';
+    };
+
     users.groups.bcnelson.gid = 1000;
     users.users.bcnelson = {
       isNormalUser = true;
