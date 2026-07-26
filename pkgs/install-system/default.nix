@@ -6,6 +6,7 @@ let
     gnupg
     git-crypt
     coreutils
+    curl
     just
     age
     age-plugin-yubikey
@@ -13,6 +14,7 @@ let
     nix
     nixos-install-tools
     openssh
+    rsync
     util-linux
   ];
 in

@@ -20,7 +20,9 @@ in
 {
   imports = [
     ../_mixins/roles/tailscale.nix
-    ./disks.nix
+    # ./disks.nix is deliberately absent: it is an install-time disko
+    # declaration, not a module. See ./filesystems.nix.
+    ./filesystems.nix
     ./kiosk.nix
   ];
 
@@ -70,7 +72,7 @@ in
 
   # --- Memory -------------------------------------------------------------
   #
-  # 2 GiB, no swap partition (see disks.nix). zram gives back roughly the
+  # 2 GiB, no swap partition (see ./filesystems.nix). zram gives back the
   # difference: zstd hits ~3:1 on anonymous pages, so 150% of RAM as a zram
   # device costs ~500 MiB of real memory at full utilisation while holding
   # ~3 GiB of pages.

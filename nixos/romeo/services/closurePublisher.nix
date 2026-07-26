@@ -1,16 +1,19 @@
 {
-  # Build the thin clients' system closures here and publish them to the
-  # binary cache romeo already serves (see ./nixBinaryCacheProxy.nix). The
-  # clients then update by downloading a finished closure — they never
-  # evaluate or build anything themselves. See
-  # services.bcnelson.remoteUpdate in nixos/delta/default.nix.
+  # Build the limited hosts' system closures here and publish them to the
+  # binary cache romeo already serves (see ./nixBinaryCacheProxy.nix). Those
+  # hosts never evaluate or build anything themselves — not when updating
+  # (services.bcnelson.remoteUpdate) and not when first installed
+  # (`install-system --limited`), which waits on the manifests below.
   services.bcnelson.closurePublisher = {
     enable = true;
-    hosts = [ "delta-1" ];
-    # Lets an installer booted on a thin client partition its disk, and be
-    # installed at all, without evaluating this flake. See
-    # nixos/delta/INSTALL.md.
-    extraAttributes = [ "diskoScript" ];
+
+    # `install-system --limited` adds new hosts here, at the marker, in the
+    # same pull request that adds them to the flake. A host missing from this
+    # list is a host nobody is building.
+    hosts = [
+      # INSERT_NEW_LIMITED_HOST_HERE
+    ];
+
     flakePath = "/config";
     # Same directory nginx serves for nixcache.nel.family.
     cacheDir = "/var/public-nix-cache";

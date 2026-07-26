@@ -137,32 +137,6 @@ alias check := check-host
 check-host host *additionalArgs:
     nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel --dry-run {{ additionalArgs }}
 
-# Capture a host's hardware configuration from a booted installer ISO. Hosts
-# that cannot evaluate this flake have to be built before they can be
-# installed, so this has to happen before the first publish rather than after
-# nixos-install like it normally would. Target is anything ssh accepts; the
-# iso_console image brings up tailscale ssh on boot.
-thin-hwconfig host target:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    prefix=$(cut -d- -f1 <<<"{{ host }}")
-    # Mirrors nixos/default.nix: prefix is the first dash-segment, suffix is
-    # the rest concatenated. -s so a dashless hostname yields an empty suffix.
-    suffix=$(cut -d- -f2- -s <<<"{{ host }}" | sed 's/-//g')
-    out="{{ justfile_directory() }}/nixos/$prefix/$suffix.hardware-configuration.nix"
-    mkdir -p "$(dirname "$out")"
-    # --no-filesystems because partitioning is declared by disko; generated
-    # fileSystems entries would collide with it.
-    ssh {{ target }} nixos-generate-config --no-filesystems --show-hardware-config > "$out.tmp"
-    if ! grep -q availableKernelModules "$out.tmp"; then
-        echo "That does not look like a hardware config:" >&2
-        head -5 "$out.tmp" >&2
-        rm -f "$out.tmp"
-        exit 1
-    fi
-    mv "$out.tmp" "$out"
-    echo "Wrote $out — commit it before publishing {{ host }}."
-
 # Print the binary cache signing key the closure publisher generated, for
 # pinning in services.bcnelson.remoteUpdate.trustedPublicKeys.
 cache-key url='https://nixcache.nel.family':

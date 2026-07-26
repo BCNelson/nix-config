@@ -54,22 +54,6 @@ in
         '';
       };
 
-      extraAttributes = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "diskoScript" ];
-        description = ''
-          Additional <literal>system.build.&lt;attr&gt;</literal> outputs to
-          build and publish alongside the toplevel, each getting its own
-          manifest at <literal>&lt;host&gt;.&lt;attr&gt;</literal>.
-
-          <literal>diskoScript</literal> is the useful one: an installer booted
-          on the target can fetch and run it to partition the disk without
-          evaluating this flake. Attributes that do not exist for a given host
-          are skipped with a warning rather than failing the run.
-        '';
-      };
-
       manifestSubdir = lib.mkOption {
         type = lib.types.str;
         default = "system";
@@ -113,21 +97,6 @@ in
         '';
       };
 
-      publicUrl = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = if cfg.nginxVirtualHost != null then "https://${cfg.nginxVirtualHost}" else null;
-        defaultText = lib.literalExpression ''"https://''${nginxVirtualHost}", or null'';
-        example = "https://nixcache.nel.family";
-        description = ''
-          URL clients reach this cache at. When set, each host also gets an
-          installer script published at
-          <literal>''${manifestSubdir}/&lt;host&gt;.install</literal> with this
-          URL baked in, so bootstrapping a machine that cannot evaluate this
-          flake is one command on the installer ISO. Set to null to skip
-          generating them.
-        '';
-      };
-
       runAfter = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
@@ -166,13 +135,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = cfg.hosts != [ ];
-        message = "services.bcnelson.closurePublisher.hosts must list at least one host";
-      }
-    ];
-
     # Publishing is background work on a machine that is also serving. Keep it
     # off the critical path the same way autoUpdate does.
     systemd.slices.system-closure-publisher = {
@@ -206,11 +168,9 @@ in
         CACHE_DIR = cfg.cacheDir;
         MANIFEST_SUBDIR = cfg.manifestSubdir;
         TARGET_HOSTS = lib.concatStringsSep " " cfg.hosts;
-        EXTRA_ATTRIBUTES = lib.concatStringsSep " " cfg.extraAttributes;
         SIGNING_KEY_FILE = cfg.signingKeyFile;
         SIGNING_KEY_NAME = cfg.signingKeyName;
         RETENTION_DAYS = toString cfg.retentionDays;
-        PUBLIC_URL = if cfg.publicUrl != null then cfg.publicUrl else "";
       };
       serviceConfig = {
         Type = "oneshot";

@@ -153,8 +153,6 @@
         "qilin-1" = libx.mkHost { hostname = "qilin-1"; usernames = [ "bcnelson" "ldporter" ]; desktop = "kde6"; };
         "xray-3" = libx.mkHost { hostname = "xray-3"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; };
         "charlie-1" = libx.mkHost { hostname = "charlie-1"; usernames = [ "bcnelson" ]; };
-        # Wyse 3040 thin client. Built and published by romeo, never by itself.
-        "delta-1" = libx.mkHost { hostname = "delta-1"; usernames = [ "bcnelson" ]; nixosMods = inputs.disko.nixosModules.disko; };
         "golf-4" = libx.mkHost { hostname = "golf-4"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; };

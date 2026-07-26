@@ -44,6 +44,7 @@ struct GpgConfig {
 
 mod wifi;
 mod swap;
+mod limited;
 
 /// Lists available disks in the system
 fn list_available_disks() -> Result<Vec<String>> {
@@ -174,6 +175,22 @@ struct Args {
     /// Target username
     #[arg(short, long, default_value = "bcnelson", value_delimiter = ',')]
     users: Vec<String>,
+
+    /// Install from a closure built elsewhere, for hardware that cannot
+    /// evaluate or build this flake. Pushes a pull request and waits for the
+    /// builder to publish instead of running nixos-install.
+    #[arg(long)]
+    limited: bool,
+
+    /// Binary cache the builder publishes closures to (--limited only).
+    #[arg(long, default_value = "https://nixcache.nel.family")]
+    cache: String,
+
+    /// Minutes to wait for the builder to publish (--limited only). The clock
+    /// starts when the pull request is opened, so it has to cover a human
+    /// merging it as well as the build itself.
+    #[arg(long, default_value_t = 90)]
+    wait_minutes: u64,
 }
 
 fn main() -> Result<()> {
@@ -522,7 +539,18 @@ fn main() -> Result<()> {
 
     run_cmd!(mkdir -p $host_dir)?;
 
-    run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
+    // Partitioning is declared by disko, so the generated fileSystems entries
+    // are duplicates that mount the same paths by UUID and conflict with it.
+    // On a normal install that shows up immediately, in the nixos-install that
+    // follows, and gets hand-edited out — see nixos/whiskey. A limited host
+    // has no such feedback: the conflict only surfaces on the *builder*, long
+    // after the installer has started waiting, on a machine that has already
+    // been wiped. So don't generate them.
+    if args.limited {
+        run_cmd!(sudo nixos-generate-config --no-filesystems --dir "${host_dir}/generate" --root /mnt)?;
+    } else {
+        run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
+    }
     run_cmd!(sudo mv "${host_dir}/generate/hardware-configuration.nix" "${host_dir}/${target_host_suffix}.hardware-configuration.nix")?;
     run_cmd!(sudo rm -rf "${host_dir}/generate")?;
 
@@ -582,13 +610,22 @@ fn main() -> Result<()> {
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
-    run_cmd!(ignore sudo nix fmt)?;
+    if args.limited {
+        // Both of the steps below evaluate the whole flake, which is the one
+        // thing this machine cannot do — `nix fmt` resolves the flake's
+        // formatter output, and the dummy rekey forces every host's
+        // configuration. The real rekey happens on the pull request.
+        println!("Limited host: skipping local formatting and dummy rekey");
+        limited::register_with_builder(&args.host)?;
+    } else {
+        run_cmd!(ignore sudo nix fmt)?;
 
-    //TODO: Better chack to see if this is needed
-    run_cmd!(
-        git add -A;
-        nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy;
-    )?;
+        //TODO: Better chack to see if this is needed
+        run_cmd!(
+            git add -A;
+            nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy;
+        )?;
+    }
 
     run_cmd!(
         git checkout -b "install-$target_host";
@@ -600,22 +637,40 @@ fn main() -> Result<()> {
         git config --unset "user.name";
     )?;
 
-    run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
+    if args.limited {
+        // The push is what starts the build, so unlike a normal install it
+        // has to happen before the system is installed rather than after.
+        let branch = format!("install-{}", args.host);
+        limited::push_and_open_pr(&args.host, &branch)?;
+
+        let system = limited::wait_for_closure(&args.cache, &args.host, args.wait_minutes)?;
+        limited::install_closure(&args.cache, &system)?;
+    } else {
+        run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
+
+        run_cmd!(
+            git config push.autoSetupRemote true;
+            just push;
+            git config --unset push.autoSetupRemote;
+            git switch auto-update;
+        )?;
+    }
 
     run_cmd!(
-        git config push.autoSetupRemote true;
-        just push;
-        git config --unset push.autoSetupRemote;
-        git switch auto-update;
-    )?;
-
-    println!("Copying nix-config to /config");
-    run_cmd!(
-        mkdir -p /mnt/etc/ssh;
+        sudo mkdir -p /mnt/etc/ssh;
         sudo cp $home/id_ed25519 "/mnt/etc/ssh/ssh_host_ed25519_key";
         sudo cp $home/id_ed25519.pub "/mnt/etc/ssh/ssh_host_ed25519_key.pub";
-        sudo rsync -a "$home/nix-config/" "/mnt/config/";
     )?;
+
+    if args.limited {
+        // No /config: a limited host updates from published closures, not
+        // from a checkout, and an unlocked copy of this repo is both a poor
+        // use of a small disk and secrets it has no reason to hold.
+        println!("Limited host: not copying nix-config to /config");
+    } else {
+        println!("Copying nix-config to /config");
+        run_cmd!(sudo rsync -a "$home/nix-config/" "/mnt/config/")?;
+    }
 
     for target_user in args.users {
         run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
