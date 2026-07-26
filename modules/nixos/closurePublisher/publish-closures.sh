@@ -68,6 +68,13 @@ publish_installer() {
         cat <<'INSTALLER'
 set -euo pipefail
 
+# Everything after the closure is fetched mirrors nixos-install
+# (pkgs/by-name/ni/nixos-install/nixos-install.sh) step for step, minus the
+# parts that build. The steps that are easy to leave out and fatal to omit
+# are marked; the /etc/NIXOS marker in particular is what stops
+# switch-to-configuration from refusing to touch the target at all.
+umask 0022
+
 # This is meant to be run as `curl … | bash`, so it must not assume it owns
 # stdin, and it must not assume the ISO enables nix-command by default.
 NIX_COPY=(nix --extra-experimental-features nix-command copy --no-check-sigs)
@@ -131,12 +138,85 @@ if ! mountpoint -q /mnt; then
     exit 1
 fi
 
+# nixos-install refuses a target that is not world-readable, because the nix
+# daemon and the chroot both have to traverse it.
+mode=$(stat -c %a "$(realpath /mnt)")
+if [ "$mode" != 755 ]; then
+    echo "/mnt has permissions $mode, expected 755. Run: chmod 755 /mnt" >&2
+    exit 1
+fi
+
+# Keep nix's temporary files on the target disk. The default TMPDIR here is
+# the ISO's tmpfs, i.e. RAM, and unpacking NARs into 2 GiB of it is how this
+# install would otherwise die halfway through.
+tmpdir=$(mktemp -d -p /mnt)
+trap 'rm -rf "$tmpdir"' EXIT
+export TMPDIR="$tmpdir"
+
 # Straight into the target filesystem. Copying into the ISO's own store
 # first would exhaust the tmpfs on a machine with this little memory.
 "${NIX_COPY[@]}" --from "$CACHE" --to /mnt "$system"
+
+# The closure was built before this disk existed, so nothing has yet checked
+# that the devices it expects are the devices we just made. Compare its fstab
+# against reality now — after a reboot the symptom is an emergency shell on a
+# machine that cannot rebuild itself. $system/etc is a symlink to an absolute
+# store path, which on the installer resolves against the wrong root, so
+# follow it by hand.
+etcPath=$(readlink "/mnt$system/etc" || true)
+fstab="/mnt$etcPath/fstab"
+if [ -n "$etcPath" ] && [ -r "$fstab" ]; then
+    absent=()
+    while read -r dev _; do
+        case "$dev" in
+            /dev/*) [ -e "$dev" ] || absent+=("$dev") ;;
+        esac
+    done < "$fstab"
+    if [ ${#absent[@]} -gt 0 ]; then
+        echo >&2
+        echo "The closure expects devices that do not exist: ${absent[*]}" >&2
+        echo "The partitioning does not match the configuration." >&2
+        echo "Do not reboot; fix the disko config and republish." >&2
+        exit 1
+    fi
+    echo "Verified every device in the closure's fstab exists."
+fi
+
 nix-env --store /mnt -p /mnt/nix/var/nix/profiles/system --set "$system"
-NIXOS_INSTALL_BOOTLOADER=1 nixos-enter --root /mnt -- \
-    /run/current-system/bin/switch-to-configuration boot
+
+# Mark the target as a NixOS installation. Without this
+# switch-to-configuration refuses to run at all, and the machine ends up
+# with a populated store, a set profile, and no bootloader.
+mkdir -m 0755 -p /mnt/etc
+touch /mnt/etc/NIXOS
+
+# Bootloader installers want an mtab.
+ln -sfn /proc/mounts /mnt/etc/mtab
+
+# The rbind/rslave dance is nixos-install's: it keeps every mount point
+# reachable at its absolute path from inside the chroot, which anything
+# resolving a path during bootloader installation depends on.
+export mountPoint=/mnt
+NIXOS_INSTALL_BOOTLOADER=1 nixos-enter --root /mnt -c "$(cat <<'ENTER'
+set -e
+# Executable locations were invalidated by the chroot.
+hash -r
+mount --rbind --mkdir / "$mountPoint"
+mount --make-rslave "$mountPoint"
+/run/current-system/bin/switch-to-configuration boot
+umount -R "$mountPoint" && (rmdir "$mountPoint" 2>/dev/null || true)
+ENTER
+)"
+
+# Same as nixos-install, but reading the terminal rather than stdin, which
+# under `curl | bash` is the script.
+if [ "$assumeYes" != true ] && [ -e /dev/tty ]; then
+    if nixos-enter --root /mnt -c 'test -e /nix/var/nix/profiles/system/sw/bin/passwd'; then
+        echo "Set a root password (^C to skip; $HOST also has a normal user):"
+        nixos-enter --root /mnt -c '/nix/var/nix/profiles/system/sw/bin/passwd' < /dev/tty || \
+            echo "Skipped; set one later with: nixos-enter --root /mnt -c passwd" >&2
+    fi
+fi
 
 echo
 echo "$HOST installed. Reboot, then register its SSH host key:"

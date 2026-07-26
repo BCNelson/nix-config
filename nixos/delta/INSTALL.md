@@ -5,27 +5,20 @@ flake and they cannot evaluate it either, so nothing here runs `nixos-rebuild`
 or `nixos-install --flake` on the device — not even to install it. romeo builds
 everything; the thin client only downloads.
 
-## 0. Get the host published
+## Order of operations
 
-`hosts/data/delta-1.nix` ships a **placeholder** host key, because the real one
-does not exist until the machine has booted once. That is fine for building the
-first closure — the secrets are simply encrypted to a key the device does not
-have, and step 3 fixes it — but the rekeyed files have to exist or the build
-fails:
+Installing a normal host is: install, then `nixos-generate-config`, then build.
+delta-1 cannot evaluate this flake, so its closure has to be built elsewhere
+*before* it can be installed — which puts the hardware scan and the host key,
+both of which normally come from the installed machine, ahead of the first
+build. Two things are therefore provisional until the machine exists:
 
-```sh
-just rekey                     # needs the yubikey
-just check-host delta-1        # should evaluate cleanly now
-```
+| | provisional value | replaced in |
+|---|---|---|
+| `nixos/delta/1.hardware-configuration.nix` | written from the spec sheet | step 2 |
+| `hostKey` in `hosts/data/delta-1.nix` | placeholder ed25519 key | step 5 |
 
-Commit and push, then let romeo publish:
-
-```sh
-just publish-closures          # or wait for autoUpdate to pull and chain into it
-just published-closures
-```
-
-That should print a `/nix/store/…-nixos-system-delta-1-…` path.
+The machine stays on the installer ISO from step 1 through step 4.
 
 ## 1. Boot the installer
 
@@ -47,7 +40,50 @@ The installer needs `curl`, `nix`, `nix-env`, `nixos-enter` and `mountpoint`;
 the script checks for all five up front rather than failing after the disk has
 already been erased.
 
-## 2. Install
+`iso_console` brings up Tailscale SSH on boot and ntfys the auth URL, so
+approve that and you can drive the rest from a workstation.
+
+## 2. Capture the hardware configuration
+
+The checked-in `1.hardware-configuration.nix` is written from the spec sheet,
+not scanned from the machine. Replace it now, while the ISO is running and
+before anything gets built:
+
+```sh
+just thin-hwconfig delta-1 root@<iso-address>
+git diff nixos/delta/1.hardware-configuration.nix
+```
+
+Review the diff — `--no-filesystems` is passed because partitioning is
+declared by `disks.nix`, so the result should contain kernel modules and
+platform defaults but no `fileSystems` entries. Commit it.
+
+Skipping this is how you get a system that installs cleanly and then cannot
+find its root filesystem, which on a host with no local build capability means
+another full publish cycle to fix.
+
+## 3. Get the host published
+
+`hosts/data/delta-1.nix` still holds a **placeholder** host key. That is fine
+for building the first closure — the secrets are simply encrypted to a key the
+device does not have, and step 5 fixes it — but the rekeyed files have to exist
+or the build fails:
+
+```sh
+just rekey                     # needs the yubikey
+just check-host delta-1        # should evaluate cleanly now
+```
+
+Commit and push, then let romeo publish:
+
+```sh
+just publish-closures          # or wait for autoUpdate to pull and chain into it
+just published-closures
+```
+
+That should print a `/nix/store/…-nixos-system-delta-1-…` path.
+
+## 4. Install
 
 romeo publishes an installer script next to the closure, with the cache URL and
 hostname baked in. On the booted installer, as root:
@@ -56,30 +92,34 @@ hostname baked in. On the booted installer, as root:
 curl -fsSL https://nixcache.nel.family/system/delta-1.install | bash
 ```
 
-It fetches the published disko script and runs it, copies the closure from the
-cache **straight into `/mnt`** (never into the ISO's own store, which is a
-tmpfs and would exhaust the 2 GiB), sets the system profile, and installs the
-bootloader. It asks you to type the hostname first, because the disko step
-erases `/dev/mmcblk0`.
+It asks you to type the hostname first, because the disko step erases
+`/dev/mmcblk0`. Then it runs the published disko script and does what
+`nixos-install` does, minus the parts that build:
 
-If you would rather not pipe to a shell, the script is plain text — read it
-first, or run the same steps by hand:
+1. Copies the closure from the cache **straight into `/mnt`**, never into the
+   ISO's own store, which is a tmpfs and would exhaust the 2 GiB.
+2. Points `TMPDIR` at the target disk, for the same reason — nix unpacking
+   NARs into the ISO's RAM tmpfs is the other way this runs out of memory.
+3. Checks that every device in the closure's `fstab` actually exists, so a
+   partitioning mismatch surfaces here rather than as an emergency shell
+   after the first reboot.
+4. Sets the system profile, creates `/etc/NIXOS` (without it
+   `switch-to-configuration` refuses to run) and `/etc/mtab`.
+5. Installs the bootloader through `nixos-enter`, with the same
+   `mount --rbind` / `--make-rslave` handling `nixos-install` uses to keep
+   absolute paths resolvable inside the chroot.
+6. Offers to set a root password.
+
+The script is plain text if you would rather read it before running it:
 
 ```sh
-cache=https://nixcache.nel.family
-system=$(curl -fsSL "$cache/system/delta-1")
-disko=$(curl -fsSL "$cache/system/delta-1.diskoScript")
-nix copy --no-check-sigs --from "$cache" "$disko" && "$disko"
-nix copy --no-check-sigs --from "$cache" --to /mnt "$system"
-nix-env --store /mnt -p /mnt/nix/var/nix/profiles/system --set "$system"
-NIXOS_INSTALL_BOOTLOADER=1 nixos-enter --root /mnt -- \
-    /run/current-system/bin/switch-to-configuration boot
+curl -fsSL https://nixcache.nel.family/system/delta-1.install | less
 ```
 
 Log in as `bcnelson` with the initial password from
-`nixos/_mixins/users/bcnelson`; root has no password set.
+`nixos/_mixins/users/bcnelson`.
 
-## 3. Register the host key
+## 5. Register the host key
 
 ```sh
 ssh-keyscan -t ed25519 delta-1
@@ -89,7 +129,7 @@ Paste the key into `hosts/data/delta-1.nix`, then `just rekey` and push. romeo
 republishes, the client picks it up, and from then on it can actually decrypt
 its secrets.
 
-## 4. Pin the cache signing key
+## 6. Pin the cache signing key
 
 Until this is done, `services.bcnelson.remoteUpdate.checkSignatures` is `false`
 and the closure is trusted purely on the HTTPS connection to romeo.

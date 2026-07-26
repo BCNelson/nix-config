@@ -2,6 +2,21 @@
   # Dell Wyse 3040 (N10D): the only fixed storage is an 8 GiB eMMC module, so
   # everything here is chosen for space rather than throughput.
   #
+  # This host is declared with disko rather than a generated
+  # hardware-configuration.nix — not for convenience, but because it is the
+  # only way the closure can exist before the disk does. Every other host in
+  # this repo mounts by /dev/disk/by-uuid/…, and those UUIDs are minted by
+  # mkfs during installation. delta-1 has to be *built* before it can be
+  # installed, so a UUID-based config would be unresolvable at build time.
+  #
+  # disko derives its device paths from this declaration instead
+  # (/dev/disk/by-partlabel/…, named after the attribute paths below), so they
+  # are known at evaluation time and the same script that creates the
+  # partitions also labels them. Nothing here depends on having seen the
+  # hardware. The installer re-checks the closure's fstab against the disk it
+  # just partitioned before handing over, so a mismatch surfaces then rather
+  # than as an emergency shell after the first reboot.
+  #
   # btrfs with zstd is the single biggest win available: the Nix store is
   # mostly text (ELF, scripts, man-less docs) and compresses to roughly half
   # its size, which is the difference between two system generations fitting
