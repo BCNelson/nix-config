@@ -1697,6 +1697,40 @@
         "type": "github"
       }
     },
+    "pi-mcp-adapter": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784989198,
+        "narHash": "sha256-sC4wCrBtHQML2l7cAH9Yss20AMsJ/CGS9QGBATDe4R8=",
+        "owner": "nicobailon",
+        "repo": "pi-mcp-adapter",
+        "rev": "2606ec21d70ab0f6d862ecef5bc734c47d44034b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nicobailon",
+        "repo": "pi-mcp-adapter",
+        "rev": "2606ec21d70ab0f6d862ecef5bc734c47d44034b",
+        "type": "github"
+      }
+    },
+    "pi-permission-system": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785000082,
+        "narHash": "sha256-bMjdZyosQbmN0XRRcg4L6hb9pUFdrUm77qy15TWoHOU=",
+        "owner": "gotgenes",
+        "repo": "pi-packages",
+        "rev": "da9db2864cd40cc7902c2eae2ffccb8f7ac6a2bb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "gotgenes",
+        "repo": "pi-packages",
+        "rev": "da9db2864cd40cc7902c2eae2ffccb8f7ac6a2bb",
+        "type": "github"
+      }
+    },
     "plasma-manager": {
       "inputs": {
         "home-manager": [
@@ -1873,6 +1907,8 @@
         "nixpkgs-unstable-small": "nixpkgs-unstable-small",
         "nixvim": "nixvim",
         "nur": "nur",
+        "pi-mcp-adapter": "pi-mcp-adapter",
+        "pi-permission-system": "pi-permission-system",
         "plasma-manager": "plasma-manager",
         "rust-overlay": "rust-overlay_6",
         "scaffold": "scaffold",
