@@ -101,6 +101,18 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # Pi extensions are sourced and dependency-built by Nix rather than allowing
+    # `pi install` to fetch mutable package contents at runtime.
+    pi-mcp-adapter = {
+      url = "github:nicobailon/pi-mcp-adapter/2606ec21d70ab0f6d862ecef5bc734c47d44034b";
+      flake = false;
+    };
+
+    pi-permission-system = {
+      url = "github:gotgenes/pi-packages/da9db2864cd40cc7902c2eae2ffccb8f7ac6a2bb";
+      flake = false;
+    };
+
     nixgl = {
       url = "github:nix-community/nixGL";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

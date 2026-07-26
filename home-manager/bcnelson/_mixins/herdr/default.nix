@@ -1,6 +1,81 @@
-{ config, lib, pkgs, ... }:
+{ config, inputs, lib, pkgs, ... }:
 let
   jsonFormat = pkgs.formats.json { };
+
+  # Pi loads TypeScript extensions directly. Keep each extension together with
+  # its locked runtime dependencies so it never relies on `pi install` state.
+  piMcpAdapterSrc = pkgs.runCommand "pi-mcp-adapter-source" { nativeBuildInputs = [ pkgs.jq ]; } ''
+    cp -r ${inputs.pi-mcp-adapter}/. "$out"
+    chmod -R u+w "$out"
+
+    # Upstream's lockfile omits these nested dependency integrities. Nix's
+    # fetcher requires them, so fill only those missing fields with the npm
+    # registry's published values for the locked tarballs.
+    jq '
+      .packages["node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core"].integrity = "sha512-XKxgdjhcPuyjrthCOFSgfzT3xZ1uBrJ1IMVDxci1to6hIN6BIg9J5iY8q0pGXK1DLgATLP23da+1UyZLwA360Q=="
+      | .packages["node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai"].integrity = "sha512-9jR23tOl0BIUdQMn70Gr72xYBpM7Xgl9Lyv7gAnU1USfkNRuYG/f/edLl+n/Dp/RafDW3JI4DF7y/GhgkORuew=="
+      | .packages["node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui"].integrity = "sha512-FUVOjDn1DVwM1uHD5MNYboXQrXjIDbSt+BQ3py7nQWCY62tKfxgiM1OBMxTcwRWLfSdZHUPpV0hm1loIdUJnPw=="
+    ' "$out/package-lock.json" > "$out/package-lock.json.tmp"
+    mv "$out/package-lock.json.tmp" "$out/package-lock.json"
+  '';
+
+  piMcpAdapter = pkgs.buildNpmPackage {
+    pname = "pi-mcp-adapter";
+    version = "2.14.0";
+    src = piMcpAdapterSrc;
+    npmDepsHash = "sha256-ZcKqb1f2hMVuLU1AFu3ebS62p/+57dQd2/g3nX1+uo4=";
+    npmDepsFetcherVersion = 2;
+    dontNpmBuild = true;
+
+    installPhase = ''
+      mkdir -p "$out/node_modules"
+      cp -r node_modules/. "$out/node_modules"
+      cp -r . "$out/node_modules/pi-mcp-adapter"
+    '';
+  };
+
+  piPermissionSystem = pkgs.stdenv.mkDerivation {
+    pname = "pi-permission-system";
+    version = "23.0.1";
+    src = inputs.pi-permission-system;
+    pnpmDeps = pkgs.fetchPnpmDeps {
+      pname = "pi-permission-system";
+      version = "23.0.1";
+      src = inputs.pi-permission-system;
+      hash = "sha256-EfhJBD9m64y7Zzjjnv4IiOp3U9tHNdJhbheN3+7q9hw=";
+      fetcherVersion = 4;
+      pnpm = pkgs.pnpm_10;
+    };
+    nativeBuildInputs = [ pkgs.pnpmConfigHook pkgs.pnpm_10 ];
+
+    installPhase = ''
+      # pnpm workspace links point to sibling packages, so keep the workspace
+      # layout intact rather than copying only the extension package.
+      cp -r . "$out"
+    '';
+  };
+
+  piPermissionConfig = {
+    permission = {
+      "*" = "allow";
+      edit = "ask";
+      write = "ask";
+      bash = {
+        "*" = "ask";
+        "rm -rf *" = "deny";
+        "sudo *" = "deny";
+      };
+      mcp."*" = "ask";
+      external_directory = "ask";
+      path = {
+        "*" = "allow";
+        "*.env" = "deny";
+        "*.env.*" = "deny";
+        "*.env.example" = "allow";
+        "~/.ssh/*" = "deny";
+      };
+    };
+  };
 
   # `herdr integration install <agent>` fs::writes these hook/plugin assets into
   # each agent's config dir and edits that agent's config in place. Both are
@@ -94,12 +169,26 @@ in
   # resume-after-restart with it.
   home.packages = [
     pkgs.python3
+    pkgs.pi-coding-agent
     # Project-local .mcp.json launches these outside `nix develop` as well.
     pkgs.devenv
     pkgs.ssh-mcp
   ];
 
   home.file."${claudeHook}".source = hookAsset "claude";
+
+  home.file = {
+    # Pi resolves relative imports from the extension path, not a symlink's
+    # target. Use wrappers so each package resolves its own sibling modules and
+    # store-vendored dependencies from the absolute import location.
+    ".pi/agent/extensions/pi-mcp-adapter.ts".text = ''
+      export { default } from "${piMcpAdapter}/node_modules/pi-mcp-adapter/index.ts";
+    '';
+    ".pi/agent/extensions/pi-permission-system.ts".text = ''
+      export { default } from "${piPermissionSystem}/packages/pi-permission-system/src/index.ts";
+    '';
+    ".pi/agent/extensions/pi-permission-system/config.json".source = jsonFormat.generate "pi-permission-system.json" piPermissionConfig;
+  };
 
   programs.claude-code.settings.hooks.SessionStart = [
     {
@@ -145,4 +234,8 @@ in
       ];
     };
   };
+
+  # Pi auto-loads extensions from its agent directory. This extension reports
+  # lifecycle state and session identity while Pi runs in a Herdr pane.
+  home.file.".pi/agent/extensions/herdr-agent-state.ts".source = asset "pi" "herdr-agent-state.ts";
 }
