@@ -37,7 +37,7 @@ in {
     environmentFile = config.age-template.files.gotosocial-env.path;
 
     settings = {
-      host = host;
+      inherit host;
       account-domain = accountDomain;
       protocol = "https";
       # Only listen on loopback; nginx terminates TLS and proxies in.
