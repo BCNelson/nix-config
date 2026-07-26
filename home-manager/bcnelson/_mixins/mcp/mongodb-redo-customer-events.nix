@@ -16,6 +16,11 @@
     MDB_MCP_CONNECTION_STRING="${connectionString}"
     export MDB_MCP_CONNECTION_STRING
 
+    # npx resolves on its own (absolute store shebang), but the package bin it
+    # execs carries `#!/usr/bin/env node`, and nodejs is on neither the login
+    # PATH nor any agent's. Provide it here rather than inheriting it.
+    export PATH="${pkgs.nodejs}/bin:$PATH"
+
     exec ${pkgs.nodejs}/bin/npx -y mongodb-mcp-server@latest "$@"
   '';
 in {
