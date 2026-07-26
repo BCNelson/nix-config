@@ -14,9 +14,13 @@ type SystemdController struct {
 	conn *dbus.Conn
 }
 
-// NewSystemdController opens a connection to the systemd system bus.
+// NewSystemdController opens a connection to systemd over the system D-Bus.
+//
+// We use NewSystemConnectionContext (the system bus) rather than
+// NewSystemdConnectionContext (systemd's private socket, which is root-only) so
+// the unprivileged agent user can manage units through polkit.
 func NewSystemdController(ctx context.Context) (*SystemdController, error) {
-	conn, err := dbus.NewSystemdConnectionContext(ctx)
+	conn, err := dbus.NewSystemConnectionContext(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,8 @@ testers.runNixOSTest {
             port = 1883;
             users.gamestream = {
               password = "test";
-              acl = [ "topic readwrite #" ];
+              # The module prepends `topic `, so this renders as `topic readwrite #`.
+              acl = [ "readwrite #" ];
             };
           }
         ];
