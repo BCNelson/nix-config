@@ -3,6 +3,8 @@
 
 {
   autoUpdate = import ./autoUpdate;
+  closurePublisher = import ./closurePublisher;
+  remoteUpdate = import ./remoteUpdate;
   recovery = import ./recovery;
   dataDirs = import ./dataDirs;
   nixBinaryCacheProxy = import ./nixBinaryCacheProxy;

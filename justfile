@@ -137,6 +137,24 @@ alias check := check-host
 check-host host *additionalArgs:
     nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel --dry-run {{ additionalArgs }}
 
+# Print the binary cache signing key the closure publisher generated, for
+# pinning in services.bcnelson.remoteUpdate.trustedPublicKeys.
+cache-key url='https://nixcache.nel.family':
+    @curl -fsSL --header "Cache-Control: no-cache" {{ url }}/nix-cache-pubkey
+
+# Rebuild and republish the thin clients' closures now instead of waiting for
+# the timer on the builder.
+publish-closures builder='romeo-2':
+    ssh -t {{ builder }} 'sudo systemctl start closure-publisher.service; journalctl -u closure-publisher.service -n 50 --no-pager'
+
+# Show which closure each thin client is being told to run.
+published-closures url='https://nixcache.nel.family' *hosts='delta-1':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for host in {{ hosts }}; do
+        printf '%-12s %s\n' "$host" "$(curl -fsSL --header 'Cache-Control: no-cache' "{{ url }}/system/$host" || echo '(not published)')"
+    done
+
 alias fmt := format
 
 [unix]
