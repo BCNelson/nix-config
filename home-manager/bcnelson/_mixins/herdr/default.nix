@@ -91,7 +91,12 @@ in
 
   # The hook silently exits 0 without python3 on PATH, taking session
   # resume-after-restart with it.
-  home.packages = [ pkgs.python3 ];
+  home.packages = [
+    pkgs.python3
+    # Project-local .mcp.json launches these outside `nix develop` as well.
+    pkgs.devenv
+    pkgs.ssh-mcp
+  ];
 
   home.file."${claudeHook}".source = hookAsset "claude";
 
