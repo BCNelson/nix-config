@@ -83,6 +83,17 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Fail here rather than halfway through, with the disk already erased.
+missing=()
+for tool in curl nix nix-env nixos-enter mountpoint; do
+    command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+done
+if [ ${#missing[@]} -gt 0 ]; then
+    echo "Missing on this installer: ${missing[*]}" >&2
+    echo "Boot the iso_console image from this flake, not a stock minimal ISO." >&2
+    exit 1
+fi
+
 if ! system=$(fetch "$HOST"); then
     echo "Could not read $CACHE/$MANIFESTS/$HOST — is the cache reachable?" >&2
     exit 1

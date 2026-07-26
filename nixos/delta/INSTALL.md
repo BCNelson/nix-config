@@ -29,9 +29,23 @@ That should print a `/nix/store/…-nixos-system-delta-1-…` path.
 
 ## 1. Boot the installer
 
-Boot `iso_console` on the thin client (`just isoCreate iso_console`) and get it
-on the network. The Wyse 3040 is 64-bit UEFI; disable Secure Boot in the BIOS
-(F2 at power-on, default password `Fireport`).
+```sh
+just isoCreate iso_console     # or `just isoInstall iso_console` for a ventoy stick
+```
+
+BIOS is F2 at power-on, default password `Fireport`. Enable USB boot, disable
+Secure Boot, and leave boot mode on UEFI — the 3040 ships 64-bit firmware, so
+the stock hybrid image boots. (Many other Cherry Trail devices have 32-bit
+UEFI, which this image cannot boot at all; if it refuses, that is the thing to
+check first.)
+
+2 GiB is enough but not generous: the ISO runs its store from a tmpfs, so
+only the disko script gets copied into RAM. The system closure goes straight
+to disk, which is what keeps this within budget.
+
+The installer needs `curl`, `nix`, `nix-env`, `nixos-enter` and `mountpoint`;
+the script checks for all five up front rather than failing after the disk has
+already been erased.
 
 ## 2. Install
 
