@@ -25,4 +25,6 @@
     # overlays/default.nix which is needed for the minimal gdal test.
     # pkgs.freecad-qt6
   ];
+
+  programs.mcp.kubernetes.enable = false;
 }
