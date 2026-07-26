@@ -25,7 +25,7 @@ testers.runNixOSTest {
             port = 1883;
             users.gamestream = {
               password = "test";
-              acl = [ "readwrite #" ];
+              acl = [ "topic readwrite #" ];
             };
           }
         ];
@@ -49,6 +49,7 @@ testers.runNixOSTest {
         group = "gamestream-agent";
       };
       # Allow only this user to manage only the gamestream@ units.
+      security.polkit.enable = true;
       security.polkit.extraConfig = ''
         polkit.addRule(function(action, subject) {
           if (action.id == "org.freedesktop.systemd1.manage-units" &&
@@ -92,10 +93,11 @@ testers.runNixOSTest {
     machine.wait_for_unit("mosquitto.service")
     machine.wait_for_unit("gamestream-agent.service")
 
-    def sub(topic):
-        return machine.succeed(
-            f"mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 -t {topic}"
-        ).strip()
+    def state_is(value):
+        return (
+            "test \"$(mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
+            f"-t romeo/gamestream/brad/state)\" = {value}"
+        )
 
     def pub(topic, msg):
         machine.succeed(
@@ -105,17 +107,15 @@ testers.runNixOSTest {
     # Discovery is published retained on connect.
     machine.wait_until_succeeds(
         "mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
-        "-t homeassistant/switch/romeo_gamestream_brad/config >/dev/null"
+        "-t homeassistant/switch/romeo_gamestream_brad/config >/dev/null",
+        timeout=60,
     )
 
     # Turn the profile ON: the agent must start the dummy unit (proves control +
     # polkit) and report ready.
     pub("romeo/gamestream/brad/set", "ON")
-    machine.wait_until_succeeds("systemctl is-active gamestream@dummy.service")
-    machine.wait_until_succeeds(
-        "test \"$(mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
-        "-t romeo/gamestream/brad/state)\" = ready"
-    )
+    machine.wait_until_succeeds("systemctl is-active gamestream@dummy.service", timeout=60)
+    machine.wait_until_succeeds(state_is("ready"), timeout=60)
 
     # Sunshine reports a client connected -> streaming (empty profile routes to
     # the active session).
@@ -123,27 +123,18 @@ testers.runNixOSTest {
         "gamestream-agent notify --event stream-start "
         "--socket /run/gamestream-agent/notify.sock"
     )
-    machine.wait_until_succeeds(
-        "test \"$(mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
-        "-t romeo/gamestream/brad/state)\" = streaming"
-    )
+    machine.wait_until_succeeds(state_is("streaming"), timeout=60)
 
     # Client disconnects -> back to ready.
     machine.succeed(
         "gamestream-agent notify --event stream-stop "
         "--socket /run/gamestream-agent/notify.sock"
     )
-    machine.wait_until_succeeds(
-        "test \"$(mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
-        "-t romeo/gamestream/brad/state)\" = ready"
-    )
+    machine.wait_until_succeeds(state_is("ready"), timeout=60)
 
     # Turn OFF: unit stops and state returns to off.
     pub("romeo/gamestream/brad/set", "OFF")
-    machine.wait_until_succeeds("! systemctl is-active gamestream@dummy.service")
-    machine.wait_until_succeeds(
-        "test \"$(mosquitto_sub -h 127.0.0.1 -u gamestream -P test -C 1 -W 5 "
-        "-t romeo/gamestream/brad/state)\" = off"
-    )
+    machine.wait_until_succeeds("! systemctl is-active gamestream@dummy.service", timeout=60)
+    machine.wait_until_succeeds(state_is("off"), timeout=60)
   '';
 }

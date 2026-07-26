@@ -103,7 +103,7 @@ in
   # Input emulation for Moonlight-forwarded gamepads/keyboard/mouse.
   hardware.uinput.enable = true;
 
-  # --- Dedicated, unprivileged gaming users ---
+  # --- Users: the gaming profiles + the agent's system user (one definition) ---
   users.users = lib.genAttrs gameUsers (name: {
     isNormalUser = true;
     description = "Game streaming profile (${name})";
@@ -111,7 +111,13 @@ in
     extraGroups = [ "video" "render" "input" "audio" "uinput" ];
     # No interactive password; sessions are brought up on demand via the shim.
     hashedPassword = "!";
-  });
+  }) // {
+    gamestream-agent = {
+      isSystemUser = true;
+      group = "gamestream-agent";
+    };
+  };
+  users.groups.gamestream-agent = { };
 
   # --- Audio: a virtual sink Sunshine can capture on a machine with no sound HW ---
   services.pulseaudio.enable = false;
@@ -191,14 +197,10 @@ in
     };
   };
 
-  # Sunshine is a user service from the module; bind it into the session and put
-  # it in the capped slice. It is started explicitly from the sway config once
-  # WAYLAND_DISPLAY exists, and torn down when the user manager exits.
-  systemd.user.services.sunshine = {
-    after = [ "gamestream-compositor.service" ];
-    partOf = [ "gamestream.target" ];
-    serviceConfig.Slice = "gamestream.slice";
-  };
+  # Sunshine is a user service provided by the module; it is started explicitly
+  # from the sway config once WAYLAND_DISPLAY exists, and torn down when the user
+  # manager exits. (Putting it in gamestream.slice is a follow-up; the heavy
+  # compositor+Steam+game processes already run under the capped slice.)
 
   # --- System-level lifecycle shim (what the agent / SSH drives) ---
   systemd.services."gamestream@" = {
@@ -213,13 +215,10 @@ in
   };
 
   # --- gamestream-agent: MQTT <-> systemd bridge for Home Assistant ---
-  users.groups.gamestream-agent = { };
-  users.users.gamestream-agent = {
-    isSystemUser = true;
-    group = "gamestream-agent";
-  };
+  # (the gamestream-agent user/group are defined with users.users above)
 
   # Scope: the agent may manage only the gamestream@ units, nothing else.
+  security.polkit.enable = true;
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       if (action.id == "org.freedesktop.systemd1.manage-units" &&
