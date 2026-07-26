@@ -2,7 +2,9 @@
 {
   services.ollama = {
     enable = true;
-    host = "0.0.0.0";
+    # Tailscale Serve is the only remote entry point; do not expose Ollama on
+    # the LAN, where its unauthenticated API would otherwise be reachable.
+    host = "127.0.0.1";
     port = 11434;
     loadModels = [ 
       "qwen3:4b"
@@ -31,5 +33,29 @@
   # Ensure ollama user has GPU access
   systemd.services.ollama.serviceConfig = {
     SupplementaryGroups = [ "render" "video" ];
+  };
+
+  # Without --bg, `tailscale serve` owns the proxy for this process lifetime.
+  # Stopping Ollama or Tailscale therefore also removes the Tailnet endpoint.
+  systemd.services.tailscale-ollama-serve = {
+    description = "Expose Ollama through Tailscale Serve";
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "network-online.target" "tailscale-autoconnect.service" ];
+    after = [
+      "network-online.target"
+      "tailscaled.service"
+      "tailscale-autoconnect.service"
+      "ollama.service"
+    ];
+    requires = [ "tailscaled.service" "ollama.service" ];
+    bindsTo = [ "tailscaled.service" "ollama.service" ];
+    partOf = [ "tailscaled.service" "ollama.service" ];
+
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${pkgs.unstable.tailscale}/bin/tailscale serve 11434";
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
   };
 }
