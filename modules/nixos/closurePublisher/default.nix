@@ -22,21 +22,14 @@ in
   options = {
     services.bcnelson.closurePublisher = {
       enable = lib.mkEnableOption ''
-        building NixOS system closures for other hosts and publishing them to a
-        local binary cache, so those hosts can update by downloading a
-        pre-built closure instead of evaluating and building it themselves
-      '';
+        building NixOS system closures for other hosts and publishing them to
+        a local binary cache, so those hosts can install and update by
+        downloading a pre-built closure instead of evaluating and building it
+        themselves.
 
-      hosts = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "delta-1" ];
-        description = ''
-          nixosConfigurations attribute names to build and publish. Each one
-          gets a manifest at <literal>''${manifestSubdir}/&lt;host&gt;</literal>
-          under the cache directory containing its current toplevel store path.
-        '';
-      };
+        Which hosts are published is derived, not configured: every
+        nixosConfiguration with services.bcnelson.remoteUpdate enabled
+      '';
 
       flakePath = lib.mkOption {
         type = lib.types.str;
@@ -167,7 +160,6 @@ in
         FLAKE_PATH = cfg.flakePath;
         CACHE_DIR = cfg.cacheDir;
         MANIFEST_SUBDIR = cfg.manifestSubdir;
-        TARGET_HOSTS = lib.concatStringsSep " " cfg.hosts;
         SIGNING_KEY_FILE = cfg.signingKeyFile;
         SIGNING_KEY_NAME = cfg.signingKeyName;
         RETENTION_DAYS = toString cfg.retentionDays;

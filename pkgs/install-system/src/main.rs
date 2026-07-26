@@ -615,8 +615,10 @@ fn main() -> Result<()> {
         // thing this machine cannot do — `nix fmt` resolves the flake's
         // formatter output, and the dummy rekey forces every host's
         // configuration. The real rekey happens on the pull request.
+        // The builder derives what to publish from the flake itself — every
+        // host with remoteUpdate enabled — so adding this host to flake.nix
+        // above is the whole registration.
         println!("Limited host: skipping local formatting and dummy rekey");
-        limited::register_with_builder(&args.host)?;
     } else {
         run_cmd!(ignore sudo nix fmt)?;
 

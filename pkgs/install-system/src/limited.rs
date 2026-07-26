@@ -15,54 +15,12 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use cmd_lib::{run_cmd, run_fun};
-use regex::Regex;
 use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
 
-const BUILDER_CONFIG: &str = "nixos/romeo/services/closurePublisher.nix";
-const LIMITED_HOST_MARKER: &str = "# INSERT_NEW_LIMITED_HOST_HERE";
 const REPO: &str = "BCNelson/nix-config";
 const POLL_INTERVAL: Duration = Duration::from_secs(30);
-
-/// Add the host to the builder's publish list.
-///
-/// The builder only builds hosts it has been told about, and it reads that
-/// list from this repo, so registration has to land in the same change that
-/// adds the host to the flake. Otherwise the install waits forever for a
-/// closure nobody is building.
-pub fn register_with_builder(host: &str) -> Result<()> {
-    let content = std::fs::read_to_string(BUILDER_CONFIG)
-        .with_context(|| format!("reading {BUILDER_CONFIG}"))?;
-
-    if content.contains(&format!("\"{host}\"")) {
-        println!("{host} is already registered with the builder");
-        return Ok(());
-    }
-
-    let marker = Regex::new(r"(?m)(\s*# INSERT_NEW_LIMITED_HOST_HERE\n)").unwrap();
-    if !marker.is_match(&content) {
-        bail!("no {LIMITED_HOST_MARKER} marker in {BUILDER_CONFIG}");
-    }
-
-    let updated = insert_limited_host(&content, host);
-    std::fs::write(BUILDER_CONFIG, updated)
-        .with_context(|| format!("writing {BUILDER_CONFIG}"))?;
-
-    println!("Registered {host} with the closure builder");
-    Ok(())
-}
-
-/// Split out from `register_with_builder` so the substitution is testable
-/// without touching the filesystem.
-fn insert_limited_host(content: &str, host: &str) -> String {
-    let marker = Regex::new(r"(?m)(\s*# INSERT_NEW_LIMITED_HOST_HERE\n)").unwrap();
-    marker
-        .replace(content, |caps: &regex::Captures| {
-            format!("{}      \"{}\"\n", &caps[0], host)
-        })
-        .to_string()
-}
 
 /// Push the install branch and open a pull request for it.
 ///
@@ -289,40 +247,7 @@ fn verify_fstab_devices(system: &str) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn inserts_a_limited_host_at_the_marker() {
-        let content = r#"{
-  services.bcnelson.closurePublisher = {
-    enable = true;
-    hosts = [
-      # INSERT_NEW_LIMITED_HOST_HERE
-      "delta-1"
-    ];
-  };
-}"#;
-
-        let result = insert_limited_host(content, "delta-2");
-
-        assert!(result.contains("\"delta-2\""));
-        assert!(result.contains("\"delta-1\""));
-        assert!(result.contains(LIMITED_HOST_MARKER));
-        // The new host goes after the marker, so the marker survives for the
-        // next install.
-        let marker_at = result.find(LIMITED_HOST_MARKER).unwrap();
-        assert!(result.find("\"delta-2\"").unwrap() > marker_at);
-    }
-
-    #[test]
-    fn inserts_into_an_empty_host_list() {
-        let content = "    hosts = [\n      # INSERT_NEW_LIMITED_HOST_HERE\n    ];\n";
-        let result = insert_limited_host(content, "delta-1");
-        assert_eq!(
-            result,
-            "    hosts = [\n      # INSERT_NEW_LIMITED_HOST_HERE\n      \"delta-1\"\n    ];\n"
-        );
-    }
-
-    #[test]
+        #[test]
     fn recognises_store_paths() {
         assert!(is_store_path(
             "/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-nixos-system-delta-1-26.05"

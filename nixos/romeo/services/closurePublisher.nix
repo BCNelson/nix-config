@@ -7,12 +7,9 @@
   services.bcnelson.closurePublisher = {
     enable = true;
 
-    # `install-system --limited` adds new hosts here, at the marker, in the
-    # same pull request that adds them to the flake. A host missing from this
-    # list is a host nobody is building.
-    hosts = [
-      # INSERT_NEW_LIMITED_HOST_HERE
-    ];
+    # No host list: the publisher builds every host with
+    # services.bcnelson.remoteUpdate enabled, so adding a limited host to the
+    # flake is all it takes to get it built.
 
     flakePath = "/config";
     # Same directory nginx serves for nixcache.nel.family.

@@ -16,17 +16,54 @@ set -euo pipefail
 : "${FLAKE_PATH:?FLAKE_PATH not set}"
 : "${CACHE_DIR:?CACHE_DIR not set}"
 : "${MANIFEST_SUBDIR:?MANIFEST_SUBDIR not set}"
-: "${TARGET_HOSTS:?TARGET_HOSTS not set}"
 : "${SIGNING_KEY_FILE:?SIGNING_KEY_FILE not set}"
 : "${SIGNING_KEY_NAME:?SIGNING_KEY_NAME not set}"
 : "${RETENTION_DAYS:?RETENTION_DAYS not set}"
 
-read -ra targetHosts <<< "$TARGET_HOSTS"
+# The hosts to publish are the hosts that consume published closures — every
+# nixosConfiguration with services.bcnelson.remoteUpdate enabled. Deriving the
+# list rather than keeping one by hand means a limited host cannot be added to
+# the flake without something building it, and that adding one needs no change
+# here and no rebuild of this machine before it takes effect.
+#
+# tryEval so that one host whose configuration is broken costs only its own
+# closure, not everybody else's. This forces every host's config, which is
+# minutes of evaluation — the reason this runs on a timer and after autoUpdate
+# rather than on demand.
+derive_hosts() {
+    nix eval --raw "$FLAKE_PATH#nixosConfigurations" --apply '
+      set:
+        let
+          wanted = name:
+            let
+              probe = builtins.tryEval
+                (set.${name}.config.services.bcnelson.remoteUpdate.enable or false);
+            in
+            probe.success && probe.value;
+        in
+        builtins.concatStringsSep "\n" (builtins.filter wanted (builtins.attrNames set))
+    '
+}
+
+echo "Determining which hosts consume published closures"
+if ! hostList=$(derive_hosts); then
+    echo "Could not evaluate the flake to determine which hosts to publish" >&2
+    exit 1
+fi
+
+targetHosts=()
+while IFS= read -r candidate; do
+    if [ -n "$candidate" ]; then
+        targetHosts+=("$candidate")
+    fi
+done <<< "$hostList"
 
 if [ ${#targetHosts[@]} -eq 0 ]; then
-    echo "No hosts configured to publish; nothing to do."
+    echo "No host has services.bcnelson.remoteUpdate enabled; nothing to publish."
     exit 0
 fi
+
+echo "Publishing for: ${targetHosts[*]}"
 
 manifestDir="$CACHE_DIR/$MANIFEST_SUBDIR"
 publicKeyFile="$SIGNING_KEY_FILE.pub"
