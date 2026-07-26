@@ -1,31 +1,31 @@
 # Installing a delta-* thin client (Dell Wyse 3040)
 
 These machines have 2 GiB of RAM and an 8 GiB eMMC. They cannot build this
-flake and they cannot evaluate it either, so nothing in this procedure runs
-`nixos-rebuild` or `nixos-install --flake` on the device. Everything is built
-on romeo and downloaded as a finished closure.
+flake and they cannot evaluate it either, so nothing here runs `nixos-rebuild`
+or `nixos-install --flake` on the device — not even to install it. romeo builds
+everything; the thin client only downloads.
 
-## 0. Prerequisites
+## 0. Get the host published
 
 `hosts/data/delta-1.nix` ships a **placeholder** host key, because the real one
-does not exist until the machine has booted once. That is fine for getting the
-first closure built — the secrets are simply encrypted to a key the device does
-not have, and step 4 fixes it — but the rekeyed files have to exist or the
-build fails:
+does not exist until the machine has booted once. That is fine for building the
+first closure — the secrets are simply encrypted to a key the device does not
+have, and step 3 fixes it — but the rekeyed files have to exist or the build
+fails:
 
 ```sh
 just rekey                     # needs the yubikey
 just check-host delta-1        # should evaluate cleanly now
 ```
 
-Then let romeo publish the host at least once:
+Commit and push, then let romeo publish:
 
 ```sh
-just publish-closures          # or wait for the 30m timer
-curl -fsSL https://nixcache.nel.family/system/delta-1
+just publish-closures          # or wait for autoUpdate to pull and chain into it
+just published-closures
 ```
 
-That last command should print a `/nix/store/…-nixos-system-delta-1-…` path.
+That should print a `/nix/store/…-nixos-system-delta-1-…` path.
 
 ## 1. Boot the installer
 
@@ -33,49 +33,49 @@ Boot `iso_console` on the thin client (`just isoCreate iso_console`) and get it
 on the network. The Wyse 3040 is 64-bit UEFI; disable Secure Boot in the BIOS
 (F2 at power-on, default password `Fireport`).
 
-## 2. Partition
+## 2. Install
 
-The disko script is published next to the closure, so it can be fetched and run
-directly. **This destroys everything on `/dev/mmcblk0`.**
+romeo publishes an installer script next to the closure, with the cache URL and
+hostname baked in. On the booted installer, as root:
+
+```sh
+curl -fsSL https://nixcache.nel.family/system/delta-1.install | bash
+```
+
+It fetches the published disko script and runs it, copies the closure from the
+cache **straight into `/mnt`** (never into the ISO's own store, which is a
+tmpfs and would exhaust the 2 GiB), sets the system profile, and installs the
+bootloader. It asks you to type the hostname first, because the disko step
+erases `/dev/mmcblk0`.
+
+If you would rather not pipe to a shell, the script is plain text — read it
+first, or run the same steps by hand:
 
 ```sh
 cache=https://nixcache.nel.family
-disko=$(curl -fsSL "$cache/system/delta-1.diskoScript")
-nix copy --no-check-sigs --from "$cache" "$disko"
-"$disko"
-```
-
-`/mnt` and `/mnt/boot` are mounted when this finishes.
-
-## 3. Install the closure
-
-Copy straight from the cache into `/mnt` — never into the installer's own
-store, which is a tmpfs and would exhaust the 2 GiB.
-
-```sh
 system=$(curl -fsSL "$cache/system/delta-1")
+disko=$(curl -fsSL "$cache/system/delta-1.diskoScript")
+nix copy --no-check-sigs --from "$cache" "$disko" && "$disko"
 nix copy --no-check-sigs --from "$cache" --to /mnt "$system"
 nix-env --store /mnt -p /mnt/nix/var/nix/profiles/system --set "$system"
-nixos-enter --root /mnt -- /run/current-system/bin/switch-to-configuration boot
+NIXOS_INSTALL_BOOTLOADER=1 nixos-enter --root /mnt -- \
+    /run/current-system/bin/switch-to-configuration boot
 ```
 
-Set a root password (`nixos-enter --root /mnt -- passwd`) if you want console
-access, then reboot.
+Log in as `bcnelson` with the initial password from
+`nixos/_mixins/users/bcnelson`; root has no password set.
 
-## 4. Register the host key
-
-The `hostKey` in `hosts/data/delta-1.nix` is a placeholder until the machine
-exists. On a workstation:
+## 3. Register the host key
 
 ```sh
 ssh-keyscan -t ed25519 delta-1
 ```
 
 Paste the key into `hosts/data/delta-1.nix`, then `just rekey` and push. romeo
-picks up the change on its next publish, the client pulls the new closure on
-its next tick, and from then on it can actually decrypt its secrets.
+republishes, the client picks it up, and from then on it can actually decrypt
+its secrets.
 
-## 5. Pin the cache signing key
+## 4. Pin the cache signing key
 
 Until this is done, `services.bcnelson.remoteUpdate.checkSignatures` is `false`
 and the closure is trusted purely on the HTTPS connection to romeo.
@@ -89,20 +89,26 @@ Put the output in `trustedPublicKeys` in `nixos/delta/default.nix` and set
 
 ## Steady state
 
-romeo republishes on the same ntfy refresh topic autoUpdate listens on, so a
-push reaches the thin clients on their next poll rather than waiting out the
-30m publish timer. `closure-publisher-ntfy-client` waits for
-`auto-update.service` to finish pulling `/config` before it starts building —
-both subscribers wake on the same message, and without that wait the publisher
-can win the race and republish the commit that was already published.
+Nothing polls tightly. A push drives the whole chain:
 
-`remote-update.timer` fires every 15 minutes on the client: it fetches
-`https://nixcache.nel.family/system/delta-1`, compares it with
-`/run/current-system`, and if they differ downloads the closure and activates
-it, rebooting when the kernel or initrd changed. Watch it with
+1. The ntfy refresh message starts `auto-update` on romeo, which pulls
+   `/config` and rebuilds romeo.
+2. `closure-publisher` is `WantedBy=`/`After=` `auto-update.service`, so it
+   runs next, on the checkout that was just pulled, and republishes the
+   manifests.
+3. The same message reached delta, which scheduled a one-shot check for 30
+   minutes later — long enough for steps 1 and 2 to finish. It fetches the
+   manifest, and if the store path changed, downloads the closure and
+   activates it, rebooting if the kernel or initrd changed.
+
+The timers behind that are backstops only: 6h on both the publisher and the
+client, for pushes that were missed because a host was off or a publish ran
+long. If romeo routinely takes more than 30 minutes to get from push to
+published, raise `ntfy-refresh.delay` on delta rather than shortening the poll.
 
 ```sh
-journalctl -u remote-update -f                    # on the client
-journalctl -u closure-publisher -f                # on romeo
-journalctl -u closure-publisher-ntfy-client -f    # on romeo
+journalctl -u remote-update -f                 # on the client
+journalctl -u remote-update-ntfy-client -f     # on the client
+journalctl -u closure-publisher -f             # on romeo
+systemctl list-timers remote-update-delayed    # a pending post-push check
 ```

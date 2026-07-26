@@ -15,6 +15,32 @@ let
     ];
     text = builtins.readFile ./remote-update.sh;
   };
+
+  # What a refresh message actually does. Not "check now": the builder still
+  # has to pull, evaluate and build this host's closure before there is
+  # anything new to fetch, so an immediate check just re-reads the old path.
+  refreshHandler = pkgs.writeShellApplication {
+    name = "remote-update-refresh";
+    runtimeInputs = [ pkgs.systemd ];
+    text = ''
+      # Replace any check already pending, so a burst of pushes collapses into
+      # one run ${cfg.ntfy-refresh.delay} after the last of them.
+      systemctl stop remote-update-delayed.timer 2>/dev/null || true
+      systemctl stop remote-update-delayed.service 2>/dev/null || true
+      echo "Scheduling a closure check in ${cfg.ntfy-refresh.delay}"
+      systemd-run \
+        --unit=remote-update-delayed \
+        --on-active=${lib.escapeShellArg cfg.ntfy-refresh.delay} \
+        --timer-property=AccuracySec=1min \
+        systemctl start remote-update.service
+    '';
+  };
+
+  ntfyRefreshClient = pkgs.writeShellApplication {
+    name = "remote-update-ntfy-client";
+    runtimeInputs = with pkgs; [ coreutils ntfy-sh ];
+    text = builtins.readFile ./ntfy-refresh-client.sh;
+  };
 in
 {
   options = {
@@ -92,8 +118,49 @@ in
 
       refreshInterval = lib.mkOption {
         type = lib.types.str;
-        default = "15m";
-        description = "How often to check the manifest for a new closure.";
+        default = "6h";
+        description = ''
+          How often to poll the manifest. This is a backstop: with
+          <option>ntfy-refresh</option> enabled, a push is what normally
+          brings an update in, and polling only has to catch the cases a
+          push missed (the host was off, the message was dropped, the
+          builder was slow).
+        '';
+      };
+
+      ntfy-refresh = {
+        enable = lib.mkEnableOption ''
+          checking for a new closure a while after a pushed ntfy message,
+          rather than relying on the poll interval alone
+        '';
+
+        topicFile = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = ''
+            File containing the ntfy topic to subscribe to. The same topic
+            autoUpdate hosts listen on: the push that tells them to pull is
+            also what eventually produces this host's new closure.
+          '';
+        };
+
+        delay = lib.mkOption {
+          type = lib.types.str;
+          default = "30m";
+          example = "45m";
+          description = ''
+            How long to wait after a refresh message before checking, as a
+            systemd time span. The message means "there is a new commit", not
+            "there is a new closure" — the builder has to pull, evaluate and
+            build it first — so checking immediately would just re-read the
+            path already running.
+
+            If the builder regularly takes longer than this, the check finds
+            nothing and the update waits for the next poll or push. Size it
+            against how long a publish actually takes, not how impatient you
+            feel.
+          '';
+        };
       };
 
       reboot = lib.mkOption {
@@ -156,6 +223,10 @@ in
         assertion = !cfg.ntfy.enable || cfg.ntfy.topicFile != "";
         message = "services.bcnelson.remoteUpdate.ntfy needs topicFile";
       }
+      {
+        assertion = !cfg.ntfy-refresh.enable || cfg.ntfy-refresh.topicFile != "";
+        message = "services.bcnelson.remoteUpdate.ntfy-refresh needs topicFile";
+      }
     ];
 
     nix.settings = {
@@ -198,6 +269,26 @@ in
         StateDirectory = "remote-update";
       };
       restartIfChanged = false;
+    };
+
+    systemd.services.remote-update-ntfy-client = lib.mkIf cfg.ntfy-refresh.enable {
+      description = "Schedule a closure check when a refresh is pushed over ntfy";
+      enable = true;
+      wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+      environment = {
+        NTFY_REFRESH_TOPIC_FILE = cfg.ntfy-refresh.topicFile;
+        REFRESH_COMMAND = "${refreshHandler}/bin/remote-update-refresh";
+      };
+      serviceConfig = {
+        Type = "simple";
+        User = "root";
+        ExecStart = "${ntfyRefreshClient}/bin/remote-update-ntfy-client";
+        Restart = "always";
+        RestartSec = 30;
+      };
+      restartIfChanged = true;
     };
   };
 }

@@ -24,12 +24,25 @@ in
     ./kiosk.nix
   ];
 
+  age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
+
   services.bcnelson.remoteUpdate = {
     enable = true;
     inherit cacheUrl;
     manifestUrl = "${cacheUrl}/system/${config.networking.hostName}";
-    refreshInterval = "15m";
     reboot = true;
+
+    # A push is what normally brings an update in. romeo needs time to pull,
+    # rebuild itself and then build this host's closure before there is
+    # anything new to fetch, so the check is deliberately delayed rather than
+    # immediate. Polling is only the backstop for a push that was missed
+    # (host was off, message dropped, publish ran long).
+    refreshInterval = "6h";
+    ntfy-refresh = {
+      enable = true;
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
+      delay = "30m";
+    };
 
     # Signature verification is off until romeo's cache key is pinned here.
     # romeo generates the key on its first publish run; read it with

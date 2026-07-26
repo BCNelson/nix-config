@@ -17,28 +17,6 @@ let
     text = builtins.readFile ./publish-closures.sh;
   };
 
-  # What an ntfy refresh message actually runs. The wait matters: this builds
-  # from a checkout somebody else maintains (autoUpdate), and both subscribers
-  # wake on the same message, so publishing immediately would race the pull and
-  # republish the commit we already had.
-  refreshHandler = pkgs.writeShellApplication {
-    name = "closure-publisher-refresh";
-    runtimeInputs = [ pkgs.systemd ];
-    text = ''
-      ${lib.concatMapStrings (unit: ''
-        echo "Waiting for ${unit} to settle"
-        systemctl start --wait ${lib.escapeShellArg unit} || true
-      '') cfg.ntfy-refresh.afterUnits}
-      echo "Publishing closures"
-      systemctl start closure-publisher.service
-    '';
-  };
-
-  ntfyRefreshClient = pkgs.writeShellApplication {
-    name = "closure-publisher-ntfy-client";
-    runtimeInputs = with pkgs; [ coreutils ntfy-sh ];
-    text = builtins.readFile ./ntfy-refresh-client.sh;
-  };
 in
 {
   options = {
@@ -135,34 +113,42 @@ in
         '';
       };
 
-      ntfy-refresh = {
-        enable = lib.mkEnableOption ''
-          republishing on a pushed ntfy message as well as on the timer, the
-          same way services.bcnelson.autoUpdate does
+      publicUrl = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = if cfg.nginxVirtualHost != null then "https://${cfg.nginxVirtualHost}" else null;
+        defaultText = lib.literalExpression ''"https://''${nginxVirtualHost}", or null'';
+        example = "https://nixcache.nel.family";
+        description = ''
+          URL clients reach this cache at. When set, each host also gets an
+          installer script published at
+          <literal>''${manifestSubdir}/&lt;host&gt;.install</literal> with this
+          URL baked in, so bootstrapping a machine that cannot evaluate this
+          flake is one command on the installer ISO. Set to null to skip
+          generating them.
         '';
+      };
 
-        topicFile = lib.mkOption {
-          type = lib.types.str;
-          default = "";
-          description = "File containing the ntfy topic to subscribe to.";
-        };
+      runAfter = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "auto-update.service" ];
+        description = ''
+          Publish whenever these units run, ordered after they finish, in
+          addition to the timer.
 
-        afterUnits = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [ ];
-          example = [ "auto-update.service" ];
-          description = ''
-            Units to run to completion before publishing, when publishing was
-            triggered by a refresh message. This is how the checkout at
-            <option>flakePath</option> gets brought up to date first — without
-            it, both subscribers wake on the same message and this one can win,
-            republishing the commit that was already published.
+          Point this at whatever maintains the checkout at
+          <option>flakePath</option> — <literal>auto-update.service</literal>
+          — and publishing inherits its schedule *and* its triggers: a pushed
+          ntfy refresh starts autoUpdate, autoUpdate pulls, and a publish
+          follows on the same fresh checkout. There is no second subscription
+          to keep in sync and no window in which this builds a stale tree.
 
-            These are also added to the service's <literal>After=</literal>.
-            Units with <literal>RemainAfterExit=yes</literal> are not usable
-            here: waiting on one would block forever.
-          '';
-        };
+          Implemented as <literal>WantedBy=</literal> plus
+          <literal>After=</literal> on this service, so the listed units are
+          not modified. Publishing still happens if they fail, which is what
+          you want: a rebuild that broke on *this* host says nothing about
+          whether the thin clients' closures are worth republishing.
+        '';
       };
 
       nginxVirtualHost = lib.mkOption {
@@ -184,10 +170,6 @@ in
       {
         assertion = cfg.hosts != [ ];
         message = "services.bcnelson.closurePublisher.hosts must list at least one host";
-      }
-      {
-        assertion = !cfg.ntfy-refresh.enable || cfg.ntfy-refresh.topicFile != "";
-        message = "services.bcnelson.closurePublisher.ntfy-refresh needs topicFile";
       }
     ];
 
@@ -215,9 +197,10 @@ in
 
     systemd.services.closure-publisher = {
       description = "Build and publish NixOS system closures for remote hosts";
-      # Covers the case where both jobs are queued together (at boot, or when
-      # two timers coincide); the refresh handler covers the pushed case.
-      after = cfg.ntfy-refresh.afterUnits;
+      # Pulled into the same transaction as each runAfter unit and ordered
+      # behind it, so the checkout is already up to date when we build.
+      wantedBy = cfg.runAfter;
+      after = cfg.runAfter;
       environment = {
         FLAKE_PATH = cfg.flakePath;
         CACHE_DIR = cfg.cacheDir;
@@ -227,6 +210,7 @@ in
         SIGNING_KEY_FILE = cfg.signingKeyFile;
         SIGNING_KEY_NAME = cfg.signingKeyName;
         RETENTION_DAYS = toString cfg.retentionDays;
+        PUBLIC_URL = if cfg.publicUrl != null then cfg.publicUrl else "";
       };
       serviceConfig = {
         Type = "oneshot";
@@ -236,27 +220,6 @@ in
         Slice = "system-closure-publisher.slice";
       };
       restartIfChanged = false;
-    };
-
-    systemd.services.closure-publisher-ntfy-client = lib.mkIf cfg.ntfy-refresh.enable {
-      description = "Republish closures when a refresh is pushed over ntfy";
-      enable = true;
-      wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" ];
-      environment = {
-        NTFY_REFRESH_TOPIC_FILE = cfg.ntfy-refresh.topicFile;
-        REFRESH_COMMAND = "${refreshHandler}/bin/closure-publisher-refresh";
-      };
-      serviceConfig = {
-        Type = "simple";
-        User = "root";
-        ExecStart = "${ntfyRefreshClient}/bin/closure-publisher-ntfy-client";
-        Restart = "always";
-        RestartSec = 30;
-        Slice = "system-closure-publisher.slice";
-      };
-      restartIfChanged = true;
     };
 
     services.nginx.virtualHosts = lib.mkIf (cfg.nginxVirtualHost != null) {
