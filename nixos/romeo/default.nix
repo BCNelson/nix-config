@@ -34,6 +34,7 @@ in
       ./backups.nix
       ./nfs.nix
       ./nixarr.nix
+      ./gamestream.nix
       ./services
       ./dataDirs.nix
     ];

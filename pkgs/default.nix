@@ -1,6 +1,6 @@
 # Custom packages, that can be defined similarly to ones from nixpkgs
 # You can build them using 'nix build .#example'
-pkgs: {
+pkgs: rec {
   # example = pkgs.callPackage ./example { };
   fork-init = pkgs.callPackage ./fork-init { };
   mdns-reflector = pkgs.callPackage ./mdns-reflector.nix { };
@@ -13,6 +13,10 @@ pkgs: {
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   config-merge = pkgs.callPackage ./config-merge { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
+  gamestream-agent = pkgs.callPackage ./gamestream-agent { };
+  gamestream-agent-test = pkgs.callPackage ./gamestream-agent/nixos-test.nix {
+    inherit gamestream-agent;
+  };
   happy-auth-notify = pkgs.callPackage ./happy-auth-notify { };
   kwin-adaptive-workspaces = pkgs.callPackage ./kwin-adaptive-workspaces { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };

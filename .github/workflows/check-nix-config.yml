@@ -89,3 +89,60 @@ jobs:
           name: flake.lock
       - name: Check devshell
         run: nix build .#devShells.x86_64-linux.default --dry-run --show-trace
+
+  check-gamestream-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        run: rm -f flake.lock
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+      # Building the package runs the Go test suite in checkPhase.
+      - name: Build gamestream-agent (runs Go tests)
+        run: nix build .#gamestream-agent -L --show-trace
+
+  check-gamestream-agent-vm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        run: rm -f flake.lock
+      - name: Download updated flake.lock
+        if: ${{ inputs.updated_flake }}
+        uses: actions/download-artifact@v4
+        with:
+          name: flake.lock
+      # End-to-end control-plane test: MQTT <-> agent <-> systemd + polkit.
+      - name: Run gamestream-agent VM test
+        run: nix build .#gamestream-agent-test -L --show-trace

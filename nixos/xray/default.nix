@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 {
   imports = [
     ../_mixins/roles/docker.nix
@@ -9,6 +9,9 @@
     ../_mixins/hardware/qmk.nix
     ../_mixins/roles/nfs.nix
   ];
+
+  # Moonlight client for streaming games from romeo (see nixos/romeo/gamestream.nix).
+  environment.systemPackages = [ pkgs.moonlight-qt ];
 
   nixpkgs.config.permittedInsecurePackages = [
     "libsoup-2.74.3"
