@@ -1,26 +1,28 @@
 { config, lib, pkgs, ... }:
 let
-  tomlFormat = pkgs.formats.toml { };
   codexConfigDir = "codex";
 
+  # Same transform programs.codex.enableMcpIntegration applies upstream, done by
+  # hand because config-merge - not the module - owns config.toml here. Beyond
+  # renaming headers -> http_headers and wrapping file-backed env vars, the
+  # shared helper drops null/empty attrs, which matters twice over: the TOML
+  # formatter cannot serialize null ("unsupported unit type"), and codex's rmcp
+  # client rejects even an empty `args` on a streamable_http server
+  # ("args is not supported for streamable_http").
   transformedMcpServers = lib.optionalAttrs config.programs.mcp.enable (
     lib.mapAttrs (
-      _name: server:
-      # Drop null-valued attrs: the home-manager mcp module declares
-      # command/url/enabled as nullOr options defaulting to null, and the
-      # TOML formatter cannot serialize null ("unsupported unit type").
-      lib.filterAttrs (_: v: v != null) (
-        (lib.removeAttrs server [
-          "disabled"
+      name: server:
+      lib.hm.mcp.transformMcpServer {
+        inherit server;
+        exclude = [
           "headers"
-        ])
-        // (lib.optionalAttrs (server ? headers && !(server ? http_headers)) {
-          http_headers = server.headers;
-        })
-        // {
-          enabled = !(server.disabled or false);
-        }
-      )
+          "type"
+        ];
+        extraTransforms = [
+          (s: s // lib.optionalAttrs (s.headers or { } != { }) { http_headers = s.headers; })
+          (lib.hm.mcp.wrapEnvFilesCommand { inherit pkgs name; })
+        ];
+      }
     ) config.programs.mcp.servers
   );
 
