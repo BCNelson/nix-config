@@ -19,6 +19,9 @@
     pkgs.kdePackages.kate
 
     pkgs.unstable.signal-desktop
+
+    # Chat
+    pkgs.unstable.discord
   ];
 
   programs.bash.enable = true;
