@@ -10,9 +10,7 @@ on:
       - "**.nix"
       - "**.age"
       - ".github/workflows/check.yml"
-      - ".github/workflows/check-nix-config.yml"
       - "flake.lock"
-      - "pkgs/gamestream-agent/**"
   push:
     branches:
       - "main"
@@ -20,9 +18,7 @@ on:
       - "**.nix"
       - "**.age"
       - ".github/workflows/check.yml"
-      - ".github/workflows/check-nix-config.yml"
       - "flake.lock"
-      - "pkgs/gamestream-agent/**"
   workflow_dispatch:
 
 jobs:
