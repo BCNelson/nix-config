@@ -89,12 +89,20 @@ Put the output in `trustedPublicKeys` in `nixos/delta/default.nix` and set
 
 ## Steady state
 
+romeo republishes on the same ntfy refresh topic autoUpdate listens on, so a
+push reaches the thin clients on their next poll rather than waiting out the
+30m publish timer. `closure-publisher-ntfy-client` waits for
+`auto-update.service` to finish pulling `/config` before it starts building —
+both subscribers wake on the same message, and without that wait the publisher
+can win the race and republish the commit that was already published.
+
 `remote-update.timer` fires every 15 minutes on the client: it fetches
 `https://nixcache.nel.family/system/delta-1`, compares it with
 `/run/current-system`, and if they differ downloads the closure and activates
 it, rebooting when the kernel or initrd changed. Watch it with
 
 ```sh
-journalctl -u remote-update -f          # on the client
-journalctl -u closure-publisher -f      # on romeo
+journalctl -u remote-update -f                    # on the client
+journalctl -u closure-publisher -f                # on romeo
+journalctl -u closure-publisher-ntfy-client -f    # on romeo
 ```

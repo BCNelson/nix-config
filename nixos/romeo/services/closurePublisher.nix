@@ -1,3 +1,4 @@
+{ config, ... }:
 {
   # Build the thin clients' system closures here and publish them to the
   # binary cache romeo already serves (see ./nixBinaryCacheProxy.nix). The
@@ -14,8 +15,15 @@
     # Same directory nginx serves for nixcache.nel.family.
     cacheDir = "/var/public-nix-cache";
     nginxVirtualHost = "nixcache.nel.family";
-    # Slightly ahead of the clients' 15m poll, so a change lands within about
-    # half an hour of being pushed without keeping a builder busy constantly.
+    # Backstop only — the ntfy subscription below is what makes a push land
+    # promptly. ntfy_refresh_topic is declared in ../default.nix.
     interval = "30m";
+    ntfy-refresh = {
+      enable = true;
+      topicFile = config.age.secrets.ntfy_refresh_topic.path;
+      # /config is autoUpdate's checkout, and both subscribers wake on the
+      # same message. Let the pull finish before building from it.
+      afterUnits = [ "auto-update.service" ];
+    };
   };
 }
