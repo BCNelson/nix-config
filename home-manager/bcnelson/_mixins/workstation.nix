@@ -16,6 +16,7 @@
     ./claude/skill/pr-review-response
     ./claude/skill/init-devenv
     ./codex
+    ./opencode
     ./herdr
     ./happy
     ./programs/trillium.nix
