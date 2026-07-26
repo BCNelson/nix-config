@@ -2,13 +2,14 @@
 let
   jsonFormat = pkgs.formats.json { };
 
-  # `herdr integration install <agent>` fs::writes these hook scripts into each
-  # agent's config dir and edits that agent's config in place. Both are
+  # `herdr integration install <agent>` fs::writes these hook/plugin assets into
+  # each agent's config dir and edits that agent's config in place. Both are
   # read-only /nix/store symlinks here, so declare the end state instead and
   # never run the installer. Sourcing the assets out of herdr.src keeps the
   # HERDR_INTEGRATION_VERSION marker locked to the herdr package, so
   # `herdr integration status` stays "current" across updates.
-  hookAsset = agent: "${pkgs.herdr.src}/src/integration/assets/${agent}/herdr-agent-state.sh";
+  asset = agent: file: "${pkgs.herdr.src}/src/integration/assets/${agent}/${file}";
+  hookAsset = agent: asset agent "herdr-agent-state.sh";
 
   claudeHook = "${config.programs.claude-code.configDir}/hooks/herdr-agent-state.sh";
   codexHook = "${config.xdg.configHome}/codex/herdr-agent-state.sh";
@@ -117,6 +118,18 @@ in
   # its SessionStart entry carries no matcher key.
   xdg.configFile = {
     "codex/herdr-agent-state.sh".source = hookAsset "codex";
+
+    # opencode has no hook mechanism: herdr ships a JS plugin that subscribes to
+    # session events instead. opencode auto-loads every file under plugins/, so
+    # unlike claude and codex there is no config edit to mirror - dropping the
+    # file in place is the whole integration. It is self-contained (only
+    # node:net) and runs inside opencode's own runtime, so it needs nothing on
+    # PATH. See ../opencode.
+    #
+    # herdr looks for this under a hardcoded ~/.config/opencode rather than
+    # $XDG_CONFIG_HOME, so `herdr integration status opencode` only agrees with
+    # this path while xdg.configHome is the default.
+    "opencode/plugins/herdr-agent-state.js".source = asset "opencode" "herdr-agent-state.js";
 
     "codex/hooks.json".source = jsonFormat.generate "codex-hooks.json" {
       hooks.SessionStart = [
