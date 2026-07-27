@@ -25,8 +25,14 @@ in
       FOUNDRY_WORLD = "Lambda";
     };
     extraOptions = [
-      "--health-startup-cmd=for i in $(seq 1 10); do wget -qO- http://127.0.0.1:30000 >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1"
+      # felddy/foundryvtt ships curl and seq but no wget, so a wget probe can
+      # never succeed -- it left a permanently-failed transient healthcheck unit
+      # behind, which is enough to make switch-to-configuration exit 4 and fail
+      # every deploy, even though Foundry itself was serving fine.
+      "--health-startup-cmd=for i in $(seq 1 10); do curl -fsS -o /dev/null http://127.0.0.1:30000 && exit 0; sleep 1; done; exit 1"
       "--health-startup-success=1"
+      # The loop needs longer than the image's default 5s startup timeout.
+      "--health-startup-timeout=15s"
     ];
     labels = {
       "io.containers.autoupdate" = "registry";
