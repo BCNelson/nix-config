@@ -47,6 +47,77 @@ let
     "https://100.76.49.168:47990" # tailscale, direct
   ];
 
+  # Sunshine is a user service that only exists while a gamestream session is
+  # up, so on an idle romeo nothing is listening on 47990 and nginx answers the
+  # web-UI vhost with a bare "502 Bad Gateway". That reads as a broken service
+  # when it is in fact the normal zero-idle state, so serve a page that says so
+  # and explains how to start a session. It refreshes itself, so leaving the tab
+  # open lands on the real web UI once Sunshine comes up.
+  offlinePage = pkgs.writeTextDir "_gamestream-offline.html" ''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="refresh" content="15">
+      <title>Gamestream is asleep</title>
+      <style>
+        :root { color-scheme: dark; }
+        body {
+          margin: 0; min-height: 100vh; display: grid; place-items: center;
+          background: #14161a; color: #e6e8eb; padding: 2rem;
+          font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+        main { max-width: 42rem; }
+        h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+        .lede { color: #a8b0ba; margin: 0 0 1.75rem; }
+        h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
+             color: #8b94a0; margin: 1.75rem 0 .6rem; }
+        ul { margin: 0; padding-left: 1.2rem; }
+        ul ul { margin: .5rem 0 .25rem; list-style: none; padding-left: 0; }
+        li { margin: .4rem 0; }
+        code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: .9em; background: #1e2126; border: 1px solid #2c3138;
+          border-radius: 4px; padding: .12em .4em;
+        }
+        .muted { color: #8b94a0; }
+        footer { margin-top: 2rem; font-size: .85rem; color: #6f7883; }
+      </style>
+    </head>
+    <body>
+      <main>
+        <h1>Gamestream is asleep</h1>
+        <p class="lede">
+          No Sunshine session is running on romeo, so there is no web UI to show
+          yet. This is the normal idle state &mdash; nothing is broken.
+        </p>
+
+        <h2>Start a session</h2>
+        <ul>
+          <li>Flip the <strong>Gamestream</strong> switch for your profile in
+            Home Assistant, <span class="muted">or</span></li>
+          <li>run one of these on romeo:
+            <ul>
+    ${lib.concatStringsSep "\n" (lib.mapAttrsToList
+        (id: user: "          <li><code>sudo systemctl start gamestream@${user}.service</code> <span class=\"muted\">&mdash; ${id}</span></li>")
+        profiles)}
+            </ul>
+          </li>
+        </ul>
+
+        <h2>Then</h2>
+        <p class="muted">
+          Give it a few seconds. This page reloads every 15 seconds and will
+          become the Sunshine web UI on its own once the session is up.
+        </p>
+
+        <footer>${webUiHost} &middot; romeo</footer>
+      </main>
+    </body>
+    </html>
+  '';
+
   # Sunshine has no declarative credential option (the NixOS module exposes
   # none, and the salted hash in sunshine_state.json is generated with a random
   # salt, so it cannot be rendered from Nix). `sunshine --creds` is the only
@@ -426,9 +497,25 @@ in
       allow 192.168.0.0/16;
       deny all;
     '';
+    # With no session running there is nothing on 47990 at all, so the connect
+    # fails and nginx synthesises a 502. Those nginx-generated upstream errors go
+    # through error_page without needing proxy_intercept_errors (which is
+    # deliberately left off, so a real error page from Sunshine still reaches the
+    # browser untouched). Answer with 503 instead: the service is temporarily
+    # unavailable, not misconfigured.
     locations."/" = {
       proxyPass = "https://127.0.0.1:47990";
       proxyWebsockets = true;
+      extraConfig = ''
+        error_page 502 503 504 =503 /_gamestream-offline.html;
+      '';
+    };
+    locations."= /_gamestream-offline.html" = {
+      root = offlinePage;
+      extraConfig = ''
+        internal;
+        add_header Cache-Control "no-store" always;
+      '';
     };
   };
 
