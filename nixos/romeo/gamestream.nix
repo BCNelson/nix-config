@@ -162,6 +162,14 @@ in
     };
   };
 
+  # The module's capSysAdmin only grants cap_sys_admin, but Sunshine also wants
+  # cap_sys_nice to raise its capture/encode thread priority and to request a
+  # high-priority EGL context. Without it the log fills with "setpriority failed
+  # for nice -10/-15: Permission denied" and "EGL: context priority set to HIGH
+  # but CAP_SYS_NICE capability is missing", and frame pacing is at the mercy of
+  # whatever else romeo is doing (Ollama, Frigate, the *arrs).
+  security.wrappers.sunshine.capabilities = lib.mkForce "cap_sys_admin,cap_sys_nice+p";
+
   # --- Sunshine (shared config; only one profile streams at a time) ---
   # v1 uses one config for all profiles. Distinct per-user port bases (so
   # Moonlight lists independently-paired hosts) are a documented follow-up.
@@ -173,7 +181,16 @@ in
       # HARDWARE: encode on the A380 via the proven i915 VA-API path.
       encoder = "vaapi";
       adapter_name = encodeRenderNode;
+      # Loopback capture source: the null sink's monitor.
       audio_sink = "gamestream.monitor";
+      # Sunshine picks a virtual sink automatically when this is unset, and on a
+      # headless box it picks "sink-sunshine-stereo" (Steam Streaming Speakers),
+      # which does not exist here. It then makes that the default sink, resolves
+      # its monitor to an empty name and dies with
+      # "pa_simple_new() failed: Invalid argument -- The stream will not have
+      # audio". Point it at our own null sink instead. Upstream recommends
+      # leaving this blank, but that advice assumes a desktop with real devices.
+      virtual_sink = "gamestream";
       # Without these the web UI is unusable from anywhere but localhost.
       csrf_allowed_origins = lib.concatStringsSep "," webUiOrigins;
       # Report streaming start/stop to the agent.
