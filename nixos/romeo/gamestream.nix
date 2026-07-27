@@ -35,6 +35,16 @@ let
   # B580 = xe (game rendering).
   encodeRenderNode = "/dev/dri/by-driver/i915-render";
 
+  # Sunshine's CSRF check only trusts localhost variants out of the box, so the
+  # web UI rejects every request ("CSRF Protection Error") when it is reached by
+  # IP or DNS name -- which is the only way in on a headless box. Origins are a
+  # comma-separated list and must carry protocol, host and port.
+  webUiOrigins = [
+    "https://192.168.3.7:47990" # LAN address
+    "https://romeo.b.nel.family:47990" # LAN DNS
+    "https://100.76.49.168:47990" # tailscale
+  ];
+
   # The Sunshine hook talks to the agent's notify socket; an empty profile
   # routes the event to whichever session is currently active.
   agent = "${pkgs.gamestream-agent}/bin/gamestream-agent";
@@ -158,6 +168,8 @@ in
       encoder = "vaapi";
       adapter_name = encodeRenderNode;
       audio_sink = "gamestream.monitor";
+      # Without these the web UI is unusable from anywhere but localhost.
+      csrf_allowed_origins = lib.concatStringsSep "," webUiOrigins;
       # Report streaming start/stop to the agent.
       global_prep_cmd = globalPrepCmd;
     };
