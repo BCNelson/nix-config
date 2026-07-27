@@ -2,8 +2,9 @@
 # On-demand, zero-idle game streaming on romeo (headless, server-first).
 #
 # Architecture (see docs/gamestream.md for the full write-up):
-#   * Two dedicated, unprivileged users (game-brad, game-hannah), each with its
-#     own Steam library/saves. Only one runs at a time.
+#   * Three dedicated, unprivileged users (game-bcnelson, game-hlnelson,
+#     game-family), each with its own Steam library/saves. Only one runs at a
+#     time.
 #   * Nothing runs until a session is started: `gamestream@<user>.service` is a
 #     system-level shim that enables linger and starts the user's headless
 #     session, and its ExecStop tears everything back down (disable-linger), so
@@ -17,10 +18,13 @@
 # NOTE: the headless-session and GPU-offload details (marked "HARDWARE:") need
 # tuning on the real machine; they are best-effort defaults here.
 let
-  # HA profile id -> system user (systemd template instance).
+  # HA profile id -> system user (systemd template instance). Profile ids match
+  # the human usernames used elsewhere in this repo; "family" is a shared
+  # profile (couch/guest play) with its own Steam library.
   profiles = {
-    brad = "game-brad";
-    hannah = "game-hannah";
+    bcnelson = "game-bcnelson";
+    hlnelson = "game-hlnelson";
+    family = "game-family";
   };
   gameUsers = lib.attrValues profiles;
   profilesEnv = lib.concatStringsSep ","
@@ -143,8 +147,8 @@ in
   };
 
   # --- Sunshine (shared config; only one profile streams at a time) ---
-  # v1 uses one config for both users. Distinct per-user port bases (so Moonlight
-  # lists two independently-paired hosts) are a documented follow-up.
+  # v1 uses one config for all profiles. Distinct per-user port bases (so
+  # Moonlight lists independently-paired hosts) are a documented follow-up.
   services.sunshine = {
     enable = true;
     capSysAdmin = true; # needed to grab the (headless) display on Wayland

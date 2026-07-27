@@ -9,10 +9,10 @@ streamed to Moonlight over the LAN (or Tailscale when remote).
 | Layer | Decision |
 |---|---|
 | Host / posture | romeo, fully headless, server-first; on-demand, **zero idle** |
-| Isolation | Dedicated unprivileged users (`game-brad`, `game-hannah`) + a capped `gamestream.slice`. A VM was ruled out: VFIO can't share the GPU with Ollama. |
+| Isolation | Dedicated unprivileged users (`game-bcnelson`, `game-hlnelson`, `game-family`) + a capped `gamestream.slice`. A VM was ruled out: VFIO can't share the GPU with Ollama. |
 | GPU split | **Render on the B580** (xe); **capture + VA-API encode on the A380** (i915) — reusing the proven Frigate/Jellyfin encode path. |
 | Compositor | Headless `sway` (`WLR_BACKENDS=headless`); gamescope optional per-game. B580 offload via `MESA_VK_DEVICE_SELECT`/`DRI_PRIME` in Steam launch options. |
-| Profiles | Two, separate Steam libraries/saves; one active at a time. |
+| Profiles | Three (`bcnelson`, `hlnelson`, `family`), separate Steam libraries/saves; one active at a time. |
 | Trigger | Home Assistant switch + state over MQTT; SSH `systemctl` as fallback. |
 | Network | LAN-first + Tailscale for remote; ports not exposed to WAN. |
 | Audio | Headless PipeWire null-sink → Sunshine `audio_sink`. |
@@ -45,7 +45,7 @@ Home Assistant ──MQTT (broker 192.168.3.6:1883)── gamestream-agent (alwa
 
 ## Lifecycle
 
-- **On:** HA switch ON → agent `StartUnit(gamestream@game-brad.service)` → linger
+- **On:** HA switch ON → agent `StartUnit(gamestream@game-bcnelson.service)` → linger
   enabled + `gamestream.target` started in the user's manager → sway (headless,
   A380) → Sunshine → Steam Big Picture. State goes `starting → ready`.
 - **Streaming:** Moonlight connects → Sunshine `global_prep_cmd` do →
@@ -92,9 +92,9 @@ reads the file itself as its own unprivileged user, so agenix's default
 
 ## Known v1 simplifications / follow-ups
 
-- **Shared Sunshine config** (one port base): both profiles present identically
-  to Moonlight, so switching profiles re-pairs. A per-user port base (two
-  independently-paired Moonlight hosts) is a follow-up.
+- **Shared Sunshine config** (one port base): all profiles present identically
+  to Moonlight, so switching profiles re-pairs. A per-user port base (one
+  independently-paired Moonlight host per profile) is a follow-up.
 - Headless-session wiring (sway → graphical-session → Sunshine) and the exact
   virtual-output resolution / VA-API device / audio sink name need on-hardware
   tuning; the values in `gamestream.nix` are marked `HARDWARE:`.
