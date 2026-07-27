@@ -58,8 +58,12 @@ let
   # Minimal headless sway session: one virtual output on the A380, launch Steam
   # Big Picture, and bring Sunshine up once the Wayland socket exists.
   swayConfig = pkgs.writeText "gamestream-sway.conf" ''
-    # HARDWARE: pick a resolution/refresh your clients want.
-    output HEADLESS-1 resolution 1920x1080 position 0,0
+    # Declare an explicit refresh rate. Without one wlroots reports the output
+    # as 0 Hz, and Moonlight happily asks for whatever it likes (it requested
+    # 165 fps, against which Sunshine set a "minimum FPS target" of ~82) -- so
+    # capture pacing had no upper bound to work against. 60 Hz matches what this
+    # box can actually feed a 1080p stream.
+    output HEADLESS-1 resolution 1920x1080@60Hz position 0,0
 
     # Expose the Wayland session to the user systemd manager, then start
     # Sunshine (a user service) now that WAYLAND_DISPLAY is set.
