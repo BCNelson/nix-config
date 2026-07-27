@@ -207,27 +207,21 @@ in
     })
     profiles;
 
-  # --- Audio: a virtual sink Sunshine can capture on a machine with no sound HW ---
+  # --- Audio ---
+  # Sunshine creates and manages its own virtual sinks (sink-sunshine-stereo,
+  # -surround51, -surround71), makes the one matching the client's channel
+  # layout the default sink, and captures that sink's monitor. A hand-rolled
+  # null sink is therefore not just redundant but actively wrong: applications
+  # play to the *default* sink, so capturing our own sink's monitor would have
+  # streamed silence even once capture worked. Let Sunshine own this end to end
+  # and leave audio_sink/virtual_sink unset (upstream explicitly recommends
+  # automatic device selection).
   services.pulseaudio.enable = false;
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
     alsa.enable = true;
     pulse.enable = true;
-    extraConfig.pipewire."10-gamestream-sink" = {
-      "context.objects" = [
-        {
-          factory = "adapter";
-          args = {
-            "factory.name" = "support.null-audio-sink";
-            "node.name" = "gamestream";
-            "node.description" = "Gamestream capture sink";
-            "media.class" = "Audio/Sink";
-            "audio.position" = "FL,FR";
-          };
-        }
-      ];
-    };
   };
 
   # The module's capSysAdmin only grants cap_sys_admin, but Sunshine also wants
@@ -249,16 +243,8 @@ in
       # HARDWARE: encode on the A380 via the proven i915 VA-API path.
       encoder = "vaapi";
       adapter_name = encodeRenderNode;
-      # Loopback capture source: the null sink's monitor.
-      audio_sink = "gamestream.monitor";
-      # Sunshine picks a virtual sink automatically when this is unset, and on a
-      # headless box it picks "sink-sunshine-stereo" (Steam Streaming Speakers),
-      # which does not exist here. It then makes that the default sink, resolves
-      # its monitor to an empty name and dies with
-      # "pa_simple_new() failed: Invalid argument -- The stream will not have
-      # audio". Point it at our own null sink instead. Upstream recommends
-      # leaving this blank, but that advice assumes a desktop with real devices.
-      virtual_sink = "gamestream";
+      # audio_sink / virtual_sink are deliberately unset -- see the audio
+      # section above. Sunshine selects and captures its own virtual sink.
       # Without these the web UI is unusable from anywhere but localhost.
       csrf_allowed_origins = lib.concatStringsSep "," webUiOrigins;
       # Report streaming start/stop to the agent.
@@ -296,6 +282,13 @@ in
   systemd.user.targets.gamestream = {
     description = "Game streaming session";
     unitConfig.StopWhenUnneeded = false;
+    # PipeWire is socket-activated, so in a headless session nothing starts it
+    # until something connects. Sunshine was that first client, and it queried
+    # the server while it was still coming up -- the default sink's monitor came
+    # back as an empty name and pa_simple_new() then failed with "Invalid
+    # argument", leaving every stream without audio. Bring the audio stack up
+    # with the session instead of racing it.
+    wants = [ "pipewire.service" "wireplumber.service" "pipewire-pulse.service" ];
   };
 
   systemd.user.services.gamestream-compositor = {
@@ -336,8 +329,14 @@ in
     };
   };
 
-  # Set the web-UI credentials before Sunshine starts (see sunshineSetCreds).
-  systemd.user.services.sunshine.serviceConfig.ExecStartPre = [ "${sunshineSetCreds}" ];
+  systemd.user.services.sunshine = {
+    # Order Sunshine behind the audio stack; sway starts it explicitly, so
+    # without this it can win the race against socket activation.
+    wants = [ "pipewire-pulse.service" "wireplumber.service" ];
+    after = [ "pipewire-pulse.service" "wireplumber.service" ];
+    # Set the web-UI credentials before Sunshine starts (see sunshineSetCreds).
+    serviceConfig.ExecStartPre = [ "${sunshineSetCreds}" ];
+  };
 
   # Sunshine is a user service provided by the module; it is started explicitly
   # from the sway config once WAYLAND_DISPLAY exists, and torn down when the user
