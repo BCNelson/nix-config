@@ -3,6 +3,11 @@ let
   mkHome = { hostname, usernames, desktop ? null, platform ? "x86_64-linux", ... }: {
     home-manager.useGlobalPkgs = false;
     home-manager.useUserPackages = false;
+    # Move pre-existing unmanaged files aside instead of aborting activation.
+    # Without this a single stale file (e.g. a Firefox-written profiles.ini)
+    # fails the user's home-manager unit, which fails switch-to-configuration,
+    # which makes auto-update report a failed rebuild every interval.
+    home-manager.backupFileExtension = "bak";
     home-manager.extraSpecialArgs = {
       inherit inputs outputs stateVersion desktop hostname platform;
     };
