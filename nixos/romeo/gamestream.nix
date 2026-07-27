@@ -117,12 +117,18 @@ in
   # Input emulation for Moonlight-forwarded gamepads/keyboard/mouse.
   hardware.uinput.enable = true;
 
+  # Seat provider for the headless session's libinput backend (see the
+  # compositor's LIBSEAT_BACKEND above). romeo has no graphical login, so
+  # nothing else would start one.
+  services.seatd.enable = true;
+
   # --- Users: the gaming profiles + the agent's system user (one definition) ---
   users.users = lib.genAttrs gameUsers (name: {
     isNormalUser = true;
     description = "Game streaming profile (${name})";
-    # render/video: GPU (VA-API); input/uinput: controller forwarding; audio: PipeWire.
-    extraGroups = [ "video" "render" "input" "audio" "uinput" ];
+    # render/video: GPU (VA-API); input/uinput: controller forwarding; audio:
+    # PipeWire; seat: libseat access so the compositor can open input devices.
+    extraGroups = [ "video" "render" "input" "audio" "uinput" "seat" ];
     # No interactive password; sessions are brought up on demand via the shim.
     hashedPassword = "!";
   }) // {
@@ -204,11 +210,23 @@ in
     # but nothing it was supposed to launch (Sunshine included) ever ran.
     path = [ pkgs.bash ];
     environment = {
-      WLR_BACKENDS = "headless";
+      # "headless" alone gives a virtual output but builds NO libinput backend,
+      # so wlroots never enumerates input devices: `swaymsg -t get_inputs`
+      # returns [] and Moonlight's keyboard/mouse/gamepad go nowhere. Sunshine
+      # injects input by creating uinput devices, and something has to read
+      # them back -- that is the libinput backend.
+      WLR_BACKENDS = "headless,libinput";
+      # wlroots opens input devices through libseat. This session is a lingering
+      # `systemctl --user` manager with no logind seat (that is inherent to the
+      # zero-idle design), so libseat's logind backend cannot work; seatd
+      # provides a seat instead. See services.seatd below.
+      LIBSEAT_BACKEND = "seatd";
       # HARDWARE: composite + capture on the A380 (i915). Games offload to the
       # B580 per-game (e.g. Steam launch options: `DRI_PRIME=1 %command%` or
       # `MESA_VK_DEVICE_SELECT=<B580 pci id> %command%`).
       WLR_RENDER_DRM_DEVICE = encodeRenderNode;
+      # Start even when no input devices are present yet; Sunshine's uinput
+      # devices only appear once a client connects.
       WLR_LIBINPUT_NO_DEVICES = "1";
     };
     serviceConfig = {
