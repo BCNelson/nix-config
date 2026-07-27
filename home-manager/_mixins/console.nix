@@ -176,7 +176,11 @@
       functions = {
         fish_command_not_found = {
           body = ''
-            nix-search --details -p $argv[1]
+            if type -q nix-search
+              nix-search --details -p $argv[1]
+            else
+              echo "fish: Unknown command: $argv[1]" >&2
+            end
           '';
         };
         update = {
