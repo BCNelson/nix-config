@@ -1,0 +1,62 @@
+name: Check gamestream-agent
+
+# Runs ONLY when the agent's own code changes. Deliberately NOT triggered on
+# flake.lock, so routine nixpkgs bumps don't re-run the Go build or the VM test.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "pkgs/gamestream-agent/**"
+      - ".github/workflows/check-gamestream.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "pkgs/gamestream-agent/**"
+      - ".github/workflows/check-gamestream.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      # Building the package runs the Go test suite in checkPhase.
+      - name: Build gamestream-agent (runs Go tests)
+        run: nix build .#gamestream-agent -L --show-trace
+
+  vm-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      # End-to-end control-plane test: MQTT <-> agent <-> systemd + polkit.
+      - name: Run gamestream-agent VM test
+        run: nix build .#gamestream-agent-test -L --show-trace
