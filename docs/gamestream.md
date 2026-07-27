@@ -65,13 +65,18 @@ Home Assistant ──MQTT (broker 192.168.3.6:1883)── gamestream-agent (alwa
 
 ## Secrets / setup (manual, needs hardware keys)
 
-The MQTT password is an agenix secret that must be created with the FIDO2 master
-key and match the `gamestream` user on the broker:
+The MQTT password is an agenix secret that must match the `gamestream` user on
+the broker. To rotate it, or to re-do this on another host:
 
 1. Create `gamestream` on the broker (192.168.3.6) with a password + ACL scoped
    to `romeo/gamestream/#` and `homeassistant/#`.
-2. Add the secret and rekey (`just rekey`), then uncomment the `age.secrets`
-   block and `GAMESTREAM_MQTT_PASSWORD_FILE` line in `nixos/romeo/gamestream.nix`.
+2. `agenix edit secrets/store/romeo/gamestream_mqtt_password.age`, `git add` it,
+   then `just rekey` to produce the per-host copy under `secrets/hosts/romeo-2/`.
+
+The secret sets `owner = "gamestream-agent"`: unlike Frigate, which gets its
+broker password through an `EnvironmentFile` (read by systemd as root), the agent
+reads the file itself as its own unprivileged user, so agenix's default
+`root:root 0400` is not readable.
 
 ## Testing
 

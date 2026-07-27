@@ -260,19 +260,16 @@ in
       GAMESTREAM_MQTT_USERNAME = "gamestream";
       GAMESTREAM_PROFILES = profilesEnv;
       GAMESTREAM_SOCKET = "/run/gamestream-agent/notify.sock";
-      # HARDWARE / SECRET: provision the MQTT password as an agenix secret and
-      # point the agent at it. This is left as a runtime step because the age
-      # secret must be created with the FIDO2 master key (`just rekey`) and must
-      # match the `gamestream` user configured on the broker. Once created,
-      # uncomment the age.secrets block below and this line:
-      # GAMESTREAM_MQTT_PASSWORD_FILE = config.age.secrets.gamestream_mqtt_password.path;
+      GAMESTREAM_MQTT_PASSWORD_FILE = config.age.secrets.gamestream_mqtt_password.path;
     };
   };
 
-  # SECRET (see note above): create secrets/store/romeo/gamestream_mqtt_password
-  # via `just rekey`, then uncomment.
-  # age.secrets.gamestream_mqtt_password.rekeyFile =
-  #   ../../secrets/store/romeo/gamestream_mqtt_password.age;
+  # Must match the `gamestream` user on the broker. The agent reads this path as
+  # its own unprivileged user, so it needs an owner (agenix defaults to root 0400).
+  age.secrets.gamestream_mqtt_password = {
+    rekeyFile = ../../secrets/store/romeo/gamestream_mqtt_password.age;
+    owner = "gamestream-agent";
+  };
 
   # --- Firewall: Sunshine ports ---
   # Reachable on the LAN (for low-latency in-home play, discovered via mDNS) and
