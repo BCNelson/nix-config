@@ -26,9 +26,14 @@ func NewPahoPublisher(cfg Config, onConnect func()) *PahoPublisher {
 	if cfg.Password != "" {
 		opts.SetPassword(cfg.Password)
 	}
+	// AutoReconnect covers drops *after* a successful connect. ConnectRetry is
+	// deliberately left off: it makes the Connect() token never complete on
+	// failure, so every error (bad credentials, unknown user, refused) surfaces
+	// as an indistinguishable "connect timed out". systemd's Restart=on-failure
+	// already retries the initial connect, and this way the journal names the
+	// actual cause.
 	opts.SetAutoReconnect(true)
-	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(5 * time.Second)
+	opts.SetConnectRetry(false)
 	opts.SetCleanSession(true)
 	// Last will: mark the device unavailable if the agent drops off the broker.
 	opts.SetBinaryWill(cfg.AvailabilityTopic(), []byte("offline"), 1, true)
