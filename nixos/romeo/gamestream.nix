@@ -185,6 +185,12 @@ in
     description = "Headless gamestream compositor (sway on the A380)";
     partOf = [ "gamestream.target" ];
     wantedBy = [ "gamestream.target" ];
+    # sway runs every `exec` line through `sh -c`, so it needs a shell on PATH.
+    # The default unit PATH (coreutils/findutils/gnugrep/gnused/systemd) has
+    # none, which made all three execs in swayConfig die with
+    # "execve failed: No such file or directory" -- sway itself came up fine,
+    # but nothing it was supposed to launch (Sunshine included) ever ran.
+    path = [ pkgs.bash ];
     environment = {
       WLR_BACKENDS = "headless";
       # HARDWARE: composite + capture on the A380 (i915). Games offload to the
