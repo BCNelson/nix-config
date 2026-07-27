@@ -1,4 +1,4 @@
-{ config, pkgs, libx, inputs, ... }:
+{ config, pkgs, lib, libx, inputs, ... }:
 let
   dataDirs = config.data.dirs;
 
@@ -23,6 +23,35 @@ let
     substituteInPlace $out/nixarr/lib/nixarr-py/default.nix \
       --replace-fail 'pname = "nixarr";' 'pname = "nixarr_py";'
   '';
+
+  # nixarr's <arr>-api units wait for their service by curling its *root* with
+  # `curl --fail` (waitForService in nixarr/lib/utils.nix). That assumes the
+  # root answers <400. Sonarr with AuthenticationMethod=Basic answers 401, so
+  # the probe loops forever: sonarr-api sat in start-pre for 2h37m and wedged
+  # switch-to-configuration, blocking every deploy to romeo until auto-update's
+  # 6h TimeoutStartSec killed it. radarr/lidarr/prowlarr only escape it because
+  # forms auth 302s to /login.
+  #
+  # /ping is the *arr health endpoint and is unauthenticated regardless of the
+  # auth method, so probe that instead. Drop this once nixarr stops probing the
+  # root upstream.
+  arrsWithApiUnits = [ "sonarr" "radarr" "lidarr" "prowlarr" ];
+  mkWaitForArrPing = name:
+    let
+      url = "http://127.0.0.1:${toString config.nixarr.${name}.port}/ping";
+    in
+    pkgs.writeShellScript "wait-for-${name}-ping" ''
+      while ! ${lib.getExe pkgs.curl} \
+          --silent \
+          --fail \
+          --max-time 5 \
+          --output /dev/null \
+          '${url}'; do
+        echo "Waiting for ${name} at '${url}'..."
+        sleep 5
+      done
+      echo "${name} is available at '${url}'"
+    '';
 in
 {
   imports =
@@ -69,6 +98,15 @@ in
     sonarr.enable = true;
     lidarr.enable = true;
   };
+
+  # See mkWaitForArrPing above: replace nixarr's root probe with a /ping probe.
+  systemd.services = lib.genAttrs (map (name: "${name}-api") arrsWithApiUnits) (
+    unit: {
+      serviceConfig.ExecStartPre = lib.mkForce [
+        (mkWaitForArrPing (lib.removeSuffix "-api" unit))
+      ];
+    }
+  );
 
   services.flaresolverr.enable = true;
 
