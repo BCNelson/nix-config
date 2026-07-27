@@ -21,7 +21,6 @@ in {
     ./gotosocial.nix
     ./ollama.nix
     ./open-webui.nix
-    ./jellyswarrm.nix
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
