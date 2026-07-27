@@ -207,8 +207,22 @@ in
   systemd.user.slices.gamestream = {
     description = "Game streaming (resource-capped)";
     sliceConfig = {
-      # HARDWARE: tune to romeo's core count / RAM.
-      CPUQuota = "700%";
+      # Stay subordinate to the server workloads by *weight*, not by a hard cap.
+      # frigate/ollama/jellyfin/postgresql all run at the default weight of 100,
+      # so 50 means the session yields to them under contention while still
+      # being free to use an otherwise-idle machine. (system-autoupdate.slice
+      # uses 10 for the same reason; a live game session should outrank a
+      # background rebuild.)
+      CPUWeight = 50;
+      # romeo has 32 cores. The previous 700% was a placeholder written before
+      # anyone measured the box: it capped the session at 22% of the machine
+      # *even when idle*, and throttled 1351 of 6552 periods (~2679s) in a
+      # single evening -- most painfully during shader compilation, which is
+      # exactly when a game wants every core it can get. Keep a quota purely as
+      # a runaway backstop, leaving 8 cores' worth of headroom regardless.
+      CPUQuota = "2400%";
+      # HARDWARE: 94G total on romeo, so there is room to raise these if a game
+      # ever pushes into them.
       MemoryHigh = "24G";
       MemoryMax = "28G";
       IOWeight = 20;
