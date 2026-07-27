@@ -319,6 +319,17 @@ in
     vars.token = config.age.secrets.cwnel_cloudflare_dns_api_token.path;
     content = "CF_DNS_API_TOKEN=$token";
   };
+  # Every DNS-01 validation on romeo has to bypass the local unbound, not just
+  # the cwnel.com one below. unbound's redirect local-zones synthesize NODATA
+  # answers with no SOA, so lego's zone auto-detection walks up to the TLD and
+  # asks the provider for a zone that does not exist. The symptom is a renewal
+  # that fails with the certificate still nominally valid: acme-order-renew-*
+  # exits 11 and, because the *arr of h.b.nel.family certs share one ACME
+  # account target, a single failing renewal blocks first-time issuance for any
+  # newly added domain too (gamestream.h.b.nel.family was stuck on its minica
+  # placeholder because of ai.h.b.nel.family's failing renewal).
+  security.acme.defaults.dnsResolver = "1.1.1.1:53";
+
   security.acme.certs."cwnel.com" = {
     domain = "*.cwnel.com";
     dnsProvider = "cloudflare";
