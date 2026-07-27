@@ -39,11 +39,46 @@ let
   # web UI rejects every request ("CSRF Protection Error") when it is reached by
   # IP or DNS name -- which is the only way in on a headless box. Origins are a
   # comma-separated list and must carry protocol, host and port.
+  webUiHost = "gamestream.h.b.nel.family";
   webUiOrigins = [
-    "https://192.168.3.7:47990" # LAN address
-    "https://romeo.b.nel.family:47990" # LAN DNS
-    "https://100.76.49.168:47990" # tailscale
+    "https://${webUiHost}" # nginx vhost (LAN + tailnet), port 443 so no :port
+    "https://192.168.3.7:47990" # LAN address, direct
+    "https://romeo.b.nel.family:47990" # LAN DNS, direct
+    "https://100.76.49.168:47990" # tailscale, direct
   ];
+
+  # Sunshine has no declarative credential option (the NixOS module exposes
+  # none, and the salted hash in sunshine_state.json is generated with a random
+  # salt, so it cannot be rendered from Nix). `sunshine --creds` is the only
+  # supported way in, and it preserves the paired-device list in that same file,
+  # so running it on every start is safe and lets a password change actually
+  # take effect.
+  #
+  # The web-UI username is the profile id (game-bcnelson -> bcnelson), matching
+  # the Home Assistant entity names, and each profile has its own passphrase.
+  #
+  # This unit is defined for every user on the host, so anything that is not a
+  # game profile falls through and leaves Sunshine's credentials alone rather
+  # than failing to start it.
+  sunshineSetCreds = pkgs.writeShellScript "sunshine-set-creds" ''
+    set -eu
+    user="$(${pkgs.coreutils}/bin/id -un)"
+    case "$user" in
+      ${lib.concatStringsSep "\n      " (lib.mapAttrsToList
+        (id: u: ''${u}) profile='${id}'; secret='${config.age.secrets."sunshine_web_password_${id}".path}';;'')
+        profiles)}
+      *)
+        echo "sunshine-set-creds: $user is not a gamestream profile, skipping"
+        exit 0
+        ;;
+    esac
+    if [ ! -r "$secret" ]; then
+      echo "sunshine-set-creds: $secret not readable, leaving credentials alone"
+      exit 0
+    fi
+    exec ${config.services.sunshine.package}/bin/sunshine \
+      --creds "$profile" "$(${pkgs.coreutils}/bin/cat "$secret")"
+  '';
 
   # The Sunshine hook talks to the agent's notify socket; an empty profile
   # routes the event to whichever session is currently active.
@@ -142,6 +177,35 @@ in
     };
   };
   users.groups.gamestream-agent = { };
+
+  # One generated passphrase per profile, each owned by that profile's user so
+  # it can read its own secret (agenix defaults to root-only, which an
+  # unprivileged session cannot use), and each synced to Bitwarden so the human
+  # who has to type it into the Sunshine web UI can find it.
+  age.secrets = {
+    # Must match the `gamestream` user on the broker. The agent reads this path
+    # as its own unprivileged user, so it needs an owner (agenix defaults to
+    # root 0400).
+    gamestream_mqtt_password = {
+      rekeyFile = ../../secrets/store/romeo/gamestream_mqtt_password.age;
+      owner = "gamestream-agent";
+    };
+  } // lib.mapAttrs'
+    (id: user: lib.nameValuePair "sunshine_web_password_${id}" {
+      rekeyFile = ../../secrets/store/romeo/sunshine_web_password_${id}.age;
+      generator.script = "passphrase";
+      owner = user;
+      mode = "0400";
+      bitwarden = {
+        name = "Sunshine (romeo) - ${id}";
+        username = id;
+        uris = [
+          { uri = "https://${webUiHost}"; matchType = "host"; }
+          { uri = "https://192.168.3.7:47990"; matchType = "host"; }
+        ];
+      };
+    })
+    profiles;
 
   # --- Audio: a virtual sink Sunshine can capture on a machine with no sound HW ---
   services.pulseaudio.enable = false;
@@ -272,6 +336,9 @@ in
     };
   };
 
+  # Set the web-UI credentials before Sunshine starts (see sunshineSetCreds).
+  systemd.user.services.sunshine.serviceConfig.ExecStartPre = [ "${sunshineSetCreds}" ];
+
   # Sunshine is a user service provided by the module; it is started explicitly
   # from the sway config once WAYLAND_DISPLAY exists, and torn down when the user
   # manager exits. (Putting it in gamestream.slice is a follow-up; the heavy
@@ -339,11 +406,31 @@ in
     };
   };
 
-  # Must match the `gamestream` user on the broker. The agent reads this path as
-  # its own unprivileged user, so it needs an owner (agenix defaults to root 0400).
-  age.secrets.gamestream_mqtt_password = {
-    rekeyFile = ../../secrets/store/romeo/gamestream_mqtt_password.age;
-    owner = "gamestream-agent";
+  # --- Web UI behind nginx (LAN + tailnet only) ---
+  # Sunshine's own listener is HTTPS with a self-signed certificate, which means
+  # a browser warning on every visit and no usable name. Front it with a real
+  # ACME cert on a proper hostname, restricted the same way ai.h.b.nel.family
+  # is: reachable over Tailscale and from the LAN, denied everywhere else. The
+  # 47990 port stays open for direct access, and both are in
+  # csrf_allowed_origins above.
+  #
+  # proxy_ssl_verify is off by default, which is what we want here -- the
+  # upstream certificate is Sunshine's self-signed one and cannot be verified.
+  services.nginx.virtualHosts.${webUiHost} = {
+    forceSSL = true;
+    enableACME = true;
+    acmeRoot = null;
+    extraConfig = ''
+      # Allow access from Tailscale network
+      allow 100.64.0.0/10;
+      # Allow access from local network
+      allow 192.168.0.0/16;
+      deny all;
+    '';
+    locations."/" = {
+      proxyPass = "https://127.0.0.1:47990";
+      proxyWebsockets = true;
+    };
   };
 
   # --- Firewall: Sunshine ports ---
