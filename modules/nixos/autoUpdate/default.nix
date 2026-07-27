@@ -135,6 +135,10 @@ in
 
     systemd.services.auto-update = {
       enable = true;
+      # The timer fires OnBootSec=1min, which used to beat DNS coming up: the
+      # run failed with "Could not resolve host: github.com" on every boot.
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
       environment = {
         NTFY_TOPIC_FILE = if cfg.ntfy.enable then cfg.ntfy.topicFile else "";
         HEALTHCHECK_UUID_FILE = if cfg.healthCheck.enable then cfg.healthCheck.uuidFile else "";

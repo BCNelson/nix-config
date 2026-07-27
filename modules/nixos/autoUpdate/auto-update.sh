@@ -96,19 +96,13 @@ if ! git config --local --get filter.git-crypt.smudge > /dev/null; then
     cleanup_and_exit 1
 fi
 
-# Pull changes
-sudo -u "$USER" bash <<EOF
-git pull --rebase |& tee -a "$tempfile"
-if [ "\${PIPESTATUS[0]}" -ne 0 ]; then
+# Pull changes. Run git directly under sudo instead of through a heredoc: the
+# heredoc body ran in a child shell where log() is undefined, so a failed pull
+# printed "log: command not found" and the real reason never reached $tempfile
+# — leaving the failure ping with no explanation. `set -o pipefail` makes the
+# pipe report git's status, and `if !` keeps `set -e` from aborting first.
+if ! sudo -u "$USER" git pull --rebase |& tee -a "$tempfile"; then
     log "Failed to pull changes"
-    exit 1
-fi
-EOF
-
-PULL_EXIT_CODE=$?
-log "PULL_EXIT_CODE: $PULL_EXIT_CODE"
-if [[ $PULL_EXIT_CODE -ne 0 ]]; then
-    log "Failed to pull"
     cleanup_and_exit 1
 fi
 
