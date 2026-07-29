@@ -193,16 +193,26 @@ isoCreate version='iso_desktop':
     shopt -s extglob
     nix build .#nixosConfigurations.{{version}}.config.system.build.isoImage -o {{ justfile_directory() }}/result
 
-isoTest version='iso_desktop': (isoCreate version)
+isoTest version='iso_desktop' memory='8192' cores='4' diskSize='32G' extraArgs='': (isoCreate version)
     #!/usr/bin/env bash
     DISK_IMAGE={{ justfile_directory() }}/test/working/{{version}}/iso.qcow2
     mkdir -p $(dirname $DISK_IMAGE)
     if test -n $DISK_IMAGE && ! test -e $DISK_IMAGE; then
         mkdir -p {{ justfile_directory() }}/test_vm
-        qemu-img create -f qcow2 "$DISK_IMAGE" "32G"
+        qemu-img create -f qcow2 "$DISK_IMAGE" "{{diskSize}}"
     fi
     ISO=$(head -n1 {{ justfile_directory() }}/result/nix-support/hydra-build-products | cut -d'/' -f6)
-    qemu-system-x86_64-uefi -enable-kvm -m 8192 -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk
+    qemu-system-x86_64-uefi -enable-kvm -m {{memory}} -smp {{cores}} -cdrom {{ justfile_directory() }}/result/iso/$ISO -drive cache=writeback,file="$DISK_IMAGE",format=qcow2,media=disk {{extraArgs}}
+
+# Unlocking the repo needs the security key, so pass the YubiKey through:
+#   just thinInstallTest "-device qemu-xhci -device usb-host,vendorid=0x1050"
+#
+# The disk persists at test/working/iso_console/iso.qcow2, so an interrupted run
+# can be resumed with `install-system --thin --resume <host>`. Delete that file
+# to start over.
+#
+# Rehearse a thin-client install at the real hardware limits: 2 GB RAM, 2 cores
+thinInstallTest extraArgs='': (isoTest 'iso_console' '2048' '2' '32G' extraArgs)
 
 isoInstall version='iso_desktop': (isoCreate version)
     #!/usr/bin/env bash

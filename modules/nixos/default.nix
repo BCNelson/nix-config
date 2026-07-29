@@ -10,4 +10,6 @@
   bitwardenSync = import ./bitwarden-sync.nix;
   happyDaemon = import ./happy-daemon.nix;
   authentikBlueprints = import ./authentik-blueprints.nix;
+  thinClient = import ./thinClient;
+  thinClientBuilder = import ./thinClientBuilder;
 }

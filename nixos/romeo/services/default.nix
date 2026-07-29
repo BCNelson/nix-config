@@ -14,6 +14,7 @@ in {
     ./jellyfin.nix
     ./mealie.nix
     ./nixBinaryCacheProxy.nix
+    ./thinClientBuilder.nix
     ./romm.nix
     ./syncthing.nix
     ./node-red.nix

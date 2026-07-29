@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use clap::Parser;
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use cmd_lib::run_cmd;
 use regex::Regex;
 use std::process::Command;
@@ -44,6 +44,9 @@ struct GpgConfig {
 
 mod wifi;
 mod swap;
+mod thin;
+
+use thin::{Stage, State};
 
 /// Lists available disks in the system
 fn list_available_disks() -> Result<Vec<String>> {
@@ -164,6 +167,149 @@ fn get_disk_info(disk_path: &PathBuf) -> Result<HashMap<String, String>> {
     Ok(disk_info)
 }
 
+/// List the system's disks with enough detail to tell them apart, and let the
+/// user pick one.
+fn select_disk(prompt: &str) -> Result<PathBuf> {
+    println!("\nAvailable disks on this system:");
+    let disks = match list_available_disks() {
+        Ok(disks) => disks,
+        Err(e) => {
+            bail!("Error listing disks: {}", e);
+        }
+    };
+
+    if disks.is_empty() {
+        bail!("No suitable disks found on the system");
+    }
+
+    // Create disk display info for selection
+    let mut disk_display_info = Vec::new();
+    let mut disk_paths = Vec::new();
+
+    for disk_path in &disks {
+        let disk_pathbuf = PathBuf::from(disk_path);
+        match get_disk_info(&disk_pathbuf) {
+            Ok(info) => {
+                let unknown_str = "Unknown".to_string();
+                let size = info.get("size").unwrap_or(&unknown_str);
+                let model = info.get("model").unwrap_or(&unknown_str);
+                let is_usb = info.get("is_usb").map_or(false, |v| v == "true");
+                let is_removable = info.get("removable").map_or(false, |v| v == "true");
+
+                let mut disk_type = "";
+                if is_removable {
+                    disk_type = " [REMOVABLE]";
+                }
+
+                if is_usb {
+                    disk_type = " [USB]";
+                }
+
+                let display = format!("{} - {} - {}{}",
+                    disk_path,
+                    model,
+                    size,
+                    disk_type);
+
+                disk_display_info.push(display);
+                disk_paths.push(disk_path.clone());
+            },
+            Err(_) => {
+                let display = format!("{} - No information available", disk_path);
+                disk_display_info.push(display);
+                disk_paths.push(disk_path.clone());
+            }
+        }
+    }
+
+    // Let user select the disk
+    let selected_disk_display = inquire::Select::new(prompt, disk_display_info.clone())
+        .prompt()?;
+
+    // Find the selected disk path
+    let selected_index = disk_display_info.iter().position(|d| d == &selected_disk_display).unwrap();
+    Ok(PathBuf::from(&disk_paths[selected_index]))
+}
+
+/// Unlock the git-crypt'd parts of the checkout, if they are not already.
+fn ensure_repo_unlocked() -> Result<()> {
+    // check .git/config for git-crypt
+    let git_config = std::fs::read_to_string(".git/config")?;
+    if git_config.contains("git-crypt") {
+        println!("Repository already decrypted");
+        return Ok(());
+    }
+
+    println!("Decrypting Repository");
+
+    // Load unlock configuration
+    let unlock_config: UnlockConfig = serde_json::from_str(
+        &std::fs::read_to_string("secrets/unlock-config.json")
+            .unwrap_or_else(|_| {
+                // Fallback to GPG-only if config doesn't exist
+                r#"{"methods":{"gpg":{"enabled":true,"keyFile":"local.key.asc"}}}"#.to_string()
+            })
+    )?;
+
+    // Build list of available unlock methods
+    let mut method_names: Vec<&str> = Vec::new();
+    if let Some(ref fido2) = unlock_config.methods.fido2 {
+        if fido2.enabled && std::path::Path::new(&fido2.key_file).exists() {
+            method_names.push("FIDO2 (security key)");
+        }
+    }
+    if let Some(ref gpg) = unlock_config.methods.gpg {
+        if gpg.enabled && std::path::Path::new(&gpg.key_file).exists() {
+            method_names.push("GPG");
+        }
+    }
+
+    if method_names.is_empty() {
+        bail!("No unlock methods available. Ensure local.key.asc or local.key.age exists.");
+    }
+
+    // If only one method available, use it automatically
+    let selected_method = if method_names.len() == 1 {
+        method_names[0]
+    } else {
+        inquire::Select::new("Select unlock method", method_names).prompt()?
+    };
+
+    match selected_method {
+        "FIDO2 (security key)" => {
+            let fido2 = unlock_config.methods.fido2.as_ref().unwrap();
+            let key_file = &fido2.key_file;
+
+            // Sort identities with default first
+            let mut identities = fido2.identities.clone();
+            identities.sort_by(|a, b| b.default.cmp(&a.default));
+
+            let mut unlocked = false;
+            for identity in &identities {
+                println!("Trying {} (touch your security key)...", identity.name);
+                let identity_path = &identity.path;
+
+                if run_cmd!(age --decrypt -i $identity_path $key_file | git-crypt unlock -).is_ok() {
+                    println!("Unlocked with {}", identity.name);
+                    unlocked = true;
+                    break;
+                }
+            }
+
+            if !unlocked {
+                bail!("Failed to unlock with any FIDO2 identity");
+            }
+        },
+        _ => {
+            let gpg = unlock_config.methods.gpg.as_ref().unwrap();
+            let key_file = &gpg.key_file;
+            run_cmd!(gpg --decrypt $key_file | git-crypt unlock -)?;
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -174,6 +320,17 @@ struct Args {
     /// Target username
     #[arg(short, long, default_value = "bcnelson", value_delimiter = ',')]
     users: Vec<String>,
+
+    /// Install a thin client: a host with too little RAM to evaluate or build
+    /// its own configuration. Nothing is built locally -- the host is pushed to
+    /// CI, the builder produces a signed closure, and this installs that.
+    #[arg(long)]
+    thin: bool,
+
+    /// Resume an interrupted --thin install from its last checkpoint. Re-mounts
+    /// the target disk if needed; never repartitions it.
+    #[arg(long, requires = "thin")]
+    resume: bool,
 }
 
 fn main() -> Result<()> {
@@ -195,87 +352,34 @@ fn main() -> Result<()> {
 
     std::env::set_current_dir(&nix_config)?;
 
+    // Fail before anything destructive if the thin-client prerequisites are not
+    // in place: the closure this host will run is signed, and without the public
+    // half committed neither CI nor this installer can verify it.
+    let cache_public_key = if args.thin {
+        Some(thin::read_cache_public_key()?)
+    } else {
+        None
+    };
+
+    ensure_repo_unlocked()?;
+
+    // A thin client install spans a PR merge and a full closure build, so
+    // picking up where a previous run left off is the normal case rather than
+    // the exception. Take that path before the "host already in flake.nix"
+    // check below, which a half-finished install would always trip.
+    if args.thin {
+        let existing = thin::load_state(&home, &args.host);
+        if args.resume || existing.is_some() {
+            return resume_thin_install(&args, &home, cache_public_key.as_ref().unwrap(), existing);
+        }
+    }
+
     let mut flake_content = std::fs::read_to_string("flake.nix")?;
-    
+
     //check if the host is already in the flake
     if flake_content.contains(args.host.as_str()) {
         bail!("Host already exists in flake.nix");
     }
-
-    // check .git/config for git-crypt
-    let git_config = std::fs::read_to_string(".git/config")?;
-    if !git_config.contains("git-crypt") {
-        println!("Decrypting Repository");
-
-        // Load unlock configuration
-        let unlock_config: UnlockConfig = serde_json::from_str(
-            &std::fs::read_to_string("secrets/unlock-config.json")
-                .unwrap_or_else(|_| {
-                    // Fallback to GPG-only if config doesn't exist
-                    r#"{"methods":{"gpg":{"enabled":true,"keyFile":"local.key.asc"}}}"#.to_string()
-                })
-        )?;
-
-        // Build list of available unlock methods
-        let mut method_names: Vec<&str> = Vec::new();
-        if let Some(ref fido2) = unlock_config.methods.fido2 {
-            if fido2.enabled && std::path::Path::new(&fido2.key_file).exists() {
-                method_names.push("FIDO2 (security key)");
-            }
-        }
-        if let Some(ref gpg) = unlock_config.methods.gpg {
-            if gpg.enabled && std::path::Path::new(&gpg.key_file).exists() {
-                method_names.push("GPG");
-            }
-        }
-
-        if method_names.is_empty() {
-            bail!("No unlock methods available. Ensure local.key.asc or local.key.age exists.");
-        }
-
-        // If only one method available, use it automatically
-        let selected_method = if method_names.len() == 1 {
-            method_names[0]
-        } else {
-            inquire::Select::new("Select unlock method", method_names).prompt()?
-        };
-
-        match selected_method {
-            "FIDO2 (security key)" => {
-                let fido2 = unlock_config.methods.fido2.as_ref().unwrap();
-                let key_file = &fido2.key_file;
-
-                // Sort identities with default first
-                let mut identities = fido2.identities.clone();
-                identities.sort_by(|a, b| b.default.cmp(&a.default));
-
-                let mut unlocked = false;
-                for identity in &identities {
-                    println!("Trying {} (touch your security key)...", identity.name);
-                    let identity_path = &identity.path;
-
-                    if run_cmd!(age --decrypt -i $identity_path $key_file | git-crypt unlock -).is_ok() {
-                        println!("Unlocked with {}", identity.name);
-                        unlocked = true;
-                        break;
-                    }
-                }
-
-                if !unlocked {
-                    bail!("Failed to unlock with any FIDO2 identity");
-                }
-            },
-            _ => {
-                let gpg = unlock_config.methods.gpg.as_ref().unwrap();
-                let key_file = &gpg.key_file;
-                run_cmd!(gpg --decrypt $key_file | git-crypt unlock -)?;
-            }
-        }
-    } else {
-        println!("Repository already decrypted");
-    }
-
-    
 
     let target_host_parts: Vec<&str> = args.host.split('-').collect();
     
@@ -292,66 +396,7 @@ fn main() -> Result<()> {
         bail!("Invalid hostname format: The suffix part after the dash must be a number (e.g., 'sierra-2')");
     }
 
-    // List available disks and let user select one
-    println!("\nAvailable disks on this system:");
-    let disks = match list_available_disks() {
-        Ok(disks) => disks,
-        Err(e) => {
-            bail!("Error listing disks: {}", e);
-        }
-    };
-    
-    if disks.is_empty() {
-        bail!("No suitable disks found on the system");
-    }
-    
-    // Create disk display info for selection
-    let mut disk_display_info = Vec::new();
-    let mut disk_paths = Vec::new();
-    
-    for disk_path in &disks {
-        let disk_pathbuf = PathBuf::from(disk_path);
-        match get_disk_info(&disk_pathbuf) {
-            Ok(info) => {
-                let unknown_str = "Unknown".to_string();
-                let size = info.get("size").unwrap_or(&unknown_str);
-                let model = info.get("model").unwrap_or(&unknown_str);
-                let is_usb = info.get("is_usb").map_or(false, |v| v == "true");
-                let is_removable = info.get("removable").map_or(false, |v| v == "true");
-                
-                let mut disk_type = "";
-                if is_removable {
-                    disk_type = " [REMOVABLE]";
-                }
-                
-                if is_usb {
-                    disk_type = " [USB]";
-                }
-                
-                let display = format!("{} - {} - {}{}", 
-                    disk_path, 
-                    model, 
-                    size,
-                    disk_type);
-                
-                disk_display_info.push(display);
-                disk_paths.push(disk_path.clone());
-            },
-            Err(_) => {
-                let display = format!("{} - No information available", disk_path);
-                disk_display_info.push(display);
-                disk_paths.push(disk_path.clone());
-            }
-        }
-    }
-    
-    // Let user select the disk
-    let selected_disk_display = inquire::Select::new("Select the disk to install NixOS on", disk_display_info.clone())
-        .prompt()?;
-    
-    // Find the selected disk path
-    let selected_index = disk_display_info.iter().position(|d| d == &selected_disk_display).unwrap();
-    let selected_disk = PathBuf::from(&disk_paths[selected_index]);
+    let selected_disk = select_disk("Select the disk to install NixOS on")?;
 
     // Gather detailed disk information
     println!("\nAnalyzing disk {}...", selected_disk.display());
@@ -464,8 +509,10 @@ fn main() -> Result<()> {
     let default_nix_exists = std::fs::metadata(&default_nix_path).is_ok();
 
 
+    // A thin client's update path is fixed by its role -- it pulls a prebuilt
+    // closure rather than rebuilding -- so there is nothing to ask here.
     let mut auto_updates = false;
-    if !default_nix_exists {
+    if !default_nix_exists && !args.thin {
         auto_updates = inquire::Confirm::new("Would you like automatic updates enabled?")
             .with_default(false)
             .prompt()?;
@@ -493,15 +540,21 @@ fn main() -> Result<()> {
 
     let disk_arg = format!("\"{}\"", selected_disk.display());
 
-    let desktop_options = vec![ "kde6", "None", "hyperland", "kde" ];
-    let desktop = inquire::Select::new("Select a desktop environment", desktop_options)
-        .prompt()?;
+    let desktop_config = if args.thin {
+        // A full desktop is both too heavy for the hardware and beside the
+        // point; whatever the host runs is decided by its own default.nix.
+        String::new()
+    } else {
+        let desktop_options = vec![ "kde6", "None", "hyperland", "kde" ];
+        let desktop = inquire::Select::new("Select a desktop environment", desktop_options)
+            .prompt()?;
 
-    let desktop_config = match desktop {
-        "kde6" => format!(" desktop = \"kde6\";"),
-        "hyperland" => format!(" desktop = \"hyperland\";"),
-        "kde" => format!(" desktop = \"kde\";"),
-        _ => format!(""),
+        match desktop {
+            "kde6" => format!(" desktop = \"kde6\";"),
+            "hyperland" => format!(" desktop = \"hyperland\";"),
+            "kde" => format!(" desktop = \"kde\";"),
+            _ => format!(""),
+        }
     };
 
     let swap_size = swap::select_swap_size()?;
@@ -529,12 +582,22 @@ fn main() -> Result<()> {
     if !default_nix_exists {
         let default_nix_config = include_str!("../templates/default-host.nix");
         let default_with_autoupdates_nix_config = include_str!("../templates/default-host-autoupdate.nix");
+        let default_thin_nix_config = include_str!("../templates/default-host-thin.nix");
 
-        if auto_updates {
+        if args.thin {
+            std::fs::write(&default_nix_path, default_thin_nix_config)?;
+        } else if auto_updates {
             std::fs::write(&default_nix_path, default_with_autoupdates_nix_config)?;
         } else {
             std::fs::write(&default_nix_path, default_nix_config)?;
         }
+    }
+
+    // The registry the builder reads and the thin-client role asserts against.
+    // Doing this after the host directory exists keeps a failed disko run from
+    // leaving a hostname listed that has no configuration behind it.
+    if args.thin {
+        thin::register_thin_client(&args.host)?;
     }
 
     let users = format!("\"{}\"", args.users.join("\" \""));
@@ -582,13 +645,28 @@ fn main() -> Result<()> {
     println!("Writing host definition to {}", host_def_path);
     std::fs::write(host_def_path, host_def_contents)?;
 
-    run_cmd!(ignore sudo nix fmt)?;
+    // `nix fmt` evaluates the formatter out of the flake, which pulls in
+    // nixpkgs. On a thin client that is exactly the memory spike this whole
+    // flow exists to avoid, and the files written above are already formatted.
+    if !args.thin {
+        run_cmd!(ignore sudo nix fmt)?;
+    }
 
-    //TODO: Better chack to see if this is needed
-    run_cmd!(
-        git add -A;
-        nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy;
-    )?;
+    if args.thin {
+        // Place the host key now rather than after the install: the private half
+        // only exists in this live session, and the resume path has to survive
+        // the session going away entirely.
+        install_host_key(&home)?;
+        rekey_thin_secrets(&args.host)?;
+    } else {
+        //TODO: Better chack to see if this is needed
+        run_cmd!(
+            git add -A;
+            nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy;
+        )?;
+    }
+
+    let branch = format!("install-{}", target_host);
 
     run_cmd!(
         git checkout -b "install-$target_host";
@@ -599,6 +677,46 @@ fn main() -> Result<()> {
         git config --unset "user.email";
         git config --unset "user.name";
     )?;
+
+    if args.thin {
+        let commit = git_head()?;
+
+        // Read the manifest before pushing. If this host has been installed
+        // before there is already one sitting there, and accepting it would
+        // install the closure from the *previous* configuration.
+        let baseline_commit = thin::fetch_manifest(&args.host)?.map(|m| m.commit);
+
+        let mut state = State {
+            hostname: args.host.clone(),
+            stage: Stage::Prepared,
+            disk: selected_disk.display().to_string(),
+            disk_nix: disk_nix.clone(),
+            swap_size,
+            users: args.users.clone(),
+            branch: branch.clone(),
+            commit: commit.clone(),
+            baseline_commit,
+            store_path: None,
+        };
+        thin::save_state(&home, &state)?;
+
+        run_cmd!(
+            git config push.autoSetupRemote true;
+            just push;
+            git config --unset push.autoSetupRemote;
+        )?;
+
+        state.stage = Stage::Pushed;
+        thin::save_state(&home, &state)?;
+
+        println!();
+        println!("Pushed branch {} ({}).", branch, commit);
+        println!("Open a PR and merge it into main. CI checks every host, then the");
+        println!("auto-update branch advances and romeo builds this host's closure.");
+        println!();
+
+        return finish_thin_install(&home, cache_public_key.as_ref().unwrap(), state);
+    }
 
     run_cmd!(sudo nixos-install --no-root-password --flake .#$target_host)?;
 
@@ -619,6 +737,186 @@ fn main() -> Result<()> {
 
     for target_user in args.users {
         run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
+    }
+
+    Ok(())
+}
+
+fn git_head() -> Result<String> {
+    let output = Command::new("git").args(["rev-parse", "HEAD"]).output()?;
+    if !output.status.success() {
+        bail!("failed to read HEAD");
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+/// Copy the freshly generated SSH host key onto the target filesystem. Its
+/// public half is what `hosts/data/<host>.nix` pins for agenix, so the two have
+/// to stay together or every secret on the host fails to decrypt.
+fn install_host_key(home: &str) -> Result<()> {
+    let private = format!("{}/id_ed25519", home);
+    let public = format!("{}/id_ed25519.pub", home);
+    run_cmd!(
+        sudo mkdir -p /mnt/etc/ssh;
+        sudo cp $private "/mnt/etc/ssh/ssh_host_ed25519_key";
+        sudo cp $public "/mnt/etc/ssh/ssh_host_ed25519_key.pub";
+        sudo chmod 600 "/mnt/etc/ssh/ssh_host_ed25519_key";
+    )?;
+    println!("Installed SSH host key to /mnt/etc/ssh");
+    Ok(())
+}
+
+/// Rekey this host's agenix secrets.
+///
+/// Both options run the same agenix-rekey app, which evaluates every host in
+/// the flake -- comfortably the heaviest thing this installer does on a 2 GB
+/// machine. It works because disko has already created and enabled swap by this
+/// point, but it is slow, which is why deferring it is offered.
+fn rekey_thin_secrets(hostname: &str) -> Result<()> {
+    let options = vec![
+        "FIDO2 (touch your security key now)",
+        "Dummy (rekey later from a workstation)",
+    ];
+    let choice = inquire::Select::new(
+        &format!("Rekey agenix secrets for {}", hostname),
+        options,
+    )
+    .prompt()?;
+
+    run_cmd!(git add -A)?;
+
+    if choice.starts_with("FIDO2") {
+        println!("Rekeying with your security key. This evaluates every host and will be slow.");
+        run_cmd!(nix run ".#agenix-rekey.x86_64-linux.rekey" --)?;
+    } else {
+        run_cmd!(nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy)?;
+        println!();
+        println!("!! {} has PLACEHOLDER secrets.", hostname);
+        println!("!! Run `just rekey` from a machine with the security key, commit the");
+        println!("!! result, and merge it before this host will have working secrets.");
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Entry point for `--resume`: get back to a state where the closure can be
+/// fetched and installed, then hand off to the normal tail of the install.
+fn resume_thin_install(
+    args: &Args,
+    home: &str,
+    cache_public_key: &str,
+    existing: Option<State>,
+) -> Result<()> {
+    let state = match existing {
+        Some(state) => {
+            println!(
+                "Resuming install of {} from stage {:?}",
+                state.hostname, state.stage
+            );
+            state
+        }
+        None => {
+            // No checkpoint in this session, so the live ISO was rebooted. The
+            // real checkpoint is on the target disk; mount it and read it back.
+            println!(
+                "No install state for {} in this session. It should be on the target disk.",
+                args.host
+            );
+            let disk = select_disk("Select the disk the interrupted install was targeting")?;
+            let disk_nix = select_disko_config(&args.host)?;
+            ensure_luks_password(&disk_nix)?;
+            // Only used for partition sizing at create time; `--mode mount`
+            // matches existing partitions by label and ignores it.
+            thin::remount_target(&disk_nix, &disk.display().to_string(), 0)?;
+
+            thin::load_state(home, &args.host).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No install state found for {} on {} either. \
+                     If the disk was never partitioned, run without --resume.",
+                    args.host,
+                    disk.display()
+                )
+            })?
+        }
+    };
+
+    if !PathBuf::from("/mnt/nix").exists() {
+        println!("/mnt does not look mounted; re-mounting {}", state.disk);
+        ensure_luks_password(&state.disk_nix)?;
+        thin::remount_target(&state.disk_nix, &state.disk, state.swap_size)?;
+    }
+
+    finish_thin_install(home, cache_public_key, state)
+}
+
+/// Which disko config the interrupted install partitioned the disk with. Only
+/// asked for when the checkpoint that would have recorded it is unreachable,
+/// i.e. the live ISO was rebooted before the disk could be mounted.
+fn select_disko_config(hostname: &str) -> Result<String> {
+    let prefix = hostname.split('-').next().unwrap_or(hostname);
+    let host_specific = format!("nixos/{}/disks.nix", prefix);
+
+    let mut options = Vec::new();
+    if PathBuf::from(&host_specific).exists() {
+        options.push(host_specific);
+    }
+    options.push("disko/default.nix".to_string());
+    options.push("disko/luks.nix".to_string());
+
+    Ok(inquire::Select::new("disko config used for that install", options).prompt()?)
+}
+
+/// disko reads the passphrase for an encrypted disk from a file the install
+/// wrote to /tmp. On the resume path that file is gone with the live session,
+/// so ask again -- otherwise the re-mount fails with nothing useful to say.
+fn ensure_luks_password(disk_nix: &str) -> Result<()> {
+    if !disk_nix.contains("luks") || PathBuf::from("/tmp/luks-password").exists() {
+        return Ok(());
+    }
+
+    let passphrase =
+        inquire::Password::new("Disk encryption passphrase (needed to re-mount):").prompt()?;
+    std::fs::write("/tmp/luks-password", passphrase)?;
+    Ok(())
+}
+
+/// The part of a thin install that is worth resuming: wait for the builder,
+/// fetch the closure, install it, and hand the machine over.
+fn finish_thin_install(home: &str, cache_public_key: &str, mut state: State) -> Result<()> {
+    if state.stage < Stage::Copied {
+        let manifest = thin::wait_for_closure(&state.hostname, state.baseline_commit.as_deref())?;
+        thin::copy_closure_to_target(&manifest.store_path, cache_public_key)?;
+        state.store_path = Some(manifest.store_path);
+        state.stage = Stage::Copied;
+        thin::save_state(home, &state)?;
+    }
+
+    let store_path = state
+        .store_path
+        .clone()
+        .context("state reached the copy stage without recording a store path")?;
+
+    if state.stage < Stage::Installed {
+        thin::install_closure(&store_path)?;
+        state.stage = Stage::Installed;
+        thin::save_state(home, &state)?;
+    }
+
+    for target_user in &state.users {
+        run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
+    }
+
+    println!();
+    println!("{} is installed and running {}", state.hostname, store_path);
+    println!("It will poll {} for future updates.", thin::manifest_url(&state.hostname));
+    println!();
+
+    if inquire::Confirm::new("Reboot into the installed system now?")
+        .with_default(true)
+        .prompt()?
+    {
+        run_cmd!(sudo reboot)?;
     }
 
     Ok(())

@@ -6,6 +6,8 @@ let
     gnupg
     git-crypt
     coreutils
+    # The thin-client flow polls the builder's manifest over HTTP.
+    curl
     just
     age
     age-plugin-yubikey
