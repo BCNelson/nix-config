@@ -9,4 +9,5 @@
 # silently drift apart -- CI catches it via the per-host build check.
 [
   "wyse-1"
+  "wyse-2"
 ]
