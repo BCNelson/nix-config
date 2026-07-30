@@ -593,6 +593,16 @@ fn main() -> Result<()> {
         bail!("disko failed to partition {}", selected_disk.display());
     }
 
+    // disko mkswaps the partition but does not reliably activate it, and
+    // nixos-generate-config only emits swapDevices for swap that is on *right
+    // now*. Left alone, an install that asked for 2 GB of swap produces a host
+    // with `swapDevices = [ ]` -- the partition exists and is never used, which
+    // on a 2 GB machine defeats the point of having asked. Activating it here
+    // also gives the rest of the install the swap it was meant to have.
+    if swap_size > 0 {
+        activate_swap()?;
+    }
+
     run_cmd!(mkdir -p $host_dir)?;
 
     run_cmd!(sudo nixos-generate-config --dir "${host_dir}/generate" --root /mnt)?;
@@ -770,6 +780,41 @@ fn main() -> Result<()> {
         run_cmd!(sudo nixos-enter -c "passwd --expire $target_user")?;
     }
 
+    Ok(())
+}
+
+/// Turn on any swap the partitioner just created, before hardware detection.
+///
+/// Found by blkid rather than by a hardcoded path, so it works for both layouts
+/// -- disko/default.nix makes a partition labelled disk-main-swap, while
+/// disko/luks.nix makes an LVM logical volume at a completely different path.
+fn activate_swap() -> Result<()> {
+    let found = Command::new("blkid")
+        .args(["-t", "TYPE=swap", "-o", "device"])
+        .output()
+        .context("failed to run blkid looking for swap")?;
+
+    let devices: Vec<String> = String::from_utf8_lossy(&found.stdout)
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    if devices.is_empty() {
+        println!("No swap device found to activate; continuing without it.");
+        return Ok(());
+    }
+
+    for device in devices {
+        // Not fatal: the install can proceed without swap, and failing here
+        // after the disk is already partitioned would be a worse outcome than
+        // a slower install.
+        let status = Command::new("sudo").args(["swapon", &device]).status();
+        match status {
+            Ok(s) if s.success() => println!("Activated swap on {}", device),
+            _ => println!("Could not activate swap on {}; continuing.", device),
+        }
+    }
     Ok(())
 }
 
