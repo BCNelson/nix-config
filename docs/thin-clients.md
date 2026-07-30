@@ -292,6 +292,22 @@ store layer with `size=4G,nr_inodes=0`. All three matter:
   `keep-outputs`/`keep-derivations`; the daily `nix.gc` from `nixos/common.nix`
   (`--delete-older-than 7d`) does the rest. Shorten that per host if it gets
   tight.
+- **home-manager packages come from the system closure.** Thin clients set
+  `home-manager.useUserPackages = true` (via the `thinClient` flag in
+  `lib/default.nix`). They must: `max-jobs = 0` means nothing can be built
+  locally, and home-manager's default activation realises a `user-environment`
+  symlink tree that can never be substituted from a cache, so
+  `home-manager-<user>.service` failed on every boot with
+  `Cannot build '...-user-environment.drv': local builds are disabled`.
+  With `useUserPackages`, `home.path` becomes an input to the system closure
+  that romeo builds, and activation has nothing left to realise.
+
+  Activation still calls `nixProfileRemove home-manager-path`, which is a no-op
+  only when the user has no existing nix-env profile. Every thin client has this
+  setting from its first boot, so that holds -- but if you ever toggle the flag
+  on a host that was working without it, clear the profile
+  (`nix-env -e home-manager-path`) first, or the removal will realise a
+  `user-environment.drv` and hit `max-jobs = 0` once.
 - **Manual poke.** `systemctl start thin-client-update` on the client;
   `systemctl start thin-client-build` on romeo.
 - **Where things live.** Manifests:

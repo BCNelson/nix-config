@@ -9,7 +9,20 @@ let
 
   mkHome = { hostname, usernames, desktop ? null, thinClient ? false, genericLinux ? false, platform ? "x86_64-linux", ... }: {
     home-manager.useGlobalPkgs = false;
-    home-manager.useUserPackages = false;
+    # Thin clients set nix.settings.max-jobs = 0 -- they must never compile
+    # anything, because a build there means the closure was not published
+    # properly and there is not the RAM to attempt it. But home-manager's
+    # default activation realises a `user-environment` derivation locally, and
+    # a symlink tree like that can never be substituted from a cache, so
+    # home-manager-<user>.service failed on every boot with
+    #   error: Cannot build '...-user-environment.drv'
+    #          Reason: local builds are disabled (max-jobs = 0)
+    #
+    # useUserPackages routes home.path through users.users.<name>.packages
+    # instead, so it is part of the system closure the builder produces and
+    # activation has nothing left to build. Left off elsewhere to keep every
+    # other host's behaviour exactly as it was.
+    home-manager.useUserPackages = thinClient;
     # Move pre-existing unmanaged files aside instead of aborting activation.
     # Without this a single stale file (e.g. a Firefox-written profiles.ini)
     # fails the user's home-manager unit, which fails switch-to-configuration,
