@@ -130,13 +130,9 @@ removed:
    Its public half is what `hosts/data/<host>.nix` pins for agenix, and the
    private half only exists in the live session — which the resume path has to
    survive losing.
-5. Asks how to rekey agenix secrets:
-   - **FIDO2** — touch the key now. This runs the same agenix-rekey app as
-     always, which evaluates every host in the flake; it is comfortably the
-     heaviest thing the installer does on a 2 GB box, and it has only the live
-     image's zram under it -- see the swap note below. Expect it to be slow.
-   - **Dummy** — placeholder secrets, and a loud reminder to run `just rekey`
-     from a workstation and merge that before the host has working secrets.
+5. Does **not** rekey agenix secrets, deliberately — see "Rekeying happens on a
+   workstation" below. It prints what you have to do instead, including that CI
+   will fail on the branch until you do it.
 6. Commits and pushes `install-<host>`. It does **not** run
    `nixos-install --flake`; there is no evaluation anywhere past this point.
 7. Polls the manifest until a closure appears. Open the PR, let CI pass, merge.
@@ -224,16 +220,57 @@ swap partition.
 So an unencrypted thin client has **no on-disk swap at all**, during the install
 or afterwards. zram is not a supplement to it, it is the whole of it. That is
 survivable -- and on an eMMC with limited write cycles, arguably preferable --
-but it means the agenix-rekey step during install is running against RAM plus
-compressed swap and nothing else.
+and it no longer has to carry an agenix-rekey run, since that moved off the
+thin client entirely.
+
+### Rekeying happens on a workstation, never on the thin client
+
+`install-system --thin` does not rekey. It used to offer FIDO2 or `--dummy`;
+both are gone, because both were wrong.
+
+agenix-rekey evaluates every host in the flake, which forces a local build of
+`nixpkgs-patched` — `applyPatches` over `patches/`, which is in no binary cache.
+On the installer ISO the nix store *is* RAM: `/nix/store` is an overlay whose
+upperdir is a tmpfs. So rekeying means pushing a whole nixpkgs tree through the
+memory of a 2 GB machine. Measured in a VM: it livelocks, `kswapd0` and nix's GC
+marker both in hung-task reports, 26 minutes of no progress and no OOM kill to
+end it. Raising the tmpfs size does not help — the store growing *is* the memory
+being consumed.
+
+`--dummy` avoided the livelock but produced placeholder secrets you had to redo
+from a workstation anyway, so it bought nothing except a false sense of progress.
+
+So there is a human step in the middle:
+
+```
+# on the thin client -- pushes install-wyse-1, then sits in its polling loop
+install-system --thin wyse-1
+
+# on a workstation, with the security key
+git fetch && git checkout install-wyse-1
+just rekey
+git add secrets/hosts && git commit -m 'rekey wyse-1' && git push
+
+# now CI can pass -> merge -> auto-update advances -> romeo builds
+# -> the thin client's poll finds the manifest and finishes on its own
+```
+
+**CI fails on the branch until you rekey**, because it builds every host and this
+one has no secrets yet. That is expected, not a broken build.
 
 ### Note on the ISO
 
-`nixos/iso_console` now enables `zramSwap`. Everything the installer does before
-disko creates real swap — cloning the repo, `nix run`ning disko, agenix-rekey —
-lands in the live image's tmpfs store overlay, which is sized at half of RAM.
-At 2 GB that is about 1 GB of writable store, and compressed swap in RAM is
-what keeps it off the OOM killer. It costs nothing on a machine with plenty.
+`nixos/iso_console` enables `zramSwap` at 100% of RAM and mounts the writable
+store layer with `size=4G,nr_inodes=0`. All three matter:
+
+- Without zram there is no swap at all until disko runs, and on the unencrypted
+  path not even then.
+- The default store tmpfs is half of RAM — ~983 MB — which is not enough for the
+  disko step's toolchain fetch.
+- `nr_inodes` defaults to half the RAM *pages*: 251523 on a 2 GB box. Unpacking
+  nixpkgs source trees is tens of thousands of tiny files, so without
+  `nr_inodes=0` you get "No space left on device" at 24% of bytes used with
+  700 MB of RAM still free. That one cost a debugging cycle.
 
 ## Operating notes
 

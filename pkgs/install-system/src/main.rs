@@ -632,6 +632,17 @@ fn main() -> Result<()> {
 
     let ssh_ket_comment = format!("{}@nix-config", target_host);
 
+    // ssh-keygen has no force flag: if the key exists it asks "Overwrite (y/n)?"
+    // on stdin, which hangs a re-run or an unattended retry. Clear it first --
+    // a leftover key from an abandoned attempt is never the one we want, since
+    // its public half has to match what goes into hosts/data/<host>.nix.
+    for stale in [format!("{}/id_ed25519", home), format!("{}/id_ed25519.pub", home)] {
+        if std::path::Path::new(&stale).exists() {
+            println!("Removing stale key from a previous run: {}", stale);
+            std::fs::remove_file(&stale)?;
+        }
+    }
+
     // Generate SSH keys using Rust's native process library so that we can pass an empty passphrase
     let ssh_keygen_status = Command::new("ssh-keygen")
         .arg("-t")
@@ -670,7 +681,7 @@ fn main() -> Result<()> {
         // only exists in this live session, and the resume path has to survive
         // the session going away entirely.
         install_host_key(&home)?;
-        rekey_thin_secrets(&args.host)?;
+        announce_deferred_rekey(&args.host);
     } else {
         //TODO: Better chack to see if this is needed
         run_cmd!(
@@ -779,43 +790,43 @@ fn install_host_key(home: &str) -> Result<()> {
     Ok(())
 }
 
-/// Rekey this host's agenix secrets.
+/// Explain that this host's secrets have deliberately NOT been rekeyed.
 ///
-/// Both options run the same agenix-rekey app, which evaluates every host in
-/// the flake -- comfortably the heaviest thing this installer does on a 2 GB
-/// machine, and the reason deferring it is offered.
+/// A thin client cannot rekey its own secrets, and pretending otherwise wasted
+/// everyone's time. agenix-rekey evaluates every host in the flake, which forces
+/// a local build of nixpkgs-patched (applyPatches over patches/, in no binary
+/// cache). On the installer ISO the nix store *is* RAM -- /nix/store is an
+/// overlay whose upperdir is a tmpfs -- so that means pushing a whole nixpkgs
+/// tree through the memory of a 2 GB machine. Measured in a VM: it livelocks,
+/// with kswapd0 and nix's GC marker both blocked, 26 minutes of no progress and
+/// no OOM kill to end it.
 ///
-/// Note that on the unencrypted path there is no on-disk swap to fall back on:
-/// disko/default.nix takes `{ disk, ... }`, so the swapSize this installer
-/// prompts for and passes is silently swallowed and no swap partition is
-/// created. Only disko/luks.nix honours it. All this has under it is the live
-/// image's zram.
-fn rekey_thin_secrets(hostname: &str) -> Result<()> {
-    let options = vec![
-        "FIDO2 (touch your security key now)",
-        "Dummy (rekey later from a workstation)",
-    ];
-    let choice = inquire::Select::new(
-        &format!("Rekey agenix secrets for {}", hostname),
-        options,
-    )
-    .prompt()?;
-
-    run_cmd!(git add -A)?;
-
-    if choice.starts_with("FIDO2") {
-        println!("Rekeying with your security key. This evaluates every host and will be slow.");
-        run_cmd!(nix run ".#agenix-rekey.x86_64-linux.rekey" --)?;
-    } else {
-        run_cmd!(nix run ".#agenix-rekey.x86_64-linux.rekey" -- --dummy)?;
-        println!();
-        println!("!! {} has PLACEHOLDER secrets.", hostname);
-        println!("!! Run `just rekey` from a machine with the security key, commit the");
-        println!("!! result, and merge it before this host will have working secrets.");
-        println!();
-    }
-
-    Ok(())
+/// The dummy secrets this used to generate were worthless regardless: you always
+/// had to rekey from a workstation afterwards. So skip it and say so loudly --
+/// including that CI cannot pass until someone does, because a half-truth here
+/// turns into a confusing red build later.
+fn announce_deferred_rekey(hostname: &str) {
+    let bar = "=".repeat(66);
+    println!();
+    println!("{}", bar);
+    println!(" {} has NO rekeyed agenix secrets. This is deliberate.", hostname);
+    println!();
+    println!(" This machine cannot produce them: agenix-rekey evaluates the whole");
+    println!(" flake, which does not fit in 2 GB of RAM.");
+    println!();
+    println!(" From a workstation with the security key:");
+    println!();
+    println!("     git fetch && git checkout install-{}", hostname);
+    println!("     just rekey");
+    println!("     git add secrets/hosts && git commit -m 'rekey {}'", hostname);
+    println!("     git push");
+    println!();
+    println!(" CI WILL FAIL on this branch until you do -- it builds every host,");
+    println!(" and this one has no secrets yet. That means it cannot merge, romeo");
+    println!(" will not build it, and the wait below will never finish. This is");
+    println!(" not a hang; it is waiting on you.");
+    println!("{}", bar);
+    println!();
 }
 
 /// Entry point for `--resume`: get back to a state where the closure can be

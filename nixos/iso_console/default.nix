@@ -64,7 +64,13 @@ in
   fileSystems = lib.mkForce (config.lib.isoFileSystems // {
     "/nix/.rw-store" = {
       fsType = "tmpfs";
-      options = [ "mode=0755" "size=4G" ];
+      # nr_inodes=0 (unlimited) matters as much as the size. tmpfs defaults
+      # nr_inodes to half the RAM pages -- 251523 on a 2 GB machine -- and
+      # unpacking nixpkgs source trees is tens of thousands of tiny files
+      # each, so the inode ceiling is hit long before the byte one. Observed
+      # exactly that: "No space left on device" at 24% of 4G used, with
+      # `df -i` showing 251523/251523 inodes and 700 MB of RAM still free.
+      options = [ "mode=0755" "size=4G" "nr_inodes=0" ];
       neededForBoot = true;
     };
   });
