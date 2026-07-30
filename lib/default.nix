@@ -1,6 +1,13 @@
 { inputs, outputs, stateVersion, ... }:
 let
-  mkHome = { hostname, usernames, desktop ? null, platform ? "x86_64-linux", ... }: {
+  # Hosts too small to build or evaluate their own closure. Threaded through to
+  # both the NixOS and home-manager module trees as `thinClient`, so config can
+  # branch on it the same way it already branches on `desktop` -- see
+  # docs/thin-clients.md ("Branching on host class").
+  thinClients = import ../hosts/thin-clients.nix;
+  isThinClient = hostname: builtins.elem hostname thinClients;
+
+  mkHome = { hostname, usernames, desktop ? null, thinClient ? false, genericLinux ? false, platform ? "x86_64-linux", ... }: {
     home-manager.useGlobalPkgs = false;
     home-manager.useUserPackages = false;
     # Move pre-existing unmanaged files aside instead of aborting activation.
@@ -9,7 +16,7 @@ let
     # which makes auto-update report a failed rebuild every interval.
     home-manager.backupFileExtension = "bak";
     home-manager.extraSpecialArgs = {
-      inherit inputs outputs stateVersion desktop hostname platform;
+      inherit inputs outputs stateVersion desktop hostname platform thinClient genericLinux;
     };
     home-manager.users = builtins.listToAttrs (map
       (username: {
@@ -82,10 +89,11 @@ let
 in
 {
   # Helper function for generating flake-utils-plus host configs
-  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }: {
+  mkHost = { hostname, usernames, desktop ? null, nixosMods ? null, channelName ? "nixpkgs-unstable" }:
+    let thinClient = isThinClient hostname; in {
     inherit channelName;
     specialArgs = {
-      inherit inputs hostname usernames desktop stateVersion;
+      inherit inputs hostname usernames desktop stateVersion thinClient;
       inherit outputs;
       libx = { inherit getSecretWithDefault getSecret forAllSystems mkHome createDockerComposeStackPackage; };
     };
@@ -93,7 +101,7 @@ in
       ../nixos
       # Always use home-manager-unstable regardless of nixpkgs version
       inputs.home-manager-unstable.nixosModules.home-manager
-      (mkHome { inherit hostname usernames desktop; })
+      (mkHome { inherit hostname usernames desktop thinClient; })
     ] ++ (if nixosMods != null then [ nixosMods ] else []);
   };
 
@@ -115,6 +123,10 @@ in
       pkgs = inputs.nixpkgs-unstable.legacyPackages.${platform};
       extraSpecialArgs = {
         inherit inputs outputs stateVersion desktop hostname platform;
+        # Standalone home-manager targets non-NixOS machines: not thin clients,
+        # and the one case where the genericLinux GL/loader shims are correct.
+        thinClient = false;
+        genericLinux = true;
       };
       modules = [
         (import ../home-manager { inherit username; })
@@ -132,7 +144,8 @@ in
       hostModule = ../system-manager/${hostname}.nix;
       homeModules = inputs.nixpkgs-unstable.lib.optionals (usernames != []) [
         inputs.home-manager-unstable.nixosModules.home-manager
-        (mkHome { inherit hostname usernames desktop platform; })
+        # system-manager also targets non-NixOS distros, so it wants the shims.
+        (mkHome { inherit hostname usernames desktop platform; genericLinux = true; })
         {
           home-manager.sharedModules = [
             {

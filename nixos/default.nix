@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ outputs, hostname, usernames, desktop, lib, stateVersion, ... }:
+{ outputs, hostname, usernames, desktop, thinClient ? false, lib, stateVersion, ... }:
 
 let
   # Get the hostname prefix from the hostname (e.g. sierria in sierria-1)
@@ -16,7 +16,13 @@ in
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}) ./${hostnamePrefix}
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix) ./${hostnamePrefix}/${hostnamePostfix}.hardware-configuration.nix
     ++ builtins.filter builtins.pathExists (map (username: ./_mixins/users/${username}) usernames)
-    ++ lib.optional (builtins.isString desktop) ./_mixins/roles/desktop;
+    ++ lib.optional (builtins.isString desktop) ./_mixins/roles/desktop
+    # Membership of hosts/thin-clients.nix is what makes a host a thin client.
+    # Pulling the role in from here rather than from the host's own default.nix
+    # means the registry cannot disagree with what a host actually imports --
+    # previously a hostname could be listed but not import the role, and romeo
+    # would happily build and publish closures the host never polled for.
+    ++ lib.optional thinClient ./_mixins/roles/thin-client;
 
   networking.hostName = hostname;
   system.stateVersion = stateVersion;

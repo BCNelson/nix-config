@@ -1,6 +1,14 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+
+# Tier 3: full-sized hosts only.
+#
+# The workstation toolkit -- fish with plugins, atuin, direnv, bat and its
+# extras, and the modern-unix replacements. Roughly 4.7 GiB per user, which is
+# why thin clients get thin.nix instead. Dispatched from ./default.nix.
+
+{
   imports = [
-    ./programs/tmux.nix
+    ../programs/tmux.nix
   ];
   home = {
     # A Modern Unix experience
@@ -71,7 +79,11 @@
       enable = true;
       extraPackages = with pkgs.bat-extras; [
         batwatch
-        prettybat
+        # prettybat is a 3.2 GiB closure -- it is one shell script, but nixpkgs
+        # wraps it with every formatter it supports (rustfmt, clang-tools,
+        # prettier, shfmt), which drags in rustc, clang, llvm, gcc and nodejs.
+        # That was ~68% of this profile, on every host, so that `bat` could
+        # reformat a file before highlighting it. Run the formatter yourself.
       ];
     };
     # bottom = {
@@ -122,11 +134,11 @@
         cat = "bat --paging=never --style=plain";
         diff = "diffr";
         # glow = "glow --pager";
-        htop = "btm --basic --tree --hide_table_gap --dot_marker --process_memory_as_value";
+        htop = "btm --basic --tree --dot_marker --process_memory_as_value";
         ip = "ip --color --brief";
         less = "bat --paging=always";
         more = "bat --paging=always";
-        top = "btm --basic --tree --hide_table_gap --dot_marker --process_memory_as_value";
+        top = "btm --basic --tree --dot_marker --process_memory_as_value";
         # tree = "exa --tree";
       };
       interactiveShellInit = ''

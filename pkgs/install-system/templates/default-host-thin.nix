@@ -1,9 +1,8 @@
 { ... }:
 {
-  imports = [
-    # Pull-only updates: this host never clones the repo, never evaluates its
-    # own configuration and never rebuilds. Romeo builds the closure and
-    # publishes it; the thin-client role fetches and activates it.
-    ../_mixins/roles/thin-client.nix
-  ];
+  # Nothing to import: listing this host in hosts/thin-clients.nix is what makes
+  # it a thin client. nixos/default.nix reads that registry and pulls in
+  # _mixins/roles/thin-client, so the registry and the host's imports cannot
+  # disagree. Put host-specific configuration here.
+  imports = [ ];
 }

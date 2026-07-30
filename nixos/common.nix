@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   nix = {
@@ -77,16 +77,20 @@
 
   security.rtkit.enable = true;
 
-  programs.dconf.enable = true;
+  programs.dconf.enable = lib.mkDefault true;
 
+  # A thin client never touches the repo -- it pulls prebuilt closures instead of
+  # rebuilding -- so the git tooling there is dead weight, and it drags perl in
+  # behind it. See nixos/_mixins/roles/thin-client/minimal.nix.
   environment.systemPackages = with pkgs; [
     nano
+  ] ++ lib.optionals (!config.services.bcnelson.thinClient.enable) [
     git
     git-crypt
     powertop
   ];
 
-  programs.tmux.enable = true;
+  programs.tmux.enable = lib.mkDefault true;
 
-  services.fwupd.enable = true;
+  services.fwupd.enable = lib.mkDefault true;
 }

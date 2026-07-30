@@ -5,7 +5,7 @@ let
   hostnamePrefix = lib.strings.concatStrings (lib.lists.take 1 (lib.strings.splitString "-" hostname));
 in
 {
-  imports = [ ../_mixins/console.nix ]
+  imports = [ ../_mixins/console ]
     ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
     ++ lib.optional (builtins.isString desktop) ./desktop.nix;
 
@@ -14,7 +14,6 @@ in
 
   xdg.enable = true;
   xdg.mime.enable = true;
-  targets.genericLinux.enable = true;
   xdg.systemDirs.data = [ "${config.home.homeDirectory}/.nix-profile/share/applications" ];
 
   programs = {
