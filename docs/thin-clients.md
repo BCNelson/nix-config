@@ -133,8 +133,8 @@ removed:
 5. Asks how to rekey agenix secrets:
    - **FIDO2** — touch the key now. This runs the same agenix-rekey app as
      always, which evaluates every host in the flake; it is comfortably the
-     heaviest thing the installer does on a 2 GB box. It works because disko has
-     already created and enabled swap, but expect it to be slow.
+     heaviest thing the installer does on a 2 GB box, and it has only the live
+     image's zram under it -- see the swap note below. Expect it to be slow.
    - **Dummy** — placeholder secrets, and a loud reminder to run `just rekey`
      from a workstation and merge that before the host has working secrets.
 6. Commits and pushes `install-<host>`. It does **not** run
@@ -212,6 +212,20 @@ The disk persists across runs, so an interrupted rehearsal resumes with
 `just isoTest <version> <memory> <cores> <diskSize> <extraArgs>` is the general
 form if you want different limits; `thinInstallTest` is just that with the thin
 client's numbers filled in.
+
+### The swap prompt does nothing on the unencrypted path
+
+`install-system` asks for a swap size and passes it to disko as
+`--arg swapSize`, but `disko/default.nix` takes `{ disk, ... }` and never reads
+it: the argument is swallowed by the ellipsis and root takes 100% of what is
+left after the 1 GB ESP. Only `disko/luks.nix` declares `swapSize` and creates a
+swap partition.
+
+So an unencrypted thin client has **no on-disk swap at all**, during the install
+or afterwards. zram is not a supplement to it, it is the whole of it. That is
+survivable -- and on an eMMC with limited write cycles, arguably preferable --
+but it means the agenix-rekey step during install is running against RAM plus
+compressed swap and nothing else.
 
 ### Note on the ISO
 

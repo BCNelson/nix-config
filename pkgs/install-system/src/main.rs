@@ -556,7 +556,11 @@ fn main() -> Result<()> {
         }
     };
 
-    let swap_size = swap::select_swap_size()?;
+    // Swap has to be chosen against the disk, not just RAM: "twice RAM" on an
+    // 8 GB eMMC does not fit, and finding that out inside disko means finding
+    // out after the partition table has been written.
+    let disk_gb = swap::disk_size_gb(&selected_disk)?;
+    let swap_size = swap::select_swap_size(disk_gb)?;
     
     // Provide relevant feedback based on swap size
     if swap_size == 0 {
@@ -779,8 +783,13 @@ fn install_host_key(home: &str) -> Result<()> {
 ///
 /// Both options run the same agenix-rekey app, which evaluates every host in
 /// the flake -- comfortably the heaviest thing this installer does on a 2 GB
-/// machine. It works because disko has already created and enabled swap by this
-/// point, but it is slow, which is why deferring it is offered.
+/// machine, and the reason deferring it is offered.
+///
+/// Note that on the unencrypted path there is no on-disk swap to fall back on:
+/// disko/default.nix takes `{ disk, ... }`, so the swapSize this installer
+/// prompts for and passes is silently swallowed and no swap partition is
+/// created. Only disko/luks.nix honours it. All this has under it is the live
+/// image's zram.
 fn rekey_thin_secrets(hostname: &str) -> Result<()> {
     let options = vec![
         "FIDO2 (touch your security key now)",
