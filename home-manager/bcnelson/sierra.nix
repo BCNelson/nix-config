@@ -8,6 +8,7 @@
     ./_mixins/programs/veloren.nix
     ./_mixins/workstation.nix
     ./_mixins/3dprinting.nix
+    ./_mixins/programs/voxtype.nix
   ];
 
   home.packages = [

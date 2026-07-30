@@ -52,6 +52,13 @@
     '')
   ];
 
+  # voxtype (see home-manager/bcnelson/_mixins/programs/voxtype.nix) types its
+  # transcript with dotool, which needs /dev/uinput. The device currently also
+  # picks up a uaccess ACL from the logitech and steam udev rules, but this
+  # makes dictation independent of those.
+  hardware.uinput.enable = true;
+  users.users.bcnelson.extraGroups = [ "uinput" ];
+
   users.groups = {
     photos = {
       name = "photos";
