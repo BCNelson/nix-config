@@ -8,4 +8,5 @@
 # that its own hostname appears here, so the list and the host's imports cannot
 # silently drift apart -- CI catches it via the per-host build check.
 [
+  "wyse-1"
 ]
