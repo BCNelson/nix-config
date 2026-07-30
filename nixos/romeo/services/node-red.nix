@@ -50,6 +50,25 @@ in
   # Render the runtime env the container reads: bcrypt the plaintext password
   # (Node-RED's bcryptjs accepts mkpasswd's $2b$ hashes) and pass through the
   # credentialSecret. Ordered before the container so the file always exists.
+  #
+  # This used to set RemainAfterExit = true, which quietly made the env file a
+  # one-shot artefact of boot: the unit stayed "active" forever, so `Requires=`
+  # from the container was always already satisfied and this never ran again.
+  # Anything that cleared /run/node-red while the system was up therefore broke
+  # node-red permanently, with nothing to regenerate the file.
+  #
+  # That is not hypothetical -- adding two unrelated systemd.tmpfiles.rules
+  # elsewhere in the config restarted systemd-tmpfiles-resetup, /run/node-red
+  # went with it, and the container then failed every start with
+  #   Error: parsing file "/run/node-red/admin.env": no such file or directory
+  # while this unit still reported active (exited) from three days earlier.
+  #
+  # So: no RemainAfterExit, and the unit goes inactive after each run. The
+  # container's Requires= then genuinely re-runs it on every start, re-rendering
+  # the env from the secrets. RuntimeDirectoryPreserve stops systemd deleting
+  # the directory the moment the oneshot exits, which without RemainAfterExit it
+  # otherwise would. The bcrypt salt differs each run; that is fine, Node-RED
+  # only ever verifies the password against the current hash.
   systemd.services.node-red-admin-env = {
     description = "Render Node-RED admin env (bcrypt hash + credentialSecret)";
     before = [ "podman-node-red.service" ];
@@ -57,9 +76,9 @@ in
     path = [ pkgs.mkpasswd ];
     serviceConfig = {
       Type = "oneshot";
-      RemainAfterExit = true;
       RuntimeDirectory = "node-red";
       RuntimeDirectoryMode = "0700";
+      RuntimeDirectoryPreserve = "yes";
     };
     script = ''
       pw="$(cat ${config.age.secrets.node-red-admin-password.path})"
