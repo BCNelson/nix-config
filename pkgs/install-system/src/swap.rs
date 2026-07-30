@@ -94,7 +94,13 @@ pub fn select_swap_size(disk_gb: u64) -> Result<u64> {
 
     let mut options: Vec<String> = vec!["None (0 GB) - for systems that won't hibernate".to_string()];
     let mut values: Vec<u64> = vec![0];
+    // Dedupe by size: on a 2 GB machine "twice RAM" and "RAM+2GB" are both
+    // 4 GB, and offering the same number twice just invites the reader to look
+    // for a difference that is not there.
     for (label, gb) in candidates.iter().filter(|(_, gb)| *gb > 0 && *gb <= max_swap) {
+        if values.contains(gb) {
+            continue;
+        }
         options.push(format!("{} GB - {}", gb, label));
         values.push(*gb);
     }
