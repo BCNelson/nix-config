@@ -381,13 +381,28 @@ pub fn install_closure(store_path: &str) -> Result<()> {
     Ok(())
 }
 
-/// Re-mount an already-partitioned disk so an interrupted install can be
-/// resumed after the live ISO has been rebooted. `--mode mount` touches no
-/// partition tables, unlike the `zap_create_mount` used on a fresh install.
-pub fn remount_target(disk_nix: &str, disk: &str, swap_size: u64) -> Result<()> {
-    println!("Re-mounting {} (no partitioning) so the install can resume", disk);
-    let status = Command::new("sudo")
-        .args([
+/// Build the argv for a disko run, preferring a disko that is already on PATH.
+///
+/// `nix run github:nix-community/disko` resolves against disko's *own* nixpkgs
+/// rather than ours, so it cannot reuse anything already in the live store and
+/// instead drags in a fresh stdenv, gcc, systemd and util-linux. The live store
+/// is a tmpfs; on a 2 GB thin client that download fills it and the install
+/// dies with "No space left on device" before it has touched a partition table.
+///
+/// The ISO ships disko from our pinned input, so on the installer it is simply
+/// on PATH and shares the ISO's closure. The fetch remains as a fallback for
+/// running this from a machine that does not have it.
+pub fn disko_command(mode: &str, disk_nix: &str, disk: &str, swap_size: u64) -> Command {
+    let have_local_disko = std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|p| p.join("disko").is_file()))
+        .unwrap_or(false);
+
+    let mut cmd = Command::new("sudo");
+    if have_local_disko {
+        cmd.arg("disko");
+    } else {
+        println!("disko is not on PATH; fetching it (this needs room in the store)");
+        cmd.args([
             "nix",
             "run",
             "github:nix-community/disko",
@@ -395,16 +410,28 @@ pub fn remount_target(disk_nix: &str, disk: &str, swap_size: u64) -> Result<()> 
             "nix-command flakes",
             "--no-write-lock-file",
             "--",
-            "--mode",
-            "mount",
-            disk_nix,
-            "--arg",
-            "disk",
-            &format!("\"{}\"", disk),
-            "--arg",
-            "swapSize",
-            &format!("\"{}G\"", swap_size),
-        ])
+        ]);
+    }
+    cmd.args([
+        "--mode",
+        mode,
+        disk_nix,
+        "--arg",
+        "disk",
+        &format!("\"{}\"", disk),
+        "--arg",
+        "swapSize",
+        &format!("\"{}G\"", swap_size),
+    ]);
+    cmd
+}
+
+/// Re-mount an already-partitioned disk so an interrupted install can be
+/// resumed after the live ISO has been rebooted. `--mode mount` touches no
+/// partition tables, unlike the `zap_create_mount` used on a fresh install.
+pub fn remount_target(disk_nix: &str, disk: &str, swap_size: u64) -> Result<()> {
+    println!("Re-mounting {} (no partitioning) so the install can resume", disk);
+    let status = disko_command("mount", disk_nix, disk, swap_size)
         .status()
         .context("failed to run disko")?;
 

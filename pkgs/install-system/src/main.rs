@@ -538,7 +538,6 @@ fn main() -> Result<()> {
         }
     };
 
-    let disk_arg = format!("\"{}\"", selected_disk.display());
 
     let desktop_config = if args.thin {
         // A full desktop is both too heavy for the hardware and beside the
@@ -568,10 +567,20 @@ fn main() -> Result<()> {
         println!("Creating a {}GB swap partition", swap_size);
     }
     
-    // Convert to string for command
-    let swap_size_arg = format!("\"{}G\"", swap_size.to_string());
-
-    run_cmd!(sudo nix run github:nix-community/disko --extra-experimental-features "nix-command flakes" --no-write-lock-file -- --mode zap_create_mount $disk_nix --arg disk $disk_arg --arg swapSize $swap_size_arg)?;
+    // Prefer a disko already on PATH -- the ISO ships one built against our own
+    // nixpkgs. Fetching it instead pulls a second stdenv into the live store,
+    // which on a 2 GB machine fills the tmpfs before partitioning even starts.
+    let disko_status = thin::disko_command(
+        "zap_create_mount",
+        &disk_nix,
+        selected_disk.to_string_lossy().as_ref(),
+        swap_size,
+    )
+    .status()
+    .context("failed to run disko")?;
+    if !disko_status.success() {
+        bail!("disko failed to partition {}", selected_disk.display());
+    }
 
     run_cmd!(mkdir -p $host_dir)?;
 
