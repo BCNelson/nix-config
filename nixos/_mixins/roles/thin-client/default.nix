@@ -39,4 +39,9 @@ in
   # actively wrong: it would try to git pull and nixos-rebuild on a machine that
   # cannot evaluate its own configuration.
   services.bcnelson.autoUpdate.enable = lib.mkForce false;
+
+  # An appliance is not where you drive a coding agent from. Stated rather than
+  # merely left off, because its ntfy secret was the one thing forcing a rekey
+  # on to a machine that cannot do one -- see the bcnelson user mixin.
+  services.bcnelson.happy-daemon.enable = lib.mkForce false;
 }

@@ -59,9 +59,16 @@ fn list_available_disks() -> Result<Vec<String>> {
         
         // Get the disk name
         if let Some(disk_name) = path.file_name().and_then(|n| n.to_str()) {
-            // Filter out loop, ram and dm devices
-            if !disk_name.starts_with("loop") && 
-               !disk_name.starts_with("ram") && 
+            // Filter out devices that are never a valid install target.
+            // zram and fd are here because a thin client install offered both:
+            // zram0 is the compressed swap this very installer depends on, and
+            // fd0 is a floppy QEMU advertises. Note "ram" does not cover
+            // "zram" -- the prefix check is on the whole name.
+            if !disk_name.starts_with("loop") &&
+               !disk_name.starts_with("ram") &&
+               !disk_name.starts_with("zram") &&
+               !disk_name.starts_with("fd") &&
+               !disk_name.starts_with("sr") &&
                !disk_name.starts_with("dm-") {
                 
                 // Read size to make sure it's a real disk

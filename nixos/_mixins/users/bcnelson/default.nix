@@ -1,12 +1,25 @@
-{ pkgs, ... }:
+{ pkgs, lib, thinClient ? false, ... }:
 let
   bcnelson_init_password = "bcnelson_init_password";
 in
 {
-  age.secrets.happy_ntfy_topic = {
-    rekeyFile = ../../../../secrets/store/ntfy_topic.age;
-    owner = "bcnelson";
-    mode = "0400";
+  # The pairing topic for happy-daemon, which only sierra, golf and redo run.
+  # It was declared here unconditionally, so every host with this user demanded a
+  # rekeyed copy whether or not it could ever use one -- and on a thin client
+  # that was the *only* agenix secret, which meant the sole reason a thin client
+  # needed rekeying at all was a notification channel for a daemon it will never
+  # start. Since rekeying cannot happen on a 2 GB machine (see
+  # docs/thin-clients.md), that one unused secret forced a human with a hardware
+  # key into the middle of every thin client install.
+  #
+  # With it gone, a thin client has no agenix secrets, so a freshly installed
+  # host evaluates in CI immediately and the install finishes unattended.
+  age.secrets = lib.optionalAttrs (!thinClient) {
+    happy_ntfy_topic = {
+      rekeyFile = ../../../../secrets/store/ntfy_topic.age;
+      owner = "bcnelson";
+      mode = "0400";
+    };
   };
 
   users.users.bcnelson = {

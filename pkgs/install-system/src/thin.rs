@@ -201,30 +201,76 @@ pub fn read_cache_public_key() -> Result<String> {
 // Manifest polling
 // ---------------------------------------------------------------------------
 
+/// Decide what an HTTP response to the manifest URL actually means.
+///
+/// Split out from the fetch because getting this wrong killed a real install.
+/// `Ok(None)` is "not published yet, ask again later"; only a well-formed
+/// manifest is `Some`.
+fn interpret_manifest_response(url: &str, code: &str, body: &[u8]) -> Option<Manifest> {
+    // Anything but 2xx means the manifest is not there. Note that this has to
+    // include 3xx: romeo's cache vhost sends unknown paths to
+    // `error_page 404 = @fallback`, which proxies cache.nixos.org, which
+    // Fastly-301s them with an EMPTY body. `curl --fail` does not fail on a
+    // 301, so the old code saw exit 0 with zero bytes and died parsing it --
+    // and because the /thin-clients/ location only exists once the builder is
+    // enabled, that was guaranteed to happen on the very first thin client.
+    if !code.starts_with('2') {
+        return None;
+    }
+    if body.is_empty() {
+        return None;
+    }
+    match serde_json::from_slice::<Manifest>(body) {
+        Ok(manifest) => Some(manifest),
+        Err(e) => {
+            // 200 with a body that is not our JSON: something is answering for
+            // this URL that should not be. Warn rather than abort -- this is
+            // called from a poll that may legitimately run for an hour, and
+            // killing it outright loses the whole install.
+            println!("Ignoring unparseable response from {}: {}", url, e);
+            None
+        }
+    }
+}
+
 /// Fetch the manifest once. `Ok(None)` means "not published yet", which during
 /// a fresh install is the normal state for the first hour or so.
 pub fn fetch_manifest(hostname: &str) -> Result<Option<Manifest>> {
     let url = manifest_url(hostname);
+    let body_file = std::env::temp_dir().join(format!("thin-manifest-{}.json", hostname));
+
+    // Ask curl for the status code on stdout and put the body in a file, so the
+    // two cannot be confused. Deliberately no --location: a redirect here means
+    // something other than our nginx answered, which is not a manifest.
     let output = Command::new("curl")
         .args([
             "--silent",
             "--show-error",
-            "--fail",
             "--max-time",
             "30",
+            "-o",
+            body_file.to_string_lossy().as_ref(),
+            "-w",
+            "%{http_code}",
             &url,
         ])
         .output()
         .context("failed to run curl")?;
 
     if !output.status.success() {
-        // 404 until the builder has ever built this host; anything else is
-        // also just "try again later" from the installer's point of view.
+        // curl itself failed: DNS, TLS, connection refused. Transient as far as
+        // the installer is concerned.
         return Ok(None);
     }
 
-    let manifest: Manifest = serde_json::from_slice(&output.stdout)
-        .with_context(|| format!("parsing manifest from {}", url))?;
+    let code = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let body = std::fs::read(&body_file).unwrap_or_default();
+    let _ = std::fs::remove_file(&body_file);
+
+    let manifest = match interpret_manifest_response(&url, &code, &body) {
+        Some(m) => m,
+        None => return Ok(None),
+    };
 
     if manifest.hostname != hostname {
         bail!(
@@ -461,6 +507,39 @@ mod tests {
         let (head, tail) = original.split_at(close);
         let updated = format!("{}  \"{}\"\n{}", head, "delta-2", tail);
         assert_eq!(updated, "[\n  \"delta-1\"\n  \"delta-2\"\n]\n");
+    }
+
+    #[test]
+    fn a_301_with_an_empty_body_is_not_a_manifest() {
+        // Exactly what romeo's cache vhost does for an unknown path before the
+        // builder is enabled: error_page 404 -> @fallback -> cache.nixos.org,
+        // which Fastly-301s with no body. This crashed a real install.
+        assert!(interpret_manifest_response("u", "301", b"").is_none());
+    }
+
+    #[test]
+    fn a_404_is_not_a_manifest() {
+        assert!(interpret_manifest_response("u", "404", b"not found").is_none());
+    }
+
+    #[test]
+    fn a_200_with_an_empty_body_is_not_a_manifest() {
+        assert!(interpret_manifest_response("u", "200", b"").is_none());
+    }
+
+    #[test]
+    fn a_200_with_html_is_not_a_manifest_and_does_not_abort() {
+        // Something else answering for the URL. Must degrade to "keep waiting",
+        // not kill a poll that may have hours invested in it.
+        assert!(interpret_manifest_response("u", "200", b"<html>hi</html>").is_none());
+    }
+
+    #[test]
+    fn a_200_with_real_json_is_a_manifest() {
+        let body = br#"{"hostname":"delta-1","commit":"abc","storePath":"/nix/store/x","status":"ready"}"#;
+        let m = interpret_manifest_response("u", "200", body).expect("should parse");
+        assert_eq!(m.hostname, "delta-1");
+        assert_eq!(m.status, "ready");
     }
 
     #[test]
