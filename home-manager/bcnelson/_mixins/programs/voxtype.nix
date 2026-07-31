@@ -1,9 +1,21 @@
-{ lib, pkgs, ... }:
+{ lib, pkgs, inputs, genericLinux, ... }:
 let
   # -vulkan offloads whisper to the Radeon. The model lives in the store rather
   # than being pulled into ~/.local/share by `voxtype setup --download`, so a
   # rebuild is reproducible and the daemon never needs the network.
   package = pkgs.voxtype-vulkan;
+
+  # On a non-NixOS host the Vulkan loader finds the distro's ICD manifests in
+  # /usr/share/vulkan/icd.d and then fails to dlopen the drivers they point at,
+  # because those link against the distro's libLLVM/libdrm/libz rather than
+  # Nix's -- `vulkaninfo` on redo-3 rejects all twelve and ends at
+  # "vkCreateInstance: Found no drivers!". nixVulkanIntel is Mesa-wide despite
+  # the name: its ICD list includes radeon, so RADV comes up on the 780M.
+  #
+  # Only the daemon needs it. `voxtype record` is an IPC client that never
+  # touches the GPU, so the plain package stays on PATH and in the hotkeys.
+  nixVulkan = inputs.nixgl.packages.${pkgs.stdenv.hostPlatform.system}.nixVulkanIntel;
+  vulkanPrefix = lib.optionalString genericLinux "${nixVulkan}/bin/nixVulkanIntel ";
 
   model = pkgs.fetchurl {
     url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin";
@@ -90,7 +102,7 @@ in
     Service = {
       # Read the config straight from the store rather than via ~/.config, so
       # the daemon does not depend on $HOME being reachable at all.
-      ExecStart = "${lib.getExe package} -c ${configFile} daemon";
+      ExecStart = "${vulkanPrefix}${lib.getExe package} -c ${configFile} daemon";
       # dotool is bundled in voxtype's wrapper; wl-clipboard backs the fallback.
       Environment = [ "PATH=${lib.makeBinPath [ package pkgs.wl-clipboard ]}" ];
       Restart = "on-failure";
