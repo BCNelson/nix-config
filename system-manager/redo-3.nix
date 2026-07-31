@@ -49,6 +49,17 @@ _:
       '';
     };
 
+    # Keychron V6 (3434:0361) on the dock. Fedora ships no QMK udev rules, so
+    # without this the board's /dev/hidraw* stay root:root 0600 and VIA cannot
+    # open them.
+    hardware.keyboard.qmk.enable = true;
+
+    # voxtype types its transcript with dotool, which writes to /dev/uinput.
+    hardware.uinput = {
+      enable = true;
+      users = [ "bcnelson" ];
+    };
+
     # Strip Fedora's `--no-timeout` from fprintd. The Goodix reader's libusb
     # state gets stuck after a system suspend/resume; if fprintd stays
     # running, every later kscreenlocker auth silently fails on a wedged

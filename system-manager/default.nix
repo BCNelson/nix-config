@@ -1,6 +1,14 @@
 { platform, inputs, pkgs, ... }:
 {
-  imports = [ ./_mixins/selinux.nix ];
+  imports = [
+    ./_mixins/selinux.nix
+    # Upstream candidate, kept verbatim so it can be lifted into a PR against
+    # numtide/system-manager as nix/modules/sysusers.nix. See the README next
+    # to it. Until that lands, import it here.
+    ../contrib/system-manager-sysusers/module.nix
+    ./_mixins/qmk.nix
+    ./_mixins/uinput.nix
+  ];
 
   config = {
     nixpkgs.hostPlatform = platform;
