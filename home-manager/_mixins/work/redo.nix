@@ -10,6 +10,7 @@
     (config.lib.nixGL.wrap pkgs.hoppscotch)
     (config.lib.nixGL.wrap pkgs.dbeaver-bin)
     pkgs.spec-kit
+    pkgs.don # dev environment / task runner
     pkgs.dive
     pkgs.bazel-buildtools
     # pkgs.zed-editor
@@ -25,6 +26,18 @@
         ln -s $out/bin/bazelisk $out/bin/bazel
       '';
     })
+
+    # Remainder of redo/development/environment-setup/bin/linux/linux-setup.sh.
+    # That script is apt-only, so on this Fedora host the toolchain is declared
+    # here instead and the script's preflight check no-ops over it.
+    pkgs.rustup # toolchain manager; `rustup default stable` after first switch
+    pkgs.cargo-binstall
+    pkgs.zellij # `don` drives services through zellij sessions
+    pkgs.fzf
+    pkgs.mongosh
+    pkgs.caddy # local dev TLS; the setup script's `caddy trust` step still applies
+    pkgs.xclip
+    # Not in nixpkgs, still installed out-of-band: hookdeck, aws-sso-credentials
   ];
 
   programs.firefox = {
