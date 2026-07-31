@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 # Tier 2: thin clients only.
 #

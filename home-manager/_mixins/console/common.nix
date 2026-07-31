@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 # Tier 1: every user, every machine.
 #
