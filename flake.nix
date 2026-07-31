@@ -151,7 +151,6 @@
         "xray-3" = libx.mkHost { hostname = "xray-3"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; };
         "charlie-1" = libx.mkHost { hostname = "charlie-1"; usernames = [ "bcnelson" ]; };
         "golf-4" = libx.mkHost { hostname = "golf-4"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
-        "redo-2" = libx.mkHost { hostname = "redo-2"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "golf-3" = libx.mkHost { hostname = "golf-3"; usernames = [ "bcnelson" ]; desktop = "kde6"; };
         "bravo-1" = libx.mkHost { hostname = "bravo-1"; usernames = [ "bcnelson" "brnelson" "hlnelson" ]; desktop = "kde6"; };
         "ryuu-2" = libx.mkHost { hostname = "ryuu-2"; usernames = [ "bcnelson" ]; };
@@ -224,7 +223,6 @@
 
       # system-manager for non-NixOS hosts
       systemConfigs = {
-        "redo-2" = libx.mkSystemManager { hostname = "redo-2"; };
         "redo-3" = libx.mkSystemManager {
           hostname = "redo-3";
           usernames = [ "bcnelson" ];
