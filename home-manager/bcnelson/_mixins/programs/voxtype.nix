@@ -88,6 +88,10 @@ in
   # under this directory on startup, so it has to exist before the unit runs.
   home.file.".local/share/voxtype/.keep".text = "";
 
+  # Same reason, one level down: MESA_SHADER_CACHE_DIR is only honoured if the
+  # directory is already there.
+  home.file.".local/share/voxtype/shader-cache/.keep".text = "";
+
   systemd.user.services.voxtype = {
     Unit = {
       Description = "voxtype voice-to-text daemon";
@@ -104,7 +108,33 @@ in
       # the daemon does not depend on $HOME being reachable at all.
       ExecStart = "${vulkanPrefix}${lib.getExe package} -c ${configFile} daemon";
       # dotool is bundled in voxtype's wrapper; wl-clipboard backs the fallback.
-      Environment = [ "PATH=${lib.makeBinPath [ package pkgs.wl-clipboard ]}" ];
+      # coreutils is for nixVulkanIntel rather than voxtype: the wrapper shells
+      # out to `cat` to read its ICD list, and with PATH holding neither, the
+      # read failed and left VK_ICD_FILENAMES empty. The loader then fell back
+      # to exactly the distro manifests this prefix exists to avoid, so whisper
+      # came up CPU-only -- visible as "whisper_model_load: CPU total size" and
+      # "devices = 1", with nothing in the log but a stray "cat: command not
+      # found". With it, the daemon reports "ggml_vulkan: Found 1 Vulkan
+      # devices: AMD Radeon 780M Graphics (RADV PHOENIX)" and loads into
+      # "Vulkan0 total size".
+      Environment = [
+        "PATH=${lib.makeBinPath ([ package pkgs.wl-clipboard ] ++ lib.optional genericLinux pkgs.coreutils)}"
+
+        # ProtectHome=tmpfs leaves $HOME read-only, so RADV cannot create
+        # ~/.cache and disables the shader cache ("Failed to create
+        # /home/bcnelson/.cache for shader cache ---disabling"), recompiling on
+        # every load. The data directory is already bound rw, so cache there.
+        "MESA_SHADER_CACHE_DIR=%h/.local/share/voxtype/shader-cache"
+      ]
+      # cpal opens the ALSA "default" PCM, which /etc/alsa/conf.d/50-pipewire.conf
+      # defines as type pipewire. alsa-lib looks for that plugin under its own
+      # store prefix, which ships no lib/alsa-lib at all, so every recording
+      # died at "Failed to start audio ... snd_pcm_open ... No such device or
+      # address (6)". Fedora's copy under /usr/lib64 would drag the system
+      # glibc and libpipewire into a Nix-linked process, so point at the Nix
+      # build; the plugin talks to the running 1.4 daemon over the AF_UNIX
+      # socket, which PrivateNetwork and RestrictAddressFamilies both permit.
+      ++ lib.optional genericLinux "ALSA_PLUGIN_DIR=${pkgs.pipewire}/lib/alsa-lib";
       Restart = "on-failure";
       RestartSec = 5;
 
