@@ -4,7 +4,7 @@ let
   stateDir = "/var/lib/cli-proxy-api";
 in
 {
-  # Shared between the proxy (which accepts it) and open-webui (which presents
+  # Shared between the proxy (which accepts it) and LibreChat (which presents
   # it). Not a real OpenAI key -- it only authenticates localhost clients to the
   # proxy; the upstream credential is the OAuth token in stateDir.
   age.secrets.cli-proxy-api-key = {
@@ -22,7 +22,7 @@ in
     group = "cli-proxy-api";
     mode = "0400";
     content = ''
-      # Upstream default is "" (all interfaces); open-webui reaches it over loopback.
+      # Upstream default is "" (all interfaces); LibreChat reaches it over loopback.
       host: "127.0.0.1"
       port: ${toString port}
 

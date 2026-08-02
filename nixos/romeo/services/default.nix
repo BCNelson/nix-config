@@ -21,7 +21,7 @@ in {
     ./frigate.nix
     ./gotosocial.nix
     ./ollama.nix
-    ./open-webui.nix
+    ./librechat.nix
     ./cli-proxy-api.nix
     ./immich.nix
     ./immichframe.nix
