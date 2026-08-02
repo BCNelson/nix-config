@@ -108,16 +108,6 @@
       flake = false;
     };
 
-    # Third-party browser client for herdr; upstream herdr ships no web UI of
-    # its own. Pinned to a release tag because the bridge vendors herdr's
-    # private protocol types and only speaks one protocol version - bumping it
-    # means checking the release notes against pkgs.herdr. Built by
-    # pkgs/herdr-web.
-    herdr-web = {
-      url = "github:kcosr/herdr-web/v0.4.0";
-      flake = false;
-    };
-
     nixgl = {
       url = "github:nix-community/nixGL";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
@@ -197,12 +187,7 @@
           };
         };
 
-        # herdr-web is not in pkgs/default.nix because its src is a flake input;
-        # add it here too so `nix build .#herdr-web` still works. Same
-        # instantiation as overlays/default.nix.
-        packages = (import ./pkgs pkgs) // {
-          herdr-web = pkgs.callPackage ./pkgs/herdr-web { src = inputs.herdr-web; };
-        };
+        packages = import ./pkgs pkgs;
 
         devShells = let
           pkgsWithOverlays = import inputs.nixpkgs-unstable {

@@ -4,9 +4,8 @@ name: Check herdr-web
 # on flake.lock, so routine nixpkgs bumps don't re-run a build that vendors 275
 # crates and 400 npm packages.
 #
-# flake.nix is not in the list either, even though the pinned herdr-web tag
-# lives there, because it also changes for unrelated reasons like adding a
-# host. Bumping the tag means running this workflow by hand.
+# The version and src hash both live in pkgs/herdr-web, so a bump lands here
+# and nothing outside this directory needs to be watched.
 #
 # check-nix-config.yml only evaluates hosts (--dry-run), so nothing else in CI
 # ever compiles this package.
@@ -18,14 +17,12 @@ on:
   pull_request:
     paths:
       - "pkgs/herdr-web/**"
-      - "overlays/default.nix"
       - ".github/workflows/check-herdr-web.yml"
   push:
     branches:
       - "main"
     paths:
       - "pkgs/herdr-web/**"
-      - "overlays/default.nix"
       - ".github/workflows/check-herdr-web.yml"
   workflow_dispatch:
 

@@ -2,12 +2,7 @@
 { inputs, ... }:
 {
   # This one brings our custom packages from the 'pkgs' directory
-  additions = final: _prev: (import ../pkgs final.pkgs) // {
-    # pkgs/default.nix only receives `pkgs`, and herdr-web's source comes from a
-    # flake input rather than a hash we maintain, so it is wired up here where
-    # `inputs` is in scope.
-    herdr-web = final.callPackage ../pkgs/herdr-web { src = inputs.herdr-web; };
-  };
+  additions = final: _prev: import ../pkgs final.pkgs;
 
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.
