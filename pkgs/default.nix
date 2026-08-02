@@ -25,4 +25,5 @@ pkgs: rec {
   nix-store-selinux = pkgs.callPackage ./nix-store-selinux.nix { };
   robocode = pkgs.callPackage ./robocode.nix { };
   don = pkgs.callPackage ./don { };
+  cli-proxy-api = pkgs.callPackage ./cli-proxy-api { };
 }

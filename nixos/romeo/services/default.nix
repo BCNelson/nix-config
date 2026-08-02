@@ -22,6 +22,7 @@ in {
     ./gotosocial.nix
     ./ollama.nix
     ./open-webui.nix
+    ./cli-proxy-api.nix
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
