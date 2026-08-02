@@ -4,6 +4,7 @@
     ../_mixins/roles/docker.nix
     ../_mixins/roles/gaming.nix
     ../_mixins/roles/tailscale.nix
+    ../_mixins/roles/herdr-web.nix
     ../_mixins/roles/desktop
     ../_mixins/hardware/fingerprint.nix
     ../_mixins/roles/kanidmClient.nix

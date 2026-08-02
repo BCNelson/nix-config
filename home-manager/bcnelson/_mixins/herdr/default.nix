@@ -93,7 +93,10 @@ let
   hookCommand = path: "bash '${path}' session";
 in
 {
-  imports = [ ../../../_mixins/services/config-merge.nix ];
+  imports = [
+    ../../../_mixins/services/config-merge.nix
+    ./web.nix
+  ];
 
   # Terminal multiplexer for coding agents - https://herdr.dev
   #
