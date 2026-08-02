@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
   dataDirs = config.data.dirs;
   port = 3080;
@@ -80,7 +80,8 @@ in
 
     # Becomes librechat.yaml.
     settings = {
-      version = "1.2.1";
+      # The module defaults to 1.2.1, which LibreChat 0.8.6 logs as outdated.
+      version = "1.3.12";
       cache = true;
       interface = {
         modelSelect = true;
@@ -134,6 +135,22 @@ in
   # The Meilisearch index is derived from Mongo and can be rebuilt, so it stays
   # on the module default (/var/lib/meilisearch) rather than the vault.
   services.meilisearch.masterKeyFile = config.age.secrets.meilisearch-master-key.path;
+
+  # nixpkgs' meilisearch module still writes `experimental_dumpless_upgrade`,
+  # which 1.51.0 renamed to `upgrade_db` (--upgrade-db / MEILI_UPGRADE_DB).
+  # Meilisearch rejects unknown config keys outright, so the daemon crash-loops
+  # on a TOML parse error and takes switch-to-configuration down with it.
+  # The stale key is a mkDefault inside a freeform submodule and TOML cannot
+  # serialize null, so there is no way to unset just that one attribute --
+  # replacing the whole set is the only lever. Drop this block once nixpkgs
+  # catches up, and re-check the other keys against the module at that point.
+  services.meilisearch.settings = lib.mkForce {
+    http_addr = "${config.services.meilisearch.listenAddress}:${toString config.services.meilisearch.listenPort}";
+    db_path = "/var/lib/meilisearch";
+    dump_dir = "/var/lib/meilisearch/dumps";
+    snapshot_dir = "/var/lib/meilisearch/snapshots";
+    no_analytics = true;
+  };
 
   services.nginx.virtualHosts."${domain}" = {
     forceSSL = true;
