@@ -21,6 +21,12 @@ in
   # The `pages` branch must be readable anonymously. If the repo is ever made
   # private, add an agenix token secret and switch repoUrl to embed it.
 
+  users.users.homefirst-pages = {
+    isSystemUser = true;
+    group = "homefirst-pages";
+  };
+  users.groups.homefirst-pages = { };
+
   services.nginx = {
     enable = true;
     virtualHosts."${domain}" = {
@@ -34,8 +40,12 @@ in
         tryFiles = "$uri $uri.html $uri/index.html =404";
       };
       extraConfig = ''
-        # `root` is a symlink that flips on each deploy, as are the files under
-        # it; nginx must follow them.
+        # `root` is a symlink that flips on each deploy, so nginx has to be
+        # willing to follow symlinks. That is only safe because the sync below
+        # DELETES every symlink out of the published tree: the content is
+        # whatever landed on a git branch, and a symlink committed there
+        # (secret -> /etc/passwd) would otherwise be served verbatim. Astro emits
+        # no symlinks, so nothing legitimate is lost.
         disable_symlinks off;
       '';
     };
@@ -54,10 +64,36 @@ in
     ];
     serviceConfig = {
       Type = "oneshot";
+      # Fetching a public repo and copying static files needs no privilege, so
+      # don't do it as root. A dedicated system user rather than DynamicUser,
+      # because DynamicUser puts the state under /var/lib/private, which is
+      # 0700 root and would stop nginx traversing to the docroot.
+      User = "homefirst-pages";
+      Group = "homefirst-pages";
       StateDirectory = "homefirst-pages";
       # nginx (running as its own user) has to read the published tree.
       StateDirectoryMode = "0755";
       UMask = "0022";
+
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      PrivateDevices = true;
+      ProtectSystem = "strict"; # StateDirectory stays writable
+      ProtectHome = true;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      ProtectClock = true;
+      RestrictNamespaces = true;
+      RestrictSUIDSGID = true;
+      RestrictRealtime = true;
+      LockPersonality = true;
+      SystemCallArchitectures = "native";
+      RestrictAddressFamilies = [
+        "AF_INET"
+        "AF_INET6"
+        "AF_UNIX"
+      ];
     };
     script = ''
       set -euo pipefail
@@ -79,6 +115,10 @@ in
         mkdir -p "$target.partial"
         cp -a ${checkout}/. "$target.partial/"
         rm -rf "$target.partial/.git"
+        # nginx is configured with disable_symlinks off (the docroot itself is a
+        # symlink), so a symlink committed to the pages branch would be followed
+        # and its target served. Strip them; the site is plain static output.
+        find "$target.partial" -type l -delete
         mv -T "$target.partial" "$target"
       fi
 
