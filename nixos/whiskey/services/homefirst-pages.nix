@@ -98,6 +98,15 @@ in
     script = ''
       set -euo pipefail
 
+      # The branch only exists once CI has deployed the docs at least once. On a
+      # fresh instance (or a restored one) that has not happened yet, and failing
+      # every time the timer fires just fills the journal with noise for a
+      # condition that is expected and self-correcting.
+      if ! git ls-remote --exit-code --heads ${repoUrl} ${branch} >/dev/null 2>&1; then
+        echo "branch '${branch}' does not exist yet — nothing to publish"
+        exit 0
+      fi
+
       if [ -d ${checkout}/.git ]; then
         git -C ${checkout} fetch --depth 1 origin ${branch}
         git -C ${checkout} checkout -q --detach FETCH_HEAD
