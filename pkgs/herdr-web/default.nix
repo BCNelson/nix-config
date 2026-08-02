@@ -1,10 +1,9 @@
 { lib
-, stdenv
 , fetchFromGitHub
+, buildNpmPackage
 , rustPlatform
 , importNpmLock
 , makeWrapper
-, nodejs
 }:
 
 let
@@ -21,30 +20,24 @@ let
   # references and vite.config.ts reaches nowhere outside the directory), so
   # build it from that subtree rather than the whole checkout.
   #
-  # importNpmLock resolves every tarball straight from the integrity hashes
-  # already in web/package-lock.json, so unlike buildNpmPackage there is no
-  # npmDepsHash to regenerate on each bump - only the src hash above moves.
-  webApp = stdenv.mkDerivation {
+  # importNpmLock rewrites package-lock.json so every dependency resolves to a
+  # store path fetched from the integrity hashes already in the lock. That means
+  # no npmDepsHash to regenerate on each bump - only the src hash above moves.
+  # Note this is importNpmLock itself, not importNpmLock.buildNodeModules: the
+  # latter hands back the *original* lock, so npmConfigHook would try to reach
+  # registry.npmjs.org and fail the build with ENOTCACHED. buildNodeModules is
+  # the devShell helper, and pairs with linkNodeModulesHook instead.
+  webApp = buildNpmPackage {
     pname = "herdr-web-app";
     inherit version;
     src = "${src}/web";
 
-    nativeBuildInputs = [
-      nodejs
-      importNpmLock.npmConfigHook
-    ];
+    npmDeps = importNpmLock { npmRoot = "${src}/web"; };
+    npmConfigHook = importNpmLock.npmConfigHook;
 
-    npmDeps = importNpmLock.buildNodeModules {
-      npmRoot = "${src}/web";
-      inherit nodejs;
-    };
-
-    buildPhase = ''
-      runHook preBuild
-      npm run build
-      runHook postBuild
-    '';
-
+    # buildPhase is the default `npm run build` (tsc -b && vite build); only the
+    # install needs overriding, because what we want is Vite's dist/ rather than
+    # the packed node package npmInstallHook would produce.
     installPhase = ''
       runHook preInstall
       cp -r dist "$out"
