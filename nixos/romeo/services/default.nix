@@ -28,7 +28,6 @@ in {
     ./journiv.nix
     ./tendant.nix
     ./forgejo-runner.nix
-    ./woodpecker-agent.nix
   ];
 
   systemd.timers.podman-auto-update = {
