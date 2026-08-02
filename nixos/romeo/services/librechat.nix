@@ -94,7 +94,12 @@ in
           apiKey = "\${PROXY_API_KEY}";
           baseURL = "http://127.0.0.1:8317/v1";
           models = {
-            default = [ "gpt-5" ];
+            # fetch = true populates the picker from cli-proxy-api's /v1/models,
+            # so this list only supplies the fallback/preselected model. It has
+            # to name something the proxy actually serves -- the catalog is
+            # gpt-5.4{,-mini}, gpt-5.5, gpt-5.6-{luna,sol,terra}, plus the codex
+            # and image models. There is no plain "gpt-5".
+            default = [ "gpt-5.5" ];
             fetch = true;
           };
           titleConvo = true;

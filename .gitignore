@@ -16,3 +16,5 @@ pkgs/*/target
 
 # RepoMix
 repomix-output.txt
+# Go build output (pkgs/devenv-mcp)
+pkgs/devenv-mcp/devenv-mcp

@@ -13,6 +13,7 @@ pkgs: rec {
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   config-merge = pkgs.callPackage ./config-merge { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
+  devenv-mcp = pkgs.callPackage ./devenv-mcp { };
   gamestream-agent = pkgs.callPackage ./gamestream-agent { };
   gamestream-agent-test = pkgs.callPackage ./gamestream-agent/nixos-test.nix {
     inherit gamestream-agent;
