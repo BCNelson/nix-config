@@ -16,13 +16,18 @@ Set up a repository with direnv and devenv configuration files for reproducible 
 
 ## Workflow
 
+0. **Confirm it is a git repo** - Run `git rev-parse --show-toplevel`.
+   The `.envrc` template relies on a git-based flake ref; in a
+   non-git directory nix would fall back to copying the whole tree.
+   If there is no repo, ask the user before running `git init`.
 1. **Detect project type** - Run `./detect-project.sh` or check for indicators manually
 2. **Check existing files** - Look for flake.nix, devenv.nix, .envrc
 3. **Handle conflicts** - If files exist, ask whether to overwrite
 4. **Generate files** - Create all three files using appropriate template
    - Use only the templates in this file — do not browse other repos or fetch external examples.
 5. **Customize** - Ask about optional additions (services, scripts, env vars)
-6. **Post-generation** - Append `.gitignore` entries and remind user about `direnv allow`
+6. **Post-generation** - Append `.gitignore` entries, `git add` the new
+   files, and remind user about `direnv allow`
 
 ## Project Detection Indicators
 
@@ -98,14 +103,28 @@ Set up a repository with direnv and devenv configuration files for reproducible 
 ### Standard .envrc
 
 ```bash
-if ! has nix_direnv_version || ! nix_direnv_version 3.0.6; then
-  source_url "https://raw.githubusercontent.com/nix-community/nix-direnv/3.0.6/direnvrc" "sha256-RYcUJaRMf8oF5LznDrlCXbkOQrywm0HDv1VjYGaJGdM="
-fi
-
 export DEVENV_ROOT="$PWD"
 
-use flake "path:$PWD" --no-pure-eval --impure
+use flake . --impure
 ```
+
+That is the whole file — do not add anything else to it.
+
+**Use `.`, never `path:$PWD`.** The bare `.` flake ref resolves to
+`git+file://` inside a git repo, so nix copies only git-tracked files
+into the store. `path:$PWD` (and `path:.`) copies the entire working
+tree instead, dragging in `target/`, `node_modules/`, `.direnv/`,
+`dist/` and every other ignored build artifact. On Rust projects that
+is routinely gigabytes and the evaluation either takes minutes or dies
+outright.
+
+Do not add the `nix_direnv_version` / `source_url` bootstrap block —
+nix-direnv is already installed system-wide.
+
+The tradeoff of a git-based flake ref: **nix cannot see untracked
+files.** The generated `flake.nix` and `devenv.nix` must be added to
+the git index or the shell fails with `path ... does not exist`. See
+Post-Generation Steps.
 
 ### Go devenv.nix
 
@@ -324,13 +343,24 @@ entries — do not just tell the user to do it. Steps:
    .devenv-state/
    .env
    ```
-2. **Tell the user to allow direnv**: Run `direnv allow` to activate
+2. **Stage the generated files**: Run
+   `git add .envrc flake.nix devenv.nix .gitignore`. This is not
+   optional — `use flake .` reads the git index, so an untracked
+   `devenv.nix` is invisible to nix and the shell fails with
+   `path ... does not exist`. Staging is enough; do not commit unless
+   the user asks.
+3. **Tell the user to allow direnv**: Run `direnv allow` to activate
    the environment. The first activation downloads dependencies and
    may take a few minutes.
 
 ## Guidelines
 
 - Always check for existing files before writing
+- Never point a flake ref at the filesystem (`path:`, `path:$PWD`,
+  `--no-pure-eval` on a local path). Always use the git-tracked `.`
+  ref so ignored build output stays out of the nix store
+- After generating, `git add` anything new — nix flakes only see
+  tracked files
 - Use the project name from `package.json`, `Cargo.toml`, `go.mod`, or `pyproject.toml` when available
 - Keep generated configs minimal - users can add complexity as needed
 - Prefer latest LTS Node.js version (currently 22)
