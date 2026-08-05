@@ -17,6 +17,11 @@ let
   nixVulkan = inputs.nixgl.packages.${pkgs.stdenv.hostPlatform.system}.nixVulkanIntel;
   vulkanPrefix = lib.optionalString genericLinux "${nixVulkan}/bin/nixVulkanIntel ";
 
+  # Shared by the dotoold unit that creates this FIFO and the voxtype unit that
+  # looks for it; see the comment on the dotoold service for why it is not at
+  # dotool's default /tmp/dotool-pipe.
+  pipe = "%t/dotool-pipe";
+
   model = pkgs.fetchurl {
     url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin";
     hash = "sha256-OUIhcJzVrR9AxG5gMcphvOiJMebgiMGIKUxtWlX/p+I=";
@@ -61,7 +66,18 @@ let
       # dotool writes to /dev/uinput directly and needs no daemon.
       driver_order = [ "dotool" "clipboard" ];
       fallback_to_clipboard = true;
-      type_delay_ms = 0;
+
+      # Counter-intuitively, 0 is the SLOW setting. voxtype only emits dotool's
+      # `typedelay`/`typehold` commands when this is non-zero, so 0 leaves
+      # dotool on its own defaults of typehold 8 + typedelay 2 = 10ms/char --
+      # measured at 1.0s of the 1.87s it took to type a 101-character
+      # transcript. Any non-zero value is passed to BOTH commands, so 1 means
+      # 2ms/char and is five times faster than leaving it unset.
+      #
+      # typehold is the half that matters for correctness: it is how long each
+      # key is held down. If some application ever starts dropping characters,
+      # raise this rather than dropping back to 0.
+      type_delay_ms = 1;
       notification = {
         on_recording_start = true;
         on_recording_stop = true;
@@ -91,6 +107,78 @@ in
   # Same reason, one level down: MESA_SHADER_CACHE_DIR is only honoured if the
   # directory is already there.
   home.file.".local/share/voxtype/shader-cache/.keep".text = "";
+
+  # dotool builds a fresh uinput virtual keyboard on every invocation and waits
+  # for the compositor to notice it, which costs ~700ms before the first
+  # character of a transcript appears -- on a 101-character dictation that was
+  # more than a third of the total typing time. dotoold pays that once at login
+  # and keeps one dotool alive reading a FIFO; dotoolc then just writes to it.
+  # voxtype probes for the FIFO on each output() and switches to dotoolc by
+  # itself, so nothing here has to tell it to, and if this unit is dead it
+  # silently goes back to spawning dotool directly.
+  #
+  # The pipe has to leave dotool's default /tmp/dotool-pipe: the voxtype unit
+  # below sets PrivateTmp, so its /tmp is not the one dotoold writes to. %t is
+  # already bound into that namespace for the wayland and pipewire sockets, so
+  # put it there and point both units at it.
+  #
+  # That also happens to be the safer half of the trade. dotoold mkfifos the
+  # pipe 0660 with no way to ask for anything tighter, and anything that can
+  # write to it can synthesise arbitrary keystrokes into this session -- in
+  # /tmp that would be the whole of group `users`, which on NixOS is every
+  # human account's primary group. /run/user/1000 is 0700, so the directory
+  # denies the traversal the pipe's own mode does not.
+  systemd.user.services.dotoold = {
+    Unit = {
+      Description = "dotool typing daemon (keeps voxtype's uinput device warm)";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+    };
+
+    Service = {
+      ExecStart = "${pkgs.dotool}/bin/dotoold";
+
+      # dotoold is a shell script: coreutils for the mkfifo/rm around the pipe,
+      # procps for the pkill in its EXIT trap. Without the latter it still runs
+      # but leaves the pipe behind on shutdown ("pkill: command not found").
+      Environment = [
+        "PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.procps ]}"
+        "DOTOOL_PIPE=${pipe}"
+      ];
+      Restart = "on-failure";
+      RestartSec = 5;
+
+      # Same reasoning as the voxtype unit: this process needs /dev/uinput, its
+      # runtime directory, and nothing else at all. It never reads $HOME, never
+      # touches the network, and has no business anywhere else in /dev.
+      NoNewPrivileges = true;
+      ProtectSystem = "strict";
+      ProtectHome = "tmpfs";
+      BindPaths = [ "%t" ];
+      PrivateTmp = true;
+      PrivateNetwork = true;
+      RestrictAddressFamilies = "AF_UNIX";
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectKernelLogs = true;
+      ProtectControlGroups = true;
+      ProtectClock = true;
+      ProtectHostname = true;
+      RestrictNamespaces = true;
+      RestrictSUIDSGID = true;
+      RestrictRealtime = true;
+      LockPersonality = true;
+      SystemCallArchitectures = "native";
+      SystemCallFilter = "@system-service";
+      DevicePolicy = "closed";
+      DeviceAllow = [ "/dev/uinput rw" ];
+      UMask = "0077";
+    };
+
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 
   systemd.user.services.voxtype = {
     Unit = {
@@ -125,6 +213,11 @@ in
         # /home/bcnelson/.cache for shader cache ---disabling"), recompiling on
         # every load. The data directory is already bound rw, so cache there.
         "MESA_SHADER_CACHE_DIR=%h/.local/share/voxtype/shader-cache"
+
+        # Where to look for dotoold's FIFO. voxtype checks this on every
+        # output(), falls back to spawning dotool directly when nothing is
+        # reading the other end, and re-exports it to the dotoolc it spawns.
+        "DOTOOL_PIPE=${pipe}"
       ]
       # cpal opens the ALSA "default" PCM, which /etc/alsa/conf.d/50-pipewire.conf
       # defines as type pipewire. alsa-lib looks for that plugin under its own
