@@ -12,4 +12,5 @@
 # `lib.mkIf (thinClients != [ ])` in nixos/romeo/services/thinClientBuilder.nix),
 # so the machinery stays in place, dormant, until a real thin client shows up.
 [
+  "wyse-1"
 ]
