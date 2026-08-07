@@ -17,7 +17,7 @@ in
   # The cut-down base every thin client gets. Kept separate because it is about
   # what this class of machine *is* (an appliance with no build capability),
   # while the rest of this file is about how it updates.
-  imports = [ ./minimal.nix ./low-memory.nix ./firmware.nix ];
+  imports = [ ./minimal.nix ./low-memory.nix ./firmware.nix ../../hardware/emmc.nix ];
 
   assertions = [
     {
@@ -34,6 +34,17 @@ in
     enable = true;
     inherit cachePublicKey;
   };
+
+  # A headless appliance with no root password cannot use systemd's initrd
+  # emergency console at all: it asks to authenticate against an account that is
+  # locked, so a failed boot ends at "cannot open access to console" and the
+  # only way in is to walk over with the installer ISO. Learned the hard way.
+  #
+  # The eMMC is unencrypted, so anyone who can reach the console can already
+  # read the disk; a shell there grants nothing that physical access did not
+  # already imply, and it turns an unbootable appliance into one you can
+  # diagnose in place.
+  boot.initrd.systemd.emergencyAccess = true;
 
   # Nothing here pulls the flake, so the auto-update path is not just unused but
   # actively wrong: it would try to git pull and nixos-rebuild on a machine that
