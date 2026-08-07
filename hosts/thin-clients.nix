@@ -20,4 +20,5 @@
 # first host lands run `systemctl start thin-client-build` on romeo, or the
 # manifest stays stale and an installer will happily fetch the old closure.
 [
+  "wyse-1"
 ]
