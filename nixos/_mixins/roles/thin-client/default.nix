@@ -17,7 +17,17 @@ in
   # The cut-down base every thin client gets. Kept separate because it is about
   # what this class of machine *is* (an appliance with no build capability),
   # while the rest of this file is about how it updates.
-  imports = [ ./minimal.nix ./low-memory.nix ./firmware.nix ../../hardware/emmc.nix ];
+  imports = [
+    ./minimal.nix
+    ./low-memory.nix
+    ./firmware.nix
+    ../../hardware/emmc.nix
+    # Reaching a headless appliance that lives on someone else's LAN is the
+    # whole point of having it on the tailnet. Costs ~35 MB in the closure and
+    # brings no agenix secret with it -- the role's ntfy autoconnect is guarded
+    # on thinClient, so tailscaled runs but you authenticate by hand once.
+    ../tailscale.nix
+  ];
 
   assertions = [
     {

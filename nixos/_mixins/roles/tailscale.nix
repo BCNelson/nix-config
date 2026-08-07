@@ -1,16 +1,29 @@
-{ config, pkgs, ... }: {
+{ config, pkgs, lib, thinClient ? false, ... }: {
   environment.systemPackages = with pkgs; [
     tailscale
-    jq # Needed for parsing tailscale status in the setup script
-  ];
+  ] ++ lib.optional (!thinClient) jq; # only the autoconnect script parses status
   services.tailscale = {
     enable = true;
     package = pkgs.unstable.tailscale;
   };
 
-  age.secrets.ntfy_topic.rekeyFile = ../../../secrets/store/ntfy_topic.age;
+  # The autoconnect script exists to push the auth URL to a phone, and the ntfy
+  # topic it posts to is an agenix secret. A thin client must declare no secrets
+  # at all -- that is what lets a freshly installed one evaluate in CI and
+  # finish unattended, and this secret is the specific one that used to force a
+  # rekey onto a machine incapable of performing one (see the bcnelson user
+  # mixin, which drops its own copy for the same reason).
+  #
+  # So on a thin client tailscaled runs but nothing auto-authenticates. These
+  # are installed by hand at a console or over LAN ssh anyway, and joining the
+  # tailnet is a one-time `tailscale up` at that same moment. The auth URL goes
+  # to the terminal you are already sitting in front of, which is where the
+  # notification was trying to get you to look.
+  age.secrets = lib.optionalAttrs (!thinClient) {
+    ntfy_topic.rekeyFile = ../../../secrets/store/ntfy_topic.age;
+  };
 
-  systemd.services.tailscale-autoconnect = {
+  systemd.services.tailscale-autoconnect = lib.mkIf (!thinClient) {
     description = "Automatic connection to Tailscale";
 
     # make sure tailscale is running before trying to connect to tailscale
