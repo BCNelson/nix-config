@@ -1,29 +1,16 @@
-{ config, pkgs, lib, thinClient ? false, ... }: {
+{ config, pkgs, ... }: {
   environment.systemPackages = with pkgs; [
     tailscale
-  ] ++ lib.optional (!thinClient) jq; # only the autoconnect script parses status
+    jq # Needed for parsing tailscale status in the setup script
+  ];
   services.tailscale = {
     enable = true;
     package = pkgs.unstable.tailscale;
   };
 
-  # The autoconnect script exists to push the auth URL to a phone, and the ntfy
-  # topic it posts to is an agenix secret. A thin client must declare no secrets
-  # at all -- that is what lets a freshly installed one evaluate in CI and
-  # finish unattended, and this secret is the specific one that used to force a
-  # rekey onto a machine incapable of performing one (see the bcnelson user
-  # mixin, which drops its own copy for the same reason).
-  #
-  # So on a thin client tailscaled runs but nothing auto-authenticates. These
-  # are installed by hand at a console or over LAN ssh anyway, and joining the
-  # tailnet is a one-time `tailscale up` at that same moment. The auth URL goes
-  # to the terminal you are already sitting in front of, which is where the
-  # notification was trying to get you to look.
-  age.secrets = lib.optionalAttrs (!thinClient) {
-    ntfy_topic.rekeyFile = ../../../secrets/store/ntfy_topic.age;
-  };
+  age.secrets.ntfy_topic.rekeyFile = ../../../secrets/store/ntfy_topic.age;
 
-  systemd.services.tailscale-autoconnect = lib.mkIf (!thinClient) {
+  systemd.services.tailscale-autoconnect = {
     description = "Automatic connection to Tailscale";
 
     # make sure tailscale is running before trying to connect to tailscale
@@ -55,11 +42,25 @@
 
       NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
 
-      # check if this is a dummy value from rekey by checking the length of the token (it should be shorter than 20 characters)
+      # Do not POST to a placeholder. `agenix rekey --dummy` writes a whole
+      # sentence explaining the secret was not rekeyed -- "This is a dummy
+      # replacement value. ..." -- and treating that as a topic would push the
+      # auth URL to a garbage channel and, worse, make the URL look delivered
+      # when nobody can receive it. Match that sentinel directly rather than
+      # inferring it, and keep the length test as a backstop: a real ntfy topic
+      # is a short opaque token, so anything long is not one either way.
       NTFY_TOKEN_LENGTH="$(echo -n "$NTFY_TOKEN" | wc -c)"
-      if [ $NTFY_TOKEN_LENGTH -gt 20 ]; then
-          echo There is no ntfy token set, skipping notification
-          echo "Auth URL: $auth_url"
+      IS_DUMMY=0
+      case "$NTFY_TOKEN" in
+          *"dummy replacement value"*) IS_DUMMY=1 ;;
+      esac
+      if [ "$NTFY_TOKEN_LENGTH" -gt 20 ]; then IS_DUMMY=1; fi
+
+      if [ "$IS_DUMMY" -eq 1 ]; then
+          echo "ntfy topic is a placeholder, so no notification was sent."
+          echo "Authenticate this host by opening:"
+          echo "    $auth_url"
+          echo "(or run: tailscale up --ssh)"
           exit 0
       fi
 

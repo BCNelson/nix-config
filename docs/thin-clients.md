@@ -233,24 +233,45 @@ an unencrypted host got no on-disk swap at all and zram was the whole of it.
 zram is still enabled and still carries the install itself, which now runs
 before any swap partition exists.
 
-### Rekeying: there is nothing to rekey
+### Rekeying happens on a workstation, in the middle of the install
 
-`install-system --thin` does not rekey, and does not need to. A thin client
-declares no agenix secrets at all, so **CI passes on the install branch with no
-human step in the middle** — push, open the PR, merge.
+A thin client declares exactly one agenix secret: the ntfy topic the tailscale
+autoconnect script posts its auth URL to. So **CI fails on the install branch
+until you rekey**, and romeo cannot build the host until that lands. This is
+expected, not a broken build.
 
 ```
 # on the thin client -- pushes install-delta-1, then sits in its polling loop
 install-system --thin delta-1
 
-# open the PR, let CI pass, merge. auto-update advances -> romeo builds
+# on a workstation, with the security key
+git fetch && git checkout install-delta-1
+just rekey
+git add secrets/hosts && git commit -m 'rekey delta-1' && git push
+
+# now CI can pass -> merge -> auto-update advances -> romeo builds
 # -> the thin client's poll finds the manifest and finishes on its own
 ```
 
-The installer says so on the way past. If you give a thin client something that
-*does* declare a secret, that assumption breaks and its build will fail until
-you rekey from a workstation with the security key — which is why the notice is
-printed rather than left silent.
+The installer prints this on the way past. The polling loop is safe to leave
+running across the whole detour.
+
+#### Why the secret is worth the step
+
+It was not always this way. Thin clients were deliberately secret-free for a
+while, precisely so an install needed no human in the middle, and going back on
+that was a considered trade.
+
+What buys it back is remote bring-up. There are no `authorized_keys` anywhere on
+this fleet — ssh authentication is Tailscale SSH — so until a host is on the
+tailnet the only ways in are the physical console and a password. For an
+appliance that lives on someone else's LAN that is the difference between
+plugging it in and tapping a notification, and driving to it. The rekey is also
+one step per new host, the same order of cost as walking over to run
+`tailscale up` would have been.
+
+A pre-authorized `authKeyFile` would remove even the tap, at the same rekey
+cost. It is the obvious next move if these ever get deployed in numbers.
 
 Rekeying on the thin client itself is not merely skipped, it is impossible.
 agenix-rekey evaluates every host in the flake, which forces a local build of

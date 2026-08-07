@@ -857,24 +857,31 @@ fn install_host_key(home: &str) -> Result<()> {
 /// had to rekey from a workstation afterwards. So skip it and say so loudly --
 /// including that CI cannot pass until someone does, because a half-truth here
 /// turns into a confusing red build later.
+///
+/// This IS required, not conditional. A thin client declares one agenix secret:
+/// the ntfy topic the tailscale autoconnect script posts the auth URL to. That
+/// is what makes a remote bring-up a phone notification instead of a trip to the
+/// console, and the rekey below is what it costs.
 fn announce_deferred_rekey(hostname: &str) {
     let bar = "=".repeat(66);
     println!();
     println!("{}", bar);
-    println!(" {} has not had agenix secrets rekeyed.", hostname);
+    println!(" {} has not had agenix secrets rekeyed. YOU MUST DO THIS.", hostname);
     println!();
     println!(" This machine cannot rekey: agenix-rekey evaluates the whole flake,");
     println!(" which does not fit in 2 GB of RAM.");
     println!();
-    println!(" Normally that is fine -- a thin client declares no agenix secrets,");
-    println!(" so there is nothing to rekey and CI will pass as-is. If you have");
-    println!(" given this host something that does declare one, its build will");
-    println!(" fail until you rekey from a workstation with the security key:");
+    println!(" A thin client declares one secret -- the ntfy topic the tailscale");
+    println!(" autoconnect posts its auth URL to. So CI WILL FAIL on this branch,");
+    println!(" and romeo cannot build this host, until you rekey from a");
+    println!(" workstation with the security key:");
     println!();
     println!("     git fetch && git checkout install-{}", hostname);
     println!("     just rekey");
     println!("     git add secrets/hosts && git commit -m 'rekey {}'", hostname);
     println!("     git push");
+    println!();
+    println!(" This installer will sit in its polling loop until that lands.");
     println!("{}", bar);
     println!();
 }

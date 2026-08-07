@@ -12,8 +12,10 @@ in
   # docs/thin-clients.md), that one unused secret forced a human with a hardware
   # key into the middle of every thin client install.
   #
-  # With it gone, a thin client has no agenix secrets, so a freshly installed
-  # host evaluates in CI immediately and the install finishes unattended.
+  # Still worth dropping even though thin clients now do carry one secret (the
+  # tailscale autoconnect's ntfy topic, which buys remote bring-up). Paying a
+  # rekey for a channel this host would actually use is a trade; paying one for
+  # a daemon it can never start is not.
   age.secrets = lib.optionalAttrs (!thinClient) {
     happy_ntfy_topic = {
       rekeyFile = ../../../../secrets/store/ntfy_topic.age;

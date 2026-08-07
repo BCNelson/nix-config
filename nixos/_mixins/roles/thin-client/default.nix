@@ -23,9 +23,16 @@ in
     ./firmware.nix
     ../../hardware/emmc.nix
     # Reaching a headless appliance that lives on someone else's LAN is the
-    # whole point of having it on the tailnet. Costs ~35 MB in the closure and
-    # brings no agenix secret with it -- the role's ntfy autoconnect is guarded
-    # on thinClient, so tailscaled runs but you authenticate by hand once.
+    # whole point of having it on the tailnet, and the autoconnect script is
+    # what makes bringing one up remote-friendly: plug it in, the auth URL
+    # arrives as a phone notification, tap it, done. No console, no hunting for
+    # a DHCP lease, no password -- which matters because there are no
+    # authorized_keys anywhere on this fleet, so until a host is on the tailnet
+    # the only ways in are the console and a password.
+    #
+    # This is the one thing that gives a thin client an agenix secret (the ntfy
+    # topic), and so the one thing that costs a rekey per new host. That trade
+    # was made deliberately -- see "Rekeying" in docs/thin-clients.md.
     ../tailscale.nix
   ];
 
