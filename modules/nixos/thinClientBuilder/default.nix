@@ -162,6 +162,21 @@ in
       timerConfig = {
         OnBootSec = "20min";
         OnUnitActiveSec = cfg.refreshInterval;
+        # Without this the timer can end up with no next elapse at all, which
+        # is not a theoretical worry -- it happened on the first host and cost a
+        # bad install. Enabling the builder creates this unit on an already-
+        # running romeo, where boot+20min is long past and OnUnitActiveSec has
+        # no baseline because the service has never run. systemd reported
+        # NextElapseUSecMonotonic=infinity and the builder simply never fired,
+        # so the manifest kept advertising a stale closure that an installer
+        # then fetched and installed.
+        #
+        # OnActiveSec is measured from the timer unit's own activation, so a
+        # freshly created timer always has a next elapse. It also covers the
+        # other half of that gap: thin-client-build.service is WantedBy the
+        # trigger units, but that link is installed by the very rebuild that
+        # creates the service, too late for the run that installed it.
+        OnActiveSec = "5min";
         Persistent = true;
       };
       wantedBy = [ "timers.target" ];

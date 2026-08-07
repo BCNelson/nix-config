@@ -30,6 +30,11 @@ runs `nix eval`, and never runs `nixos-rebuild`.
 4. `thin-client-build.service` is `WantedBy=auto-update.service` and ordered
    `After=` it, so it fires the moment romeo's own rebuild finishes — not on the
    next timer tick. (A 6 h timer exists purely as a backstop.)
+
+   With one exception, which is the *first* host: see "Enabling the builder from
+   empty" below. In that one case step 4 does not happen and the manifest stays
+   stale, which is worse than it sounds — an installer will fetch whatever the
+   manifest advertises.
 5. For each thin client it runs `nix build`, signs and copies the closure into
    `/var/public-nix-cache` — the document root of the `nixcache.nel.family`
    vhost — and atomically writes
@@ -209,25 +214,45 @@ The disk persists across runs, so an interrupted rehearsal resumes with
 form if you want different limits; `thinInstallTest` is just that with the thin
 client's numbers filled in.
 
-### The swap prompt does nothing on the unencrypted path
+### The swap prompt
 
 `install-system` asks for a swap size and passes it to disko as
-`--arg swapSize`, but `disko/default.nix` takes `{ disk, ... }` and never reads
-it: the argument is swallowed by the ellipsis and root takes 100% of what is
-left after the 1 GB ESP. Only `disko/luks.nix` declares `swapSize` and creates a
-swap partition.
+`--arg swapSize`, and `disko/default.nix` reads it: the file takes
+`{ disk, swapSize ? "0G", ... }` and creates a swap partition whenever the value
+is not `"0G"`, with root taking 100% of what is left after the 1 GB ESP.
 
-So an unencrypted thin client has **no on-disk swap at all**, during the install
-or afterwards. zram is not a supplement to it, it is the whole of it. That is
-survivable -- and on an eMMC with limited write cycles, arguably preferable --
-and it no longer has to carry an agenix-rekey run, since that moved off the
-thin client entirely.
+There is not much room to play with. `pkgs/install-system/src/swap.rs` refuses
+sizes that cannot fit, holding back a 5 GB floor for root — enough for the
+running generation, the one being fetched, and a third to roll back to. On an
+8 GB eMMC that is ~7 GiB once measured honestly, so after the ESP the realistic
+choice is 0-1 GB. The floor is a considered figure rather than a measurement:
+nobody has watched an update fail at 4 GB.
 
-### Rekeying happens on a workstation, never on the thin client
+This did not always work. The argument used to be swallowed by the ellipsis, so
+an unencrypted host got no on-disk swap at all and zram was the whole of it.
+zram is still enabled and still carries the install itself, which now runs
+before any swap partition exists.
 
-`install-system --thin` does not rekey. It used to offer FIDO2 or `--dummy`;
-both are gone, because both were wrong.
+### Rekeying: there is nothing to rekey
 
+`install-system --thin` does not rekey, and does not need to. A thin client
+declares no agenix secrets at all, so **CI passes on the install branch with no
+human step in the middle** — push, open the PR, merge.
+
+```
+# on the thin client -- pushes install-delta-1, then sits in its polling loop
+install-system --thin delta-1
+
+# open the PR, let CI pass, merge. auto-update advances -> romeo builds
+# -> the thin client's poll finds the manifest and finishes on its own
+```
+
+The installer says so on the way past. If you give a thin client something that
+*does* declare a secret, that assumption breaks and its build will fail until
+you rekey from a workstation with the security key — which is why the notice is
+printed rather than left silent.
+
+Rekeying on the thin client itself is not merely skipped, it is impossible.
 agenix-rekey evaluates every host in the flake, which forces a local build of
 `nixpkgs-patched` — `applyPatches` over `patches/`, which is in no binary cache.
 On the installer ISO the nix store *is* RAM: `/nix/store` is an overlay whose
@@ -237,26 +262,9 @@ marker both in hung-task reports, 26 minutes of no progress and no OOM kill to
 end it. Raising the tmpfs size does not help — the store growing *is* the memory
 being consumed.
 
-`--dummy` avoided the livelock but produced placeholder secrets you had to redo
-from a workstation anyway, so it bought nothing except a false sense of progress.
-
-So there is a human step in the middle:
-
-```
-# on the thin client -- pushes install-wyse-1, then sits in its polling loop
-install-system --thin wyse-1
-
-# on a workstation, with the security key
-git fetch && git checkout install-wyse-1
-just rekey
-git add secrets/hosts && git commit -m 'rekey wyse-1' && git push
-
-# now CI can pass -> merge -> auto-update advances -> romeo builds
-# -> the thin client's poll finds the manifest and finishes on its own
-```
-
-**CI fails on the branch until you rekey**, because it builds every host and this
-one has no secrets yet. That is expected, not a broken build.
+An earlier `--dummy` mode avoided the livelock but produced placeholder secrets
+you had to redo from a workstation anyway, so it bought nothing except a false
+sense of progress. Both it and the FIDO2 path are gone.
 
 ### Note on the ISO
 
@@ -271,6 +279,38 @@ store layer with `size=4G,nr_inodes=0`. All three matter:
   nixpkgs source trees is tens of thousands of tiny files, so without
   `nr_inodes=0` you get "No space left on device" at 24% of bytes used with
   700 MB of RAM still free. That one cost a debugging cycle.
+
+## Enabling the builder from empty
+
+An empty `hosts/thin-clients.nix` disables the builder outright, via the
+`lib.mkIf (thinClients != [ ])` in `nixos/romeo/services/thinClientBuilder.nix`.
+Going from empty back to one host used to leave it enabled but never running,
+and that combination installed a four-hour-old closure onto a real machine.
+
+Both halves of the trigger missed:
+
+- `thin-client-build.service` is `WantedBy=auto-update.service`, but that link
+  is installed by the same rebuild that creates the unit. systemd resolves
+  `Wants=` when a unit *starts*, and `auto-update.service` was already running.
+  Its activation log started only `thin-client-build.timer`.
+- The timer then computed no next elapse at all —
+  `NextElapseUSecMonotonic=infinity`. On a host with real uptime `OnBootSec` is
+  long past, and `OnUnitActiveSec` has no baseline until the service has run
+  once.
+
+`OnActiveSec` in the timer now closes this: it is measured from the timer unit's
+own activation, so a freshly created timer always has a next elapse. The first
+build lands a few minutes after the enabling rebuild rather than immediately.
+
+If you are in a hurry, or on a romeo that predates that fix, poke it:
+
+```
+systemctl start thin-client-build      # on romeo
+```
+
+Either way, **check the manifest's commit before letting an installer take it**.
+A stale `status: "ready"` is indistinguishable from a fresh one to anything that
+is not comparing commits.
 
 ## Operating notes
 
