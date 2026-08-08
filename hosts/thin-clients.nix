@@ -7,7 +7,18 @@
 # `install-system --thin` appends to this list. The thin-client role asserts
 # that its own hostname appears here, so the list and the host's imports cannot
 # silently drift apart -- CI catches it via the per-host build check.
+# An empty list disables the builder on romeo entirely -- see the
+# `lib.mkIf (thinClients != [ ])` in nixos/romeo/services/thinClientBuilder.nix
+# -- so the machinery stays in place, dormant, until a host is added back.
+#
+# Going from empty to one host does NOT start a build on its own, which has
+# already cost one bad install. The WantedBy=auto-update.service link is
+# installed by the very rebuild that creates the unit, so it arrives too late
+# for the run that installed it; and the timer computes no next elapse until the
+# service has been active once (OnBootSec has long passed on a host with real
+# uptime, and OnUnitActiveSec has no baseline). Until that is fixed, after the
+# first host lands run `systemctl start thin-client-build` on romeo, or the
+# manifest stays stale and an installer will happily fetch the old closure.
 [
   "wyse-1"
-  "wyse-2"
 ]

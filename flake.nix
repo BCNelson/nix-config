@@ -145,7 +145,6 @@
 
       hosts = {
         # INSERT_NEW_HOST_CONFIG_HERE
-        "wyse-2" = libx.mkHost { hostname = "wyse-2"; usernames = [ "bcnelson" ]; };
         "wyse-1" = libx.mkHost { hostname = "wyse-1"; usernames = [ "bcnelson" ]; };
         "qilin-1" = libx.mkHost { hostname = "qilin-1"; usernames = [ "bcnelson" "ldporter" ]; desktop = "kde6"; };
         "xray-3" = libx.mkHost { hostname = "xray-3"; usernames = [ "bcnelson" "hlnelson" ]; desktop = "kde6"; };

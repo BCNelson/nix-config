@@ -5,11 +5,13 @@
 # The workstation toolkit -- fish with plugins, atuin, direnv, bat and its
 # extras, and the modern-unix replacements. Roughly 4.7 GiB per user, which is
 # why thin clients get thin.nix instead. Dispatched from ./default.nix.
+#
+# tmux is deliberately not here. It used to be, but bcnelson moved to herdr, and
+# this file is shared by every user -- so rather than have one user's choice
+# decide the other's, the import now lives in each user's own config. See
+# ../../hlnelson/default.nix.
 
 {
-  imports = [
-    ../programs/tmux.nix
-  ];
   home = {
     # A Modern Unix experience
     # https://jvns.ca/blog/2022/04/12/a-list-of-new-ish--command-line-tools/
@@ -48,6 +50,8 @@
       #   quilt # Terminal patch manager
       ripgrep # Modern Unix `grep`
       tldr # Modern Unix `man`
+      yazi # Modern Unix `ranger` -- also the "files" tab of the herdr workspace
+      #        layout, see ../../bcnelson/_mixins/herdr/core.nix
       #   tokei # Modern Unix `wc` for code
       #   wget # Terminal downloader
       #   yq-go # Terminal `jq` for YAML

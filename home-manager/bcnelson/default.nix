@@ -8,6 +8,13 @@ in
   imports = [
     ../_mixins/console
   ]
+  # herdr replaced tmux for this user, and it is the session persistence on
+  # every machine now -- not just the ones worked at directly. `herdr --remote
+  # <target>` starts a herdr server on the far end, so a box is only reachable
+  # that way if it carries herdr's config too. Thin clients are the exception:
+  # they keep tmux (see nixos/common.nix) because a login there is for reading a
+  # journal, not for holding a session.
+  ++ lib.optional (!thinClient) ./_mixins/herdr/core.nix
   ++ lib.optional (builtins.pathExists ./${hostnamePrefix}.nix) ./${hostnamePrefix}.nix
   ++ lib.optional (builtins.pathExists ./${hostname}.nix) ./${hostname}.nix
   ++ lib.optional (builtins.isString desktop) ./desktop.nix;

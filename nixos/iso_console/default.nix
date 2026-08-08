@@ -8,6 +8,9 @@ in
     [
       # Include the results of the hardware scan.
       ../_mixins/roles/tailscale.nix
+      # The thin clients this ISO installs boot it off USB and install onto
+      # eMMC, which is invisible without these modules.
+      ../_mixins/hardware/emmc.nix
     ];
 
   environment.systemPackages = [
