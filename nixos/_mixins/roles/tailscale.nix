@@ -36,9 +36,30 @@
       # TODO: make the ssh key configurable
       ${tailscale}/bin/tailscale up --ssh &
       tail_pid=$!
-      sleep 2
-      auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r .AuthURL)"
-      kill $tail_pid
+
+      # Wait for the auth URL to exist rather than assuming two seconds is
+      # enough. tailscaled has to reach the control plane and register a pending
+      # node before .AuthURL is populated, and until then the field is present
+      # but an empty string -- so a fixed sleep silently yields "".
+      #
+      # That is not a harmless miss. An empty url= makes ntfy reject the whole
+      # request with 400 "Parameter URL is required for action view", so the
+      # notification is not delivered at all and the URL reaches nobody. The
+      # `// empty` also normalises a JSON null, which -r would otherwise hand
+      # back as the literal string "null".
+      auth_url=""
+      for _ in $(seq 1 60); do
+          auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r '.AuthURL // empty')"
+          [ -n "$auth_url" ] && break
+          sleep 1
+      done
+      kill $tail_pid 2>/dev/null || true
+
+      if [ -z "$auth_url" ]; then
+          echo "tailscaled produced no auth URL after 60s, so there is nothing to send."
+          echo "Authenticate this host manually with: tailscale up --ssh"
+          exit 1
+      fi
 
       NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
 
@@ -64,9 +85,14 @@
           exit 0
       fi
 
-      echo "Sending notification to ntfy channel $auth_url"
-      echo "NTFY_TOKEN" $NTFY_TOKEN
-      ${curl}/bin/curl -H "X-Title: Tailscale Login: $HOSTNAME" \
+      # Deliberately does not echo the topic. It is an agenix secret, and the
+      # journal is not a place to put one -- it was being printed in full on
+      # every run.
+      echo "Sending tailscale auth URL to ntfy: $auth_url"
+      # -f so an HTTP error is a unit failure rather than a silent success. The
+      # 400 above looked like a working notification from systemd's point of
+      # view, which is how it went unnoticed.
+      ${curl}/bin/curl -fsS -H "X-Title: Tailscale Login: $HOSTNAME" \
           -H "X-Priority: 4" \
           -H "X-Actions: action=view, label=Open URL, url=$auth_url, clear=true" \
           -H "X-Click: $auth_url" \
