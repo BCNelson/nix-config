@@ -19,7 +19,15 @@
     wantedBy = [ "multi-user.target" ];
 
     # set this service as a oneshot job
-    serviceConfig.Type = "oneshot";
+    serviceConfig = {
+      Type = "oneshot";
+      # The script now blocks on `wait` until someone approves the login, so
+      # the default 90s would kill it -- and killing it is precisely the bug
+      # being fixed. Half an hour is long enough to walk to a phone and short
+      # enough that an unattended host eventually gives up and reports failed
+      # rather than sitting activating forever.
+      TimeoutStartSec = "30min";
+    };
 
     # have the job run this shell script
     script = with pkgs; ''
@@ -48,18 +56,20 @@
       # `// empty` also normalises a JSON null, which -r would otherwise hand
       # back as the literal string "null".
       auth_url=""
-      for _ in $(seq 1 60); do
+      for i in $(seq 1 60); do
           auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r '.AuthURL // empty')"
           [ -n "$auth_url" ] && break
           sleep 1
       done
-      kill $tail_pid 2>/dev/null || true
 
       if [ -z "$auth_url" ]; then
           echo "tailscaled produced no auth URL after 60s, so there is nothing to send."
           echo "Authenticate this host manually with: tailscale up --ssh"
+          kill $tail_pid 2>/dev/null || true
           exit 1
       fi
+
+      echo "auth URL appeared after ''${i}s"
 
       NTFY_TOKEN=$(cat ${config.age.secrets.ntfy_topic.path})
 
@@ -81,24 +91,39 @@
           echo "ntfy topic is a placeholder, so no notification was sent."
           echo "Authenticate this host by opening:"
           echo "    $auth_url"
-          echo "(or run: tailscale up --ssh)"
-          exit 0
+      else
+          # Deliberately does not echo the topic. It is an agenix secret, and
+          # the journal is not a place to put one -- it was being printed in
+          # full on every run.
+          echo "Sending tailscale auth URL to ntfy: $auth_url"
+          # -f so curl treats an HTTP error as failure; the 400 that lost the
+          # first notification looked like success without it. Handled rather
+          # than fatal, though: this script runs under `set -e`, and failing
+          # here would tear down the login below over a missed notification.
+          if ! ${curl}/bin/curl -fsS -H "X-Title: Tailscale Login: $HOSTNAME" \
+              -H "X-Priority: 4" \
+              -H "X-Actions: action=view, label=Open URL, url=$auth_url, clear=true" \
+              -H "X-Click: $auth_url" \
+              -H "X-Icon: https://tailscale.com/favicon.ico" \
+              -d "There has been a Request to login to your tailscale network: $auth_url" \
+              https://ntfy.sh/$NTFY_TOKEN; then
+              echo "WARNING: ntfy notification failed. The auth URL above is still valid."
+          fi
       fi
 
-      # Deliberately does not echo the topic. It is an agenix secret, and the
-      # journal is not a place to put one -- it was being printed in full on
-      # every run.
-      echo "Sending tailscale auth URL to ntfy: $auth_url"
-      # -f so an HTTP error is a unit failure rather than a silent success. The
-      # 400 above looked like a working notification from systemd's point of
-      # view, which is how it went unnoticed.
-      ${curl}/bin/curl -fsS -H "X-Title: Tailscale Login: $HOSTNAME" \
-          -H "X-Priority: 4" \
-          -H "X-Actions: action=view, label=Open URL, url=$auth_url, clear=true" \
-          -H "X-Click: $auth_url" \
-          -H "X-Icon: https://tailscale.com/favicon.ico" \
-          -d "There has been a Request to login to your tailscale network: $auth_url" \
-          https://ntfy.sh/$NTFY_TOKEN
+      # Wait for the login instead of killing it. This used to `kill $tail_pid`
+      # as soon as the URL was read, which is what left the first thin client
+      # off the tailnet entirely: `tailscale up` is blocking *because* the
+      # interactive login is bound to its LocalAPI connection, so killing the
+      # client cancels the context tailscaled is registering under -- the
+      # "context canceled" in its log -- and the pending node never completes.
+      #
+      # Being oneshot, this unit's children die with it, so returning early
+      # would do the same thing by another route. Hence a single wait covering
+      # both the notified and placeholder paths: the unit stays activating
+      # until the URL is approved, and TimeoutStartSec ends it if nobody does.
+      echo "Waiting for the login to be approved."
+      wait $tail_pid
     '';
   };
   # Network manager should not manage tailscale0 interface
