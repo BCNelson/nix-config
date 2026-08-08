@@ -120,6 +120,11 @@ let
   #   libation-cli set-status
   libation-cli = pkgs.writeShellScriptBin "libation-cli" ''
     set -eu
+    # Seed Settings.json first. libationcli refuses to run without it ("Cannot
+    # find settings files") and will not create it itself, so otherwise every
+    # ad-hoc command -- including the login-external needed to bootstrap the
+    # account -- fails on a host where the service has not run yet.
+    /run/wrappers/bin/sudo -u libation ${applySettings}
     exec /run/wrappers/bin/sudo -u libation \
       env LIBATION_FILES_DIR=${libationFiles} HOME=${libationFiles} \
       ${cli} "$@"
