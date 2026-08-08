@@ -96,7 +96,13 @@ in
   # The binary and config.toml come from ./core.nix, which every non-thin host
   # takes. What is left in this file is the agent-integration layer, which only
   # makes sense where agents are actually launched by hand.
-  imports = [ ./core.nix ];
+  #
+  # ./web.nix sits on this side of that split for the same reason: the browser
+  # bridge is only worth running where there are agent panes to drive.
+  imports = [
+    ./core.nix
+    ./web.nix
+  ];
 
   # The hook silently exits 0 without python3 on PATH, taking session
   # resume-after-restart with it.
