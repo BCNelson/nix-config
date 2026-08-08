@@ -56,6 +56,28 @@ let
 
     FileDownloadQuality = "High";
     LogLevel = "Information";
+
+    # Without this Libation writes no log file at all, which makes its own
+    # "Error processing book ... See log for more details" a dead end -- the
+    # journal only ever shows that one line. The detail that actually names the
+    # failure (an expired token, a decrypt error) lives here.
+    #
+    # Sierra's copy pins the sink hook to "Version=13.7.0.0"; omitting it keeps
+    # this from breaking the next time nixpkgs bumps Libation.
+    Serilog = {
+      MinimumLevel = "Information";
+      WriteTo = [{
+        Name = "File";
+        Args = {
+          path = "${libationFiles}/Log.log";
+          rollingInterval = "Month";
+          outputTemplate =
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] (at {Caller}) {Message:lj}{NewLine}{Exception}";
+        };
+      }];
+      Using = [ "Dinah.Core" "Serilog.Exceptions" ];
+      Enrich = [ "WithCaller" "WithExceptionDetails" ];
+    };
   };
 
   settingsJson = pkgs.writeText "libation-settings.json" (builtins.toJSON settings);
@@ -138,21 +160,49 @@ in
       # booksDir is bcnelson:media 0777; joining media keeps new files readable
       # by audiobookshelf without widening anything.
       SupplementaryGroups = [ "media" ];
+      # systemd-analyze flags this as world-readable and it stays anyway: new
+      # files are group-owned by libation, so audiobookshelf (uid 99, gid 100)
+      # can only read them via the world bit. 0077 would score better and make
+      # every liberated book unreadable to the thing that plays it.
       UMask = "0022";
       ExecStartPre = applySettings;
       ExecStart = liberate;
       # The first run after the migration has 175 un-liberated titles to fetch.
       TimeoutStartSec = "12h";
 
+      # Hardening. Scored with `systemd-analyze security` and each option
+      # exercised against a real libationcli scan under systemd-run before
+      # landing, because a sandbox that only fails on the first timer run is
+      # worse than no sandbox.
+      #
+      # Deliberately absent:
+      #   MemoryDenyWriteExecute -- the .NET JIT maps W+X and dies without it.
+      #   ProcSubset=pid         -- .NET sizes the GC heap off /proc/meminfo.
+      #   PrivateNetwork         -- the whole job is talking to Audible.
+      #   IPAddressDeny          -- Audible/CDN egress has no stable IP set.
       NoNewPrivileges = true;
+      CapabilityBoundingSet = [ "" ];
+      AmbientCapabilities = [ "" ];
       PrivateTmp = true;
       PrivateDevices = true;
+      ProtectClock = true;
       ProtectControlGroups = true;
       ProtectHome = true;
+      ProtectHostname = true;
+      ProtectKernelLogs = true;
       ProtectKernelModules = true;
       ProtectKernelTunables = true;
+      ProtectProc = "invisible";
       ProtectSystem = "strict";
+      RemoveIPC = true;
+      LockPersonality = true;
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
       RestrictSUIDSGID = true;
+      # AF_NETLINK because .NET enumerates interfaces via rtnetlink on startup.
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
+      SystemCallArchitectures = "native";
+      SystemCallFilter = [ "@system-service" "~@privileged" ];
       ReadWritePaths = [ libationFiles booksDir inProgressDir ];
     };
   };
