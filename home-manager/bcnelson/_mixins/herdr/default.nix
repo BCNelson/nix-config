@@ -99,10 +99,7 @@ in
   #
   # ./web.nix sits on this side of that split for the same reason: the browser
   # bridge is only worth running where there are agent panes to drive.
-  imports = [
-    ./core.nix
-    ./web.nix
-  ];
+  imports = [ ./core.nix ./mirror.nix ./web.nix ];
 
   # The hook silently exits 0 without python3 on PATH, taking session
   # resume-after-restart with it.

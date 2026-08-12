@@ -95,12 +95,22 @@ in
 {
   imports = [ ../../../_mixins/services/config-merge.nix ];
 
+  # config-merge renders `settings` through `types.anything`, which refuses to
+  # merge two definitions of the same list rather than guess an order. So
+  # keys.command can only be written once, here -- and a mixin that wants its
+  # own binding (./mirror.nix) adds it through this instead.
+  options.local.herdr.extraCommandKeys = lib.mkOption {
+    type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
+    default = [ ];
+    description = "Extra herdr `[[keys.command]]` entries, appended to the ones below.";
+  };
+
   # `settings` is deliberately left empty: the home-manager module would write
   # config.toml as a read-only symlink, but herdr's Settings tab rewrites that
   # same file. config-merge owns it instead (below).
-  programs.herdr.enable = true;
+  config.programs.herdr.enable = true;
 
-  services.config-merge.herdr = {
+  config.services.config-merge.herdr = {
     live = "${config.xdg.configHome}/herdr/config.toml";
 
     # herdr's server caches config.toml at startup, so rewriting the file on
@@ -175,7 +185,8 @@ in
           width = "80%";
           height = "80%";
         }
-      ];
+      ]
+      ++ config.local.herdr.extraCommandKeys;
 
       ui = {
         agent_panel_sort = "spaces";
