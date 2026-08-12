@@ -28,4 +28,5 @@ pkgs: rec {
   don = pkgs.callPackage ./don { };
   cli-proxy-api = pkgs.callPackage ./cli-proxy-api { };
   herdr-mirror = pkgs.callPackage ./herdr-mirror { };
+  herdr-web = pkgs.callPackage ./herdr-web { };
 }

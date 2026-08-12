@@ -1,0 +1,46 @@
+name: Check herdr-web
+
+# Runs ONLY when herdr-web's own packaging changes. Deliberately NOT triggered
+# on flake.lock, so routine nixpkgs bumps don't re-run a build that vendors 275
+# crates and 400 npm packages.
+#
+# The version and src hash both live in pkgs/herdr-web, so a bump lands here
+# and nothing outside this directory needs to be watched.
+#
+# check-nix-config.yml only evaluates hosts (--dry-run), so nothing else in CI
+# ever compiles this package.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "pkgs/herdr-web/**"
+      - ".github/workflows/check-herdr-web.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "pkgs/herdr-web/**"
+      - ".github/workflows/check-herdr-web.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      # Building the package runs the bridge's cargo test suite in checkPhase.
+      - name: Build herdr-web (runs bridge tests)
+        run: nix build .#herdr-web -L --show-trace
