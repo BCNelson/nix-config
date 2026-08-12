@@ -27,4 +27,5 @@ pkgs: rec {
   robocode = pkgs.callPackage ./robocode.nix { };
   don = pkgs.callPackage ./don { };
   cli-proxy-api = pkgs.callPackage ./cli-proxy-api { };
+  herdr-mirror = pkgs.callPackage ./herdr-mirror { };
 }
