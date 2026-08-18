@@ -24,6 +24,7 @@ in {
     ./ollama.nix
     ./librechat.nix
     ./cli-proxy-api.nix
+    ./goose.nix
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
