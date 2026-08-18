@@ -1,4 +1,4 @@
-{ ... }:
+_:
 
 # Make eMMC storage visible -- to an installer running from live media, and to
 # the initrd of a system installed onto it.
