@@ -18,6 +18,7 @@
       ../_mixins/roles/kanidmClient.nix
       ../_mixins/roles/workstation.nix
       ./ollama.nix
+      ./goose-desktop.nix
     ];
   networking.firewall = {
     enable = true;
