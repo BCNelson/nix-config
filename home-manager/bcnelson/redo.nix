@@ -7,6 +7,7 @@
     ./_mixins/power-saver-refresh.nix
     ./_mixins/workstation.nix
     ./_mixins/programs/voxtype.nix
+    ./_mixins/programs/goose-desktop.nix
     ./_mixins/mcp/aws/support.nix
     ./_mixins/mcp/aws/cloudwatch.nix
     ./_mixins/mcp/datadog.nix
