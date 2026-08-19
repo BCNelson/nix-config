@@ -148,7 +148,11 @@ stdenv.mkDerivation (finalAttrs: {
 
     substituteInPlace $out/share/applications/goose.desktop \
       --replace-quiet "Exec=/usr/lib/goose/Goose" "Exec=$out/bin/goose-desktop" \
-      --replace-quiet "Exec=goose" "Exec=goose-desktop"
+      --replace-quiet "Exec=goose" "Exec=goose-desktop" \
+      `# The deb points Icon= at its own /usr/share/pixmaps, which exists on` \
+      `# neither a NixOS host nor under a home-manager profile. A bare theme` \
+      `# name resolves through XDG_DATA_DIRS to the pixmap installed above.` \
+      --replace-quiet "Icon=/usr/share/pixmaps/goose.png" "Icon=goose"
   '';
 
   # wrapGAppsHook3 would otherwise also wrap $out/lib/goose/Goose directly and
