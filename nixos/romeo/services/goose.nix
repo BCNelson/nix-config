@@ -253,36 +253,38 @@ in
         "${pkgs.goose}/bin/goose serve"
         "--host 127.0.0.1"
         "--port ${toString port}"
-        # `--allowed-origin` does not extend the default loopback origins, it
-        # *replaces* them (goose 1.45: "may be specified multiple times and
-        # replaces the default loopback origins"), so both origins that ever
-        # reach this daemon have to be listed here.
+        # `--allowed-origin` replaces the default loopback origins rather than
+        # extending them (goose 1.45: "may be specified multiple times and
+        # replaces the default loopback origins"), so every origin that reaches
+        # this daemon has to be named here.
         #
-        # https://${domain} is what a browser-based client sends. Goose Desktop
-        # sends something else, and not because of anything it connects to: its
-        # main process installs an unconditional
+        # file:// is the one that makes the desktop client work, and it is not
+        # the origin the app appears to use. Goose Desktop's renderer loads from
+        # file://...app.asar/.vite/renderer/main_window/index.html, and Chromium
+        # derives a WebSocket handshake's Origin from the document, so the ACP
+        # upgrade arrives carrying exactly `Origin: file://`.
+        #
+        # Its main process does install
         #
         #   session.defaultSession.webRequest.onBeforeSendHeaders((d, cb) => {
         #     d.requestHeaders.Origin = "http://localhost:5173"; ... })
         #
-        # hook, so every request the app makes -- including the ACP WebSocket
-        # upgrade to this remote host -- is stamped with that literal string.
-        # The renderer itself loads from
-        # file://...app.asar/.vite/renderer/main_window/index.html, i.e. its real
-        # origin is null; nothing listens on 5173 and nothing is contacted there.
-        # It is a constant left over from the Vite dev server that this allowlist
-        # has to match textually. Verified against goose-desktop 1.45.0 on
-        # redo-3, both in its own main.log and against a header-logging stand-in
-        # for this endpoint.
+        # -- a leftover from its Vite dev server -- but Electron's webRequest
+        # hooks do not apply to WebSocket handshakes. Only the app's two plain
+        # fetches (GET /status and a single non-upgrade GET /acp) carry that
+        # value, and neither is origin-gated: both answered 200 and 406 while
+        # localhost:5173 was not allowed. Allowing it therefore fixes nothing,
+        # which is how 366c2eb deployed cleanly and changed nothing.
         #
-        # Naming only the vhost is why the desktop reported "Unable to connect
-        # to Goose server" while everything else looked healthy: GET /status
-        # is unauthenticated and returned 200, and the secret was correct, but
-        # the upgrade to /acp?token=... was answered 403 by the CORS check
-        # before goose ever logged it. Verified on romeo that with both origins
-        # allowed the upgrade returns 101 and an unlisted origin still gets 403.
+        # Captured from goose-desktop 1.45.0 on redo-3 against a stand-in that
+        # logs headers and completes the upgrade, then confirmed against a
+        # throwaway goosed on romeo: with file:// listed the real client holds
+        # an open WebSocket, and an unlisted origin still gets 403.
+        #
+        # https://${domain} is kept for browser-based ACP clients, which do send
+        # the vhost origin.
         "--allowed-origin https://${domain}"
-        "--allowed-origin http://localhost:5173"
+        "--allowed-origin file://"
       ];
       Restart = "on-failure";
       RestartSec = "10s";
