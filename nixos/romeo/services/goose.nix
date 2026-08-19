@@ -253,9 +253,36 @@ in
         "${pkgs.goose}/bin/goose serve"
         "--host 127.0.0.1"
         "--port ${toString port}"
-        # Default CORS origins are loopback only, so the nginx-fronted origin
-        # has to be named explicitly or browser-based clients are rejected.
+        # `--allowed-origin` does not extend the default loopback origins, it
+        # *replaces* them (goose 1.45: "may be specified multiple times and
+        # replaces the default loopback origins"), so both origins that ever
+        # reach this daemon have to be listed here.
+        #
+        # https://${domain} is what a browser-based client sends. Goose Desktop
+        # sends something else, and not because of anything it connects to: its
+        # main process installs an unconditional
+        #
+        #   session.defaultSession.webRequest.onBeforeSendHeaders((d, cb) => {
+        #     d.requestHeaders.Origin = "http://localhost:5173"; ... })
+        #
+        # hook, so every request the app makes -- including the ACP WebSocket
+        # upgrade to this remote host -- is stamped with that literal string.
+        # The renderer itself loads from
+        # file://...app.asar/.vite/renderer/main_window/index.html, i.e. its real
+        # origin is null; nothing listens on 5173 and nothing is contacted there.
+        # It is a constant left over from the Vite dev server that this allowlist
+        # has to match textually. Verified against goose-desktop 1.45.0 on
+        # redo-3, both in its own main.log and against a header-logging stand-in
+        # for this endpoint.
+        #
+        # Naming only the vhost is why the desktop reported "Unable to connect
+        # to Goose server" while everything else looked healthy: GET /status
+        # is unauthenticated and returned 200, and the secret was correct, but
+        # the upgrade to /acp?token=... was answered 403 by the CORS check
+        # before goose ever logged it. Verified on romeo that with both origins
+        # allowed the upgrade returns 101 and an unlisted origin still gets 403.
         "--allowed-origin https://${domain}"
+        "--allowed-origin http://localhost:5173"
       ];
       Restart = "on-failure";
       RestartSec = "10s";
