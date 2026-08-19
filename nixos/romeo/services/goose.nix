@@ -4,6 +4,25 @@ let
   domain = "goose.h.b.nel.family";
   stateDir = "/var/lib/goose";
 
+  # Reaching this vhost from off-LAN was a DNS problem, not an nginx one. nginx
+  # already answers on romeo's tailscale interface -- it binds 0.0.0.0, and a
+  # tailnet peer arrives with its own 100.64/10 source address, which the
+  # allowlist below accepts unchanged. What was missing is that
+  # *.h.b.nel.family is a wildcard CNAME to the public A record, so a roaming
+  # client egressed over its WAN and got denied.
+  #
+  # Fixed in DNS rather than here: goose.h.b.nel.family is an explicit CNAME to
+  # romeo.b.nel.family (A 100.76.49.168, romeo's tailnet address). An exact name
+  # beats the wildcard, so every other *.h.b.nel.family service is untouched.
+  # LAN clients never follow it -- romeo's unbound has an "h.b.nel.family"
+  # redirect local-zone answering 192.168.3.7 first (see ../unbound.nix).
+  #
+  # This holds only while nothing else claims 443 on the tailnet address.
+  # `tailscale serve` intercepts its configured ports inside tailscaled's
+  # netstack, ahead of the host socket, and hard-fails any SNI that is not the
+  # node's *.ts.net name. ./ollama.nix used to hold 443 that way; its Serve unit
+  # was removed rather than moved, since nothing ever consumed it.
+
   # goose resolves every path through XDG, not $HOME (verified against 1.45.0:
   # `goose info` follows XDG_CONFIG_HOME/XDG_DATA_HOME/XDG_STATE_HOME and
   # ignores a $HOME override). Everything therefore hangs off StateDirectory.
@@ -277,6 +296,9 @@ in
       client_max_body_size 0;
       #Allow access from Tailscale network
       allow 100.64.0.0/10;
+      # romeo.b.nel.family carries an AAAA too, so a client following the CNAME
+      # can arrive over the tailnet's ULA range; without this it would be denied.
+      allow fd7a:115c:a1e0::/48;
       #Allow access from local network
       allow 192.168.0.0/16;
       deny all;

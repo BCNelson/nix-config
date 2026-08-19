@@ -337,6 +337,19 @@ resource "porkbun_dns_record" "wildcard_poseidon_b_nel_family-CNAME" {
   type    = "CNAME"
   content = "public.poseidon.b.nel.family"
 }
+# goose.h.b      CNAME  romeo.b.nel.family.
+# Explicit name so it beats the *.h.b wildcard above, which would otherwise
+# point it at the public ingress (66.118.47.137). romeo.b is romeo's tailnet
+# address, and goose's nginx vhost only admits tailnet/LAN sources -- a roaming
+# client egressing over its WAN was getting a 403. LAN clients never reach this
+# record: romeo's unbound answers h.b.nel.family with 192.168.3.7 first.
+resource "porkbun_dns_record" "goose_h_b_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "goose.h.b"
+  type    = "CNAME"
+  content = "romeo.b.nel.family"
+}
+
 # *.romeo.b      CNAME  romeo.b.nel.family.
 resource "porkbun_dns_record" "wildcard_romeo_b_nel_family-CNAME" {
   domain  = "nel.family"

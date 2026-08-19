@@ -35,27 +35,17 @@
     SupplementaryGroups = [ "render" "video" ];
   };
 
-  # Without --bg, `tailscale serve` owns the proxy for this process lifetime.
-  # Stopping Ollama or Tailscale therefore also removes the Tailnet endpoint.
-  systemd.services.tailscale-ollama-serve = {
-    description = "Expose Ollama through Tailscale Serve";
-    wantedBy = [ "multi-user.target" ];
-    wants = [ "network-online.target" "tailscale-autoconnect.service" ];
-    after = [
-      "network-online.target"
-      "tailscaled.service"
-      "tailscale-autoconnect.service"
-      "ollama.service"
-    ];
-    requires = [ "tailscaled.service" "ollama.service" ];
-    bindsTo = [ "tailscaled.service" "ollama.service" ];
-    partOf = [ "tailscaled.service" "ollama.service" ];
-
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = "${pkgs.unstable.tailscale}/bin/tailscale serve 11434";
-      Restart = "on-failure";
-      RestartSec = "5s";
-    };
-  };
+  # No `tailscale serve` here on purpose. It used to publish 11434 on the
+  # tailnet, but `tailscale serve <port>` defaults to HTTPS 443, and Serve
+  # intercepts its ports inside tailscaled's netstack ahead of the host socket
+  # -- so it answered every SNI on romeo's tailnet address with the node's
+  # *.ts.net cert and made nginx unreachable there for every vhost.
+  # ../services/goose.nix needs 443 to fall through to nginx.
+  #
+  # Nothing was lost. Every consumer talks to ollama over loopback
+  # (librechat.nix, tendant.nix, goose.nix all use http://127.0.0.1:11434), and
+  # the tailnet endpoint never worked anyway: ollama rejects any request whose
+  # Host is not localhost, so it returned 403 to everything Serve forwarded.
+  # If remote access is ever wanted, give it an nginx vhost with the usual
+  # allow 100.64.0.0/10 + proxy_set_header Host 127.0.0.1.
 }
