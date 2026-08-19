@@ -18,3 +18,9 @@ pkgs/*/target
 repomix-output.txt
 # Go build output (pkgs/devenv-mcp)
 pkgs/devenv-mcp/devenv-mcp
+
+# agenix-rekey writes each rekeyed secret into a .tmp.agenix-rekey.<name>.<rand>/
+# directory under the host's storage dir and moves it into place on success. An
+# interrupted `just rekey` leaves one behind; committing it would put a stray
+# copy of a secret in the tree under a name nothing reads.
+.tmp.agenix-rekey.*

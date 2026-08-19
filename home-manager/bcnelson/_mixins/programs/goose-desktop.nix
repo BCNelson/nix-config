@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, pkgs, ... }:
 let
   # romeo's ACP endpoint, same URL sierra uses. goose.h.b.nel.family is an
   # explicit CNAME to romeo.b.nel.family (A 100.76.49.168, romeo's tailnet
@@ -14,17 +14,18 @@ let
   # attach to an existing goosed instead of spawning its own, and the app
   # refuses to start without GOOSE_SERVER__SECRET_KEY when it is set.
   #
-  # redo-3 is a non-NixOS host managed by standalone home-manager, so there is
-  # no agenix here to decrypt romeo's key into /run/agenix -- agenix-rekey only
-  # covers nixosConfigurations. The key is therefore read at launch from a file
-  # the user places once, out of band:
+  # This used to be a file the user placed here by hand, because standalone
+  # home-manager has no agenix. It is now agenix-managed like everywhere else:
+  # redo-3's system-manager config declares the secret against the same rekeyFile
+  # romeo and sierra use, and decrypts it here at activation. See
+  # ../../../../system-manager/redo-3.nix and
+  # ../../../../system-manager/_mixins/agenix.nix.
   #
-  #   install -Dm600 /dev/null ~/.config/goose/server-secret-key
-  #   # paste the value from romeo:/run/agenix/goose-server-secret-key
-  #
-  # Reading it at launch (rather than --set) also keeps it out of the
-  # world-readable store, which is why sierra does the same.
-  secretFile = "${config.xdg.configHome}/goose/server-secret-key";
+  # Hardcoded rather than read from config.age.secrets: this is a home-manager
+  # module and the secret is declared on the system-manager side, which
+  # home-manager cannot see. It is agenix's default secretsDir, and the
+  # system-manager mixin leaves that default alone.
+  secretFile = "/run/agenix/goose-server-secret-key";
 
   goose-desktop-romeo = pkgs.runCommand "goose-desktop-romeo"
     {
@@ -38,7 +39,7 @@ let
       --set GOOSE_EXTERNAL_BACKEND_URL "${backendUrl}" \
       --run 'if [ ! -r "${secretFile}" ]; then
                echo "goose-desktop: missing ${secretFile}" >&2
-               echo "Copy romeo:/run/agenix/goose-server-secret-key into it (mode 0600)." >&2
+               echo "Run: systemctl status agenix-install-secrets" >&2
                exit 1
              fi' \
       --run 'export GOOSE_SERVER__SECRET_KEY="$(cat "${secretFile}")"'

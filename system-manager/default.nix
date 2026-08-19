@@ -8,6 +8,7 @@
     ../contrib/system-manager-sysusers/module.nix
     ./_mixins/qmk.nix
     ./_mixins/uinput.nix
+    ./_mixins/agenix.nix
   ];
 
   config = {

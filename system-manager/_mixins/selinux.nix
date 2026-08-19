@@ -4,6 +4,9 @@ let
   bootstrapSentinel = "/var/lib/system-manager/nix-store-selinux-bootstrapped";
   versionState = "/var/lib/system-manager/nix-store-selinux.sha256";
   unconfinedContext = "system_u:system_r:unconfined_t:s0";
+  # Defined by pkgs/nix-store-selinux.nix. Scoped to reading the SSH host key
+  # and managing its own secrets tmpfs -- see the agenix block below.
+  agenixContext = "system_u:system_r:agenix_t:s0";
   # useradd_t is the targeted policy's domain for useradd/usermod/userdel; it
   # has scoped rules to manage shadow_t, passwd_file_t, and group_t. Much
   # tighter than unconfined_t. Safe to use only for a binary that sets its own
@@ -204,6 +207,34 @@ in
             ExecStart = "${relabelAccountFiles}";
           };
         };
+      })
+      # agenix decrypts with the host's SSH host key, and /etc/ssh/ssh_host_*_key
+      # is sshd_key_t -- a type the targeted policy hands to sshd_t and very
+      # little else. As init_t the unit cannot even stat them, so its identity
+      # loop skipped every candidate and it exited with "no readable identity"
+      # rather than anything mentioning SELinux. Verified on redo-3:
+      #   AVC denied { read } ... name="ssh_host_ed25519_key"
+      #     scontext=system_u:system_r:init_t:s0 tcontext=...:sshd_key_t:s0
+      #
+      # This first shipped as unconfinedContext, which fixed the denial by
+      # handing a service that reads one file and writes a handful the run of
+      # the entire machine. agenix_t grants exactly the access the script needs
+      # and nothing else; the secrets it writes get their own agenix_secret_t
+      # so "can read a decrypted secret" stays expressible in policy rather
+      # than collapsing into "can read any tmpfs file".
+      #
+      # If a permission turns out to be missing the service fails closed and
+      # goose-desktop reports the missing file. To diagnose:
+      #   sudo semanage permissive -a agenix_t     # unblock temporarily
+      #   sudo ausearch -m AVC -ts recent | audit2allow
+      #   sudo semanage permissive -d agenix_t     # re-arm
+      #
+      # Kept here rather than in ./agenix.nix so that module stays portable to
+      # hosts without SELinux, matching every other SELinuxContext= above. The
+      # condition mirrors the `age.secrets != {}` guard on the unit itself, so
+      # the two have to stay in step.
+      (lib.mkIf (config.age.secrets != { }) {
+        agenix-install-secrets.serviceConfig.SELinuxContext = agenixContext;
       })
       (lib.mapAttrs'
         (name: _: lib.nameValuePair "home-manager-${name}" {

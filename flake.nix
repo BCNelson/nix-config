@@ -229,8 +229,17 @@
         };
       };
 
+      # system-manager hosts carry age.secrets too (see
+      # ./system-manager/_mixins/agenix.nix), and agenix-rekey only ever reads
+      # `config.age.rekey` and `config.age.secrets` off a node -- nothing
+      # NixOS-specific -- so passing their configs alongside the NixOS ones makes
+      # `just rekey` cover every host uniformly. `makeSystemConfig` returns the
+      # toplevel derivation with config in passthru; project just that attribute
+      # rather than handing agenix-rekey a derivation to walk.
       agenix-rekey = inputs.agenix-rekey.configure {
-        inherit (self) nixosConfigurations;
+        nixosConfigurations =
+          self.nixosConfigurations
+          // builtins.mapAttrs (_: cfg: { inherit (cfg) config; }) self.systemConfigs;
         userFlake = self;
       };
     };

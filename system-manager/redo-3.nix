@@ -3,6 +3,25 @@ _:
   config = {
     system-manager.allowAnyDistro = true;
 
+    # The same source file romeo and sierra use, so all three decrypt to the
+    # identical value -- agenix-rekey re-encrypts it per host, keyed to the host
+    # pubkey already registered in ../hosts/data/redo-3.nix (verified to match
+    # this machine's /etc/ssh/ssh_host_ed25519_key.pub).
+    #
+    # This replaces a file copied here by hand. That copy was invisible to
+    # `just rekey`: regenerating the secret on romeo -- it has a
+    # `generator.script` -- left redo-3 holding a stale value with no signal
+    # beyond goose-desktop failing to connect. Sharing the rekeyFile makes the
+    # two move together.
+    #
+    # owner is set because goose-desktop runs as bcnelson and reads the key at
+    # launch. See ../home-manager/bcnelson/_mixins/programs/goose-desktop.nix.
+    age.secrets.goose-server-secret-key = {
+      rekeyFile = ../nixos/romeo/services/secrets/goose_server_secret_key.age;
+      owner = "bcnelson";
+      mode = "0400";
+    };
+
     # bcnelson already exists on the host with matching UID/GID/groups, so
     # userborn would only churn /etc/passwd for no benefit and races with the
     # home-manager activation service that depends on a stable User= lookup.
