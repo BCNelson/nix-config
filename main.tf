@@ -484,6 +484,24 @@ resource "porkbun_dns_record" "social_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 
+# bot      CNAME  h.b.nel.family.   (Matrix homeserver on romeo)
+# server_name for the continuwuity instance in
+# nixos/romeo/services/matrix.nix, and therefore the suffix on every MXID.
+# Federation is enabled, so unlike the *.h.b names this has to be publicly
+# reachable: remote homeservers resolve it, fetch
+# https://bot.nel.family/.well-known/matrix/server, and are sent to
+# bot.nel.family:443 -- which is why port 8448 is never opened. Same public
+# ingress as social.nel.family above.
+#
+# LAN clients do not use this record: romeo's unbound RPZ answers
+# bot.nel.family with 192.168.3.7 (see nixos/romeo/unbound.nix).
+resource "porkbun_dns_record" "bot_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "bot"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 # nel.family apex -> ingress, so @user@nel.family webfinger/host-meta/nodeinfo
 # resolve for GoToSocial split-domain federation (account-domain = nel.family,
 # host = social.nel.family). Apex cannot be a CNAME; point at the ingress IP

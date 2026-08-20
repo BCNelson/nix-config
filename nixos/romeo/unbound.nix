@@ -9,6 +9,7 @@ let
       media.nel.family A 192.168.3.7
       nel.family A 192.168.3.7
       social.nel.family A 192.168.3.7
+      bot.nel.family A 192.168.3.7
       audiobooks.nel.family A 192.168.3.7
       changedetection.nel.family A 192.168.3.7
       rom.nel.family A 192.168.3.7

@@ -21,6 +21,7 @@ in {
     ./node-red.nix
     ./frigate.nix
     ./gotosocial.nix
+    ./matrix.nix
     ./ollama.nix
     ./librechat.nix
     ./cli-proxy-api.nix
