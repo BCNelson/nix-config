@@ -250,7 +250,43 @@ in {
     enableACME = true;
     acmeRoot = null;
     http2 = true;
-    extraConfig = "client_max_body_size ${toString maxRequestSizeMb}M;";
+    extraConfig = ''
+      client_max_body_size ${toString maxRequestSizeMb}M;
+
+      # Both of these exist because Element over HTTP/2 was losing ~17% of its
+      # requests to this vhost, and every lost one was a CORS preflight.
+      #
+      # Measured, by toggling network.http.http2.enabled in Firefox and
+      # comparing the same client's access-log status mix:
+      #   HTTP/2   -> 297x 200, 63x 499  (~17% failures)
+      #   HTTP/1.1 -> 104x 200,  2x 499  (~2%)
+      #
+      # The 499s land on OPTIONS, and the request the preflight was for is then
+      # never sent at all -- it has no remote address in devtools and never
+      # reaches nginx, so it looks like a CORS misconfiguration from the browser
+      # side. It is not: every response this server produces carries correct
+      # headers, including 401s and 404s.
+      #
+      # Since nginx 1.25.1 HTTP/2 connections are governed by these two
+      # directives rather than the removed http2_* ones (this host runs 1.30.4).
+      # The global keepalive_timeout is 65s, which is short next to the several
+      # minutes a browser will hold an idle h2 connection open. Firefox uses a
+      # separate connection for anonymous requests -- which is what preflights
+      # are -- so that connection sits idle between Element's bursts, nginx
+      # closes it at 65s, and the next preflight races into a connection that is
+      # already going away. HTTP/1.1 clients retry stale-connection failures
+      # transparently, which is why turning h2 off masked it.
+      #
+      # keepalive_requests is the same class of problem on a longer fuse: the
+      # default 1000 makes nginx recycle the connection with a GOAWAY, killing
+      # whatever is in flight. Element issues two requests per 30s sync plus
+      # bursts, so it gets there in a normal session.
+      #
+      # Scoped to this vhost deliberately -- nothing else on this host serves a
+      # client that preflights every request.
+      keepalive_timeout 300s;
+      keepalive_requests 100000;
+    '';
     locations."/" = {
       proxyPass = "http://127.0.0.1:${toString port}";
       # Client sync is a long poll (30s by default, and clients pick longer),
