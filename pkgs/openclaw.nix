@@ -150,6 +150,47 @@ in
       substituteInPlace extensions/memory-core/src/dreaming-narrative.ts \
         --replace-fail 'const NARRATIVE_TIMEOUT_MS = 60_000;' \
                        'const NARRATIVE_TIMEOUT_MS = 300_000;'
+
+      # Makes the SearXNG web_search provider exist at runtime. Without this the
+      # gateway starts clean and then reports, only once a config actually asks
+      # for it:
+      #   - tools.web.search.provider: web_search provider is not available:
+      #     searxng (configured plugin "searxng" is unavailable ...)
+      #   - plugins.entries.searxng: plugin not installed: searxng -- install
+      #     the @openclaw/searxng-plugin
+      # and every web_search call dies with "web_search is disabled or no
+      # provider is available".
+      #
+      # The plugin IS in-tree at extensions/searxng, which is what makes this
+      # confusing: unlike extensions/matrix, its source is shipped but never
+      # compiled. scripts/lib/bundled-plugin-build-entries.mjs gates the dist
+      # build on one line --
+      #   function shouldBuildBundledDistEntry(packageJson) {
+      #     return packageJson?.openclaw?.build?.bundledDist !== false;
+      #   }
+      # -- and searxng is one of the few extensions that opts out, because
+      # upstream ships it as an npm/ClawHub install (`openclaw plugins install
+      # @openclaw/searxng-plugin`) rather than as part of core. So `pnpm build`
+      # emits dist/extensions/{brave,duckduckgo,matrix,...} and no searxng, and
+      # the gateway only ever loads compiled plugins.
+      #
+      # `openclaw plugins install` is not an option here: Nix mode refuses every
+      # config- and plugin-mutating command by design (see the
+      # OPENCLAW_NIX_MODE note in nixos/romeo/services/openclaw.nix). Flipping
+      # the flag is the smallest fix that keeps this declarative -- the plugin
+      # then builds through the same tsdown path as the bundled brave and
+      # duckduckgo providers, which are the same shape.
+      #
+      # There is no env var for this. OPENCLAW_BUNDLED_PLUGIN_BUILD_IDS only
+      # narrows the set that bundledDist already admits and throws on an id it
+      # does not know, so it cannot be used to add one back.
+      #
+      # Bumping openclaw: --replace-fail means that if upstream starts building
+      # this plugin with core (flag flipped or removed), the build fails loudly
+      # here instead of silently patching nothing -- at which point delete this
+      # hunk rather than working around it.
+      substituteInPlace extensions/searxng/package.json \
+        --replace-fail '"bundledDist": false' '"bundledDist": true'
     '';
 
     buildInputs = [rolldown];
