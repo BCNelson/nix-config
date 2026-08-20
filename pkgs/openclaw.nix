@@ -112,6 +112,46 @@ in
       hash = finalAttrs.pnpmDepsHash;
     };
 
+    # The Dream Diary subagent turn is capped by a hardcoded constant, not by
+    # config or an env var -- upstream's only knob is editing this line. 60s was
+    # chosen against hosted APIs; it is too tight for the local ollama path on
+    # romeo, where the diary model is usually cold at 03:00 and has to be paged
+    # off disk into the B580 before it emits a token.
+    #
+    # Measured on romeo with the real narrative prompt (gemma4:12b, num_ctx
+    # 8192): 6.5s warm, 20-26s cold, and 46s cold with thinking enabled. The
+    # default path is the fast one -- the effective agent thinking level is
+    # "off" (embedded-agent-runner/compact.ts), which the ollama plugin forwards
+    # as think=false -- so 20-26s is the number to plan around. But that is a
+    # measurement on an otherwise idle GPU, and the sweep runs at 03:00 against
+    # the same B580 that serves interactive turns; a contended cold load can
+    # still cross a minute.
+    #
+    # Do NOT try to pin this with `params.think = false` on the model entry.
+    # extensions/ollama/src/stream.ts reads model.params.think only as a guard
+    # and never forwards it: setting it makes the runtime's own think=false stop
+    # being sent, so ollama falls back to the model default, which is thinking
+    # ON. It does the opposite of what it reads like.
+    #
+    # Blowing the timeout is not a hard failure, which is why it is easy to miss:
+    # appendFallbackNarrativeEntry writes a synthetic placeholder entry into
+    # DREAMS.md instead ("A memory trace surfaced, but details were
+    # unavailable in this run."), so the diary silently degrades to filler.
+    #
+    # 5 minutes is the cap because the sweep is a detached nightly cron job with
+    # nothing waiting on it -- there is no user-facing latency to protect, only
+    # the risk of a stalled subagent holding the job open, which the original
+    # comment on this constant is about. Three phases each waiting the full
+    # worst case is still bounded at 15 minutes on an idle box.
+    #
+    # Bumping openclaw: --replace-fail means a reworded or retuned upstream
+    # constant fails the build loudly rather than silently reverting to 60s.
+    postPatch = ''
+      substituteInPlace extensions/memory-core/src/dreaming-narrative.ts \
+        --replace-fail 'const NARRATIVE_TIMEOUT_MS = 60_000;' \
+                       'const NARRATIVE_TIMEOUT_MS = 300_000;'
+    '';
+
     buildInputs = [rolldown];
 
     nativeBuildInputs = [

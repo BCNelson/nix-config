@@ -18,6 +18,51 @@
       "deepseek-r1:7b"
       "deepseek-r1:8b"
       "deepseek-coder:6.7b"
+
+      # Embeddings, not chat. ../services/openclaw.nix points
+      # agents.defaults.memorySearch at this model so memory_search runs hybrid
+      # vector+BM25 recall instead of the keyword-only FTS fallback it gets with
+      # no embedding provider configured.
+      #
+      # nomic-embed-text rather than a stronger encoder because it is openclaw's
+      # own default for the ollama adapter (DEFAULT_OLLAMA_EMBEDDING_MODEL) and
+      # one of only three prefixes its embedding provider carries an asymmetric
+      # query template for -- it prepends "search_query: " to searches, which
+      # this model was trained to expect and which a generic endpoint would not
+      # do. The alternatives with templates are mxbai-embed-large (335M) and
+      # qwen3-embedding:0.6b; both are better encoders and both cost more of the
+      # B580's ~10.2 GiB, which gemma4:12b already occupies 8.4 GiB of. At ~0.3
+      # GiB this one coexists with a resident chat model instead of evicting it
+      # on every recall.
+      #
+      # NOT declared in openclaw's models.providers.ollama catalog: that list is
+      # the *chat* catalog and an entry there would put an embedding model in
+      # the agent's model picker. The embedding adapter reads the model name
+      # from memorySearch.model and only borrows the provider's baseUrl and key.
+      #
+      # Vulkan: verified clean on the B580, which was not a given. The
+      # corruption GGML_VK_DISABLE_ASYNC below works around was found by reading
+      # doubled words in generated text; a corrupted embedding has no such tell,
+      # it just retrieves badly. So it was measured instead, against a
+      # throwaway OLLAMA_VULKAN=0 server on 11435 sharing this model store:
+      #
+      #   B580 vs CPU, same text          cos 0.999996-0.999998 (F16 rounding)
+      #   B580 twice, same batch          cos 1.0 exactly (deterministic)
+      #   B580 batched vs one-at-a-time   cos 1.0 exactly
+      #   retrieval ranking B580 vs CPU   identical order, scores within 3e-4
+      #
+      # And DISABLE_ASYNC turns out NOT to be load-bearing here: a B580 server
+      # run with async submission left on matched CPU to the same 0.999996+.
+      # Consistent with the failure mode -- embedding is one forward pass with
+      # no iterative decode, so there is no token stream to interleave. Keep the
+      # workaround for generation; do not expect to need it for the index.
+      #
+      # Re-measure on ollama/mesa bumps the same way. Note that comparing two
+      # embeddings needs the index bound to a jq variable (`. as $i`) before
+      # indexing inside a cosine helper -- jq function args are closures
+      # evaluated against the callee's input, and getting that wrong silently
+      # returns a constant for every pair, which reads as a perfect match.
+      "nomic-embed-text"
     ];
     package = pkgs.ollama-vulkan;
     environmentVariables = {

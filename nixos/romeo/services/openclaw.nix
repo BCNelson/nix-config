@@ -325,6 +325,38 @@
     agents.defaults = {
       inherit workspace;
       model.primary = "cliproxy/gpt-5.5";
+
+      # What memory_search retrieves with. Unset, this defaults to OpenAI
+      # embeddings, finds no OPENAI_API_KEY, and quietly degrades to keyword-only
+      # BM25 -- which still answers, so nothing looks broken. It matters more
+      # than it sounds: dreaming's deep phase ranks promotion candidates on
+      # retrieval quality and query diversity (0.30 + 0.15 of the score), and
+      # both are measured from recall hits. Lexical-only recall means only
+      # material whose wording repeats exactly ever accumulates enough signal to
+      # reach MEMORY.md.
+      #
+      # `ollama` here is the built-in adapter, and it borrows baseUrl and apiKey
+      # from models.providers.ollama below -- there is no second endpoint to keep
+      # in sync. `model` is resolved by the embedding adapter directly and is
+      # deliberately absent from that provider's `models` catalog, which is the
+      # chat picker; see the note in ../ollama.nix for why nomic-embed-text.
+      #
+      # Failure mode to know about: an explicitly named non-`none` provider
+      # fails CLOSED. If ollama is down, memory_search returns "unavailable"
+      # rather than falling back to BM25. That is the right trade here (silent
+      # quality loss is worse than a visible error, and ollama.service is
+      # ordered before this unit), but it does mean an ollama outage is now a
+      # memory outage. `provider = "none"` is the deliberate FTS-only setting if
+      # that ever needs backing out.
+      #
+      # Changing provider, model, chunking or scope invalidates the SQLite
+      # vector index. openclaw does not silently re-embed -- it pauses vector
+      # search and reports an index identity warning until
+      # `openclaw memory index --force` is run.
+      memorySearch = {
+        provider = "ollama";
+        model = "nomic-embed-text";
+      };
     };
 
     # Matrix is how this thing reaches me: DMs in, notifications and cron job
@@ -441,6 +473,83 @@
     # only surface that can ever enable a plugin -- `openclaw plugins enable`
     # is refused -- so the intent is stated where it can actually be acted on.
     plugins.entries.matrix.enabled = true;
+
+    # Dreaming: nightly background consolidation of the agent's own memory.
+    #
+    # What it actually does, because the name oversells it: one cron sweep runs
+    # three phases (light -> REM -> deep) and only deep writes anything durable.
+    # Deep ranks accumulated short-term recall signals on six weighted scores
+    # (relevance 0.30, frequency 0.24, query diversity 0.15, recency 0.15,
+    # consolidation 0.10, conceptual richness 0.06) and appends what clears
+    # minScore 0.8 / minRecallCount 3 / minUniqueQueries 3 to MEMORY.md, capped
+    # at 10 per sweep with a 14-day recency half-life and a 30-day max age.
+    #
+    # That ranking is plain deterministic TypeScript -- no model is consulted
+    # about what deserves to be remembered. The ONLY model-driven part is the
+    # Dream Diary, up to three short prose entries per sweep written into
+    # DREAMS.md for human reading. Diary text is explicitly excluded from
+    # promotion, so `model` below is a prose-quality knob and nothing more.
+    #
+    # Two things that would otherwise look like Nix-mode problems and are not:
+    # the managed cron job lives in the state sqlite, not openclaw.json, so
+    # memory-core can create it without touching the read-only config; and the
+    # cron payload is an agentTurn carrying a sentinel string that memory-core
+    # intercepts before it reaches a model, so the sweep itself costs no tokens.
+    #
+    # Worth watching: MEMORY.md is injected into every session bootstrap and
+    # this agent has shell access on romeo, so an auto-promoted entry is durable
+    # instruction context. channels.matrix's dm allowlist above is what bounds
+    # who can seed the material. Review DREAMS.md and `openclaw memory promote`
+    # (preview, no --apply) before trusting the pipeline unattended.
+    plugins.entries.memory-core = {
+      # memory-core is the default memory backend and would load anyway; stated
+      # for the same reason the matrix entry above is -- in Nix mode this file
+      # is the only surface that can enable a plugin at all.
+      enabled = true;
+
+      # The trust gate for `dreaming.model`. Plugin-initiated subagent runs may
+      # not choose their own model unless an operator opts in, and the allowlist
+      # narrows that opt-in to exactly the one model the diary is meant to use
+      # rather than handing memory-core a blank cheque against cliproxy.
+      subagent = {
+        allowModelOverride = true;
+        allowedModels = ["ollama/gemma4:12b"];
+      };
+
+      config.dreaming = {
+        enabled = true;
+
+        # Local, and that is the point. Unset, the diary inherits
+        # agents.defaults.model.primary and ships memory fragments -- the most
+        # personal text this host holds -- through cli-proxy-api to ChatGPT
+        # every night, on subscription quota, to write poetry.
+        #
+        # gemma4:12b over the faster qwen3.5 line on measured instruction
+        # following, not vibes. Against the real narrative prompt on this GPU,
+        # qwen3.5:9b and :4b both opened with "The dream began/felt ..." -- the
+        # prompt forbids exactly that meta-commentary -- while gemma4:12b held
+        # every constraint including the 80-180 word range (139 words). Cost of
+        # the swap is throughput: 32.5 tok/s vs 49.6 and 72.1, which does not
+        # matter for 140 words at 03:00.
+        #
+        # Timing on romeo: 6.5s warm, 20-26s cold. Cold is the common case for
+        # the first phase of a sweep and it competes with whatever else the B580
+        # is doing, which is why ../../../pkgs/openclaw.nix raises the diary
+        # subagent timeout from 60s to 5 minutes -- overrunning it is not an
+        # error, it silently writes placeholder filler into DREAMS.md instead.
+        #
+        # 8.4 GiB resident of the B580's ~10.2 GiB, which is why ../ollama.nix
+        # pairs it with the ~0.3 GiB nomic-embed-text rather than a larger
+        # encoder: both stay loaded instead of evicting each other nightly.
+        model = "ollama/gemma4:12b";
+
+        # Default cadence, but the timezone is NOT default -- unset, the cron
+        # expression is evaluated in UTC, so "0 3 * * *" would fire at 20:00
+        # local and the "daily" lookback windows would straddle local days.
+        frequency = "0 3 * * *";
+        timezone = "America/Denver";
+      };
+    };
 
     # `/pair qr` has to embed a URL the phone can actually reach. The gateway
     # only knows it is bound to 127.0.0.1, so without this it refuses outright:
