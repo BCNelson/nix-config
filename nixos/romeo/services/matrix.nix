@@ -146,6 +146,20 @@ in {
       allow_federation = true;
       allow_encryption = true;
 
+      # Upstream defaults this to the transgender pride flag, which conduwuit
+      # appends to the displayname of every account at creation -- which is why
+      # both accounts here came out as "<localpart> <flag emoji>". It is a
+      # deliberate upstream statement and not a bug, but it is upstream's
+      # statement to make on their server, not a decoration this host wants
+      # silently stamped onto its own users' identities. Empty removes it.
+      #
+      # This applies at CREATION time only. It does not rewrite accounts that
+      # already exist -- those two were fixed once, by hand, over the client
+      # API (PUT /_matrix/client/v3/profile/{mxid}/displayname), because
+      # continuwuity exposes no admin command to set a displayname and so there
+      # is nothing admin_execute could do about it.
+      new_user_displayname_suffix = "";
+
       # Makes the create-user commands idempotent. Without this, the *second*
       # boot fails: the command errors with "Username is not available." and
       # (by default) that is fatal, so the homeserver refuses to start because
