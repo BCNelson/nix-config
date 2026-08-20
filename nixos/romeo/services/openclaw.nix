@@ -9,28 +9,12 @@
   stateDir = "/var/lib/openclaw";
   workspace = "${stateDir}/workspace";
 
-  # nixpkgs marks openclaw insecure: it parses untrusted content with an LLM
-  # while holding full access to the system, so prompt injection is a
-  # design-level exposure rather than a fixable CVE. That risk is real, and the
-  # systemd sandbox below is what actually bounds it -- this override only stops
-  # the marker from blocking evaluation.
-  #
-  # Done here rather than via nixpkgs.config.permittedInsecurePackages for two
-  # reasons. First, that option is inert on this host: flake-utils-plus builds
-  # `pkgs` from the channel and assigns nixpkgs.pkgs, so module-level
-  # nixpkgs.config never reaches the package set (../nixarr.nix has the same
-  # latent problem). Setting it in flake.nix `channelsConfig` would work but
-  # would permit the package on every host to fix one service on romeo. Second,
-  # permittedInsecurePackages matches name-with-version, so it would need a
-  # manual edit on every nixpkgs bump; this override tracks the version by
-  # construction, which matters on a host that auto-updates.
-  #
-  # Do NOT reach for nixpkgs.config.allowInsecurePredicate as an alternative --
-  # check-meta treats predicate and list as an if/else-if chain, so defining a
-  # predicate silently disables permittedInsecurePackages elsewhere in the host.
-  openclaw = pkgs.openclaw.overrideAttrs (o: {
-    meta = o.meta // {knownVulnerabilities = [];};
-  });
+  # pkgs/openclaw.nix, not nixpkgs' openclaw: nixpkgs tracks the 2026.6
+  # maintenance line, which never received the `/pair qr` "Media failed" fix
+  # (openclaw/openclaw#97933). The `additions` overlay shadows the nixpkgs
+  # attribute, so `pkgs.openclaw` here is ours. Version, hashes and the reason
+  # for dropping the insecure marker are all documented there.
+  openclaw = pkgs.openclaw;
 
   # OPENCLAW_NIX_MODE is what makes this file, rather than the running daemon,
   # the source of truth. Without it openclaw treats openclaw.json as mutable and

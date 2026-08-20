@@ -30,4 +30,5 @@ pkgs: rec {
   herdr-mirror = pkgs.callPackage ./herdr-mirror { };
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };
+  openclaw = pkgs.callPackage ./openclaw.nix { };
 }
