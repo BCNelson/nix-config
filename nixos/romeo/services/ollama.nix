@@ -12,6 +12,8 @@
       "qwen3.5:2b"
       "qwen3.5:4b"
       "qwen3.5:9b"
+      "gemma4:12b"
+      "gemma4:12b-it-qat"
       "deepseek-r1:1.5b"
       "deepseek-r1:7b"
       "deepseek-r1:8b"
