@@ -9,6 +9,32 @@
   stateDir = "/var/lib/openclaw";
   workspace = "${stateDir}/workspace";
 
+  # One-time seed for MEMORY.md, seen only if the file does not already exist --
+  # see the long note on systemd.tmpfiles.rules below for why it has to exist at
+  # all and why it must not be re-asserted on every rebuild.
+  #
+  # Written as a single line with literal backslash-n escapes because that is
+  # what a tmpfiles argument is: the rest of the line, C-unescaped. Real
+  # newlines here would terminate the rule. Percent signs would be taken as
+  # tmpfiles specifiers, so there are none.
+  #
+  # Content is deliberately about *how to use the file* rather than facts. It
+  # gives the indexer a non-empty chunk to work with, and it gives the agent the
+  # curation contract it would otherwise have to infer -- MEMORY.md stays
+  # compact and durable, detail belongs in dated notes under memory/.
+  memorySeed = lib.concatStringsSep "\\n" [
+    "# Memory"
+    ""
+    "Durable, curated facts for this agent: standing preferences, decisions, and"
+    "context that should be true at the start of every session. This file is"
+    "injected into the bootstrap prompt on every turn, so keep it compact."
+    ""
+    "Working detail -- observations, session summaries, anything dated -- belongs"
+    "in `memory/YYYY-MM-DD.md` instead. Those are searchable via `memory_search`"
+    "but are not injected on every turn. Distil what proves durable up into this"
+    "file and drop what has gone stale."
+  ];
+
   # Read back out of the NixOS module rather than repeated as a literal, so
   # ../searxng.nix stays the single source of truth for where SearXNG listens and
   # a port change there cannot leave this file pointing at a closed socket. See
@@ -362,6 +388,77 @@
       memorySearch = {
         provider = "ollama";
         model = "nomic-embed-text";
+
+        # What actually gets indexed. `memory` is the default and covers
+        # MEMORY.md plus memory/*.md; `sessions` adds session transcripts and
+        # is gated behind the experimental flag below -- naming one without the
+        # other silently does nothing.
+        #
+        # Transcript hits are additionally filtered by tools.sessions.visibility,
+        # which is left at its default `tree`: a session may recall itself and
+        # anything it spawned, but not unrelated sessions. Widening that to
+        # `agent` is what the docs suggest for "ask in a DM about something the
+        # gateway did", and it is deliberately NOT done here -- it would make
+        # every past transcript on this host recallable from a Matrix DM, which
+        # is a much larger blast radius than the memory files this agent curates
+        # on purpose. Revisit once there is a reason to.
+        sources = ["memory" "sessions"];
+        experimental.sessionMemory = true;
+
+        # Indexing triggers. Every value here is the upstream default, restated
+        # because Nix mode makes this file the only surface that can ever change
+        # them and because the watcher is the load-bearing path for a daemon:
+        # the agent writes MEMORY.md mid-session, and without `watch` the new
+        # text would not be searchable until the next session start.
+        #
+        # intervalMinutes stays 0 (no periodic sweep) precisely because watch +
+        # onSearch already cover it; a timer would only re-embed unchanged text.
+        sync = {
+          onSessionStart = true;
+          onSearch = true;
+          watch = true;
+          watchDebounceMs = 1500;
+          intervalMinutes = 0;
+
+          # Only consulted because `sources` includes sessions, above. Defaults,
+          # restated for the same reason as the rest of this block.
+          sessions = {
+            deltaBytes = 100000;
+            deltaMessages = 50;
+            postCompactionForce = true;
+          };
+        };
+
+        query.hybrid = {
+          # MMR de-duplicates the result set before injection. Worth turning on
+          # here specifically because of how this corpus is built: dreaming
+          # promotes to MEMORY.md from repeated recall hits, so the same fact
+          # tends to exist as a daily note in memory/ AND as a promoted line in
+          # MEMORY.md. Without MMR both chunks score well on the same query and
+          # burn two of the six result slots saying one thing.
+          #
+          # lambda 0.7 is the upstream default and stays relevance-weighted; 0
+          # would maximise diversity at the cost of returning weaker hits.
+          mmr = {
+            enabled = true;
+            lambda = 0.7;
+          };
+
+          # Recency boost, and the reason it is safe to enable: evergreen files
+          # are exempt. MEMORY.md and undated files in memory/ are never
+          # decayed, so curated long-term facts do not rot out of the results
+          # -- only dated memory/YYYY-MM-DD.md notes and session transcripts do,
+          # which is the intent (a note about last month's deploy should lose to
+          # this week's).
+          #
+          # 30 days matches the default and is deliberately longer than
+          # dreaming's own 14-day recency half-life: promotion should be eager
+          # about what is currently hot, retrieval should be slower to forget.
+          temporalDecay = {
+            enabled = true;
+            halfLifeDays = 30;
+          };
+        };
       };
     };
 
@@ -557,6 +654,100 @@
       };
     };
 
+    # Active memory: a blocking recall pass in front of every eligible reply.
+    #
+    # What it does, and why it is not the same thing as memory_search: without
+    # this, the agent only consults memory when the *model* decides to call the
+    # tool, which for a conversational DM is rarely. Active memory runs a hidden
+    # sub-agent on each turn, lets it call only the recall tools, and appends
+    # whatever it finds as system context before the main model answers. When
+    # the connection is weak the sub-agent returns NONE and the turn proceeds
+    # untouched, so the failure mode is "no memory", not "wrong memory".
+    #
+    # It is bundled (dist/extensions/active-memory), so as with matrix and
+    # searxng a config block is the whole activation story -- no install step,
+    # which Nix mode would refuse anyway.
+    #
+    # Two gates must both pass for it to run at all: this config must target the
+    # agent id, AND the session must be an eligible interactive persistent chat.
+    # Headless runs, heartbeats and sub-agent execution never trigger it, so the
+    # nightly dreaming sweep and cron payloads are unaffected.
+    plugins.entries.active-memory = {
+      enabled = true;
+
+      # Same trust gate as memory-core above, for the same reason: `config.model`
+      # is a plugin-initiated subagent model override, which is refused unless an
+      # operator opts in. Scoped to exactly the one model rather than left open.
+      subagent = {
+        allowModelOverride = true;
+        allowedModels = ["ollama/qwen3.5:4b"];
+      };
+
+      config = {
+        enabled = true;
+        agents = ["main"];
+
+        # Direct messages only. Every conversation this agent has arrives as a
+        # Matrix DM from the ownerMxids allowlist above, so `direct` covers the
+        # real traffic; group and channel would have to be opted in explicitly
+        # and there is nothing to opt in yet.
+        allowedChatTypes = ["direct"];
+
+        # Local, and for the same reason dreaming.model is. Left unset this
+        # inherits agents.defaults.model.primary -- cliproxy/gpt-5.5 -- which
+        # would ship recalled memory fragments off-box on *every DM turn*,
+        # a far heavier leak than dreaming's once-nightly diary. Pinning it
+        # keeps the whole recall path on romeo's GPU.
+        #
+        # qwen3.5:4b rather than the gemma4:12b dreaming uses, because this one
+        # is blocking and the trade is inverted. Dreaming writes prose at 03:00
+        # where 26s is free; this runs in front of a human waiting for a reply,
+        # and the task is much easier -- read recall output, decide relevant or
+        # NONE, write <=220 chars. 4b at ~3 GiB also coexists with the 0.3 GiB
+        # nomic-embed-text encoder without evicting it, which matters because
+        # the encoder is what serves the very memory_search this sub-agent calls.
+        model = "ollama/qwen3.5:4b";
+
+        # Never reached in normal operation -- it applies only if the pinned
+        # model above fails to resolve at all. Named as another local model
+        # rather than a hosted one so the privacy property survives that case
+        # instead of silently falling back to cliproxy.
+        modelFallback = "ollama/qwen3.5:2b";
+
+        # `recent` is upstream's recommended starting point: the sub-agent sees
+        # the current message plus a couple of prior turns, which is what makes
+        # pronouns and follow-ups ("what about that one?") resolvable into a
+        # useful memory query. `message` is faster but loses exactly that.
+        queryMode = "recent";
+        promptStyle = "balanced";
+
+        # timeoutMs is the recall-work budget only. setupGraceTimeoutMs covers
+        # cold start separately, and it is not optional here: ollama evicts
+        # idle models, so the first DM after a quiet stretch pays a model load
+        # before any recall work begins. Without the grace that load eats the
+        # entire budget and the first recall of every conversation returns
+        # empty. Worst-case blocking time is timeoutMs + grace + 3s.
+        timeoutMs = 15000;
+        setupGraceTimeoutMs = 30000;
+
+        # Default. The summary is injected into the prompt on every turn, so
+        # this is a running context-budget cost, not a one-off.
+        maxSummaryChars = 220;
+
+        # On while this is new -- it is the only way to see NONE-vs-hit
+        # decisions without holding `/trace on` in a live conversation. Turn off
+        # once the tuning has settled.
+        logging = true;
+
+        # Deliberately off. These transcripts contain the hidden prompt context
+        # AND the recalled memories, they accumulate one file per turn, and
+        # `sources` above now indexes session transcripts -- so persisting them
+        # would feed active memory's own output back into the corpus it
+        # searches. Enable only for a bounded debugging session.
+        persistTranscripts = false;
+      };
+    };
+
     # Web search. Without this block the agent cannot look anything up: the
     # `web_search` tool is enabled by default, but with no provider configured it
     # has nothing to call.
@@ -692,9 +883,39 @@ in {
   # and `doctor` invocation. See the note on openclawAdmin above.
   environment.systemPackages = [openclaw openclawAdmin];
 
+  # The last two rules are what make memory work at all, and their absence was
+  # not obvious from anything that looked like an error.
+  #
+  # openclaw's memory corpus is just Markdown in the workspace: MEMORY.md for
+  # curated long-term facts (injected into every session bootstrap) and
+  # memory/YYYY-MM-DD.md for dated working notes. Onboarding writes AGENTS.md,
+  # SOUL.md and friends but does NOT create either of these -- they are supposed
+  # to appear the first time the agent writes one. That never happened here, and
+  # the resulting state was quietly broken rather than loud:
+  #
+  #   Indexed: 0/0 files - 0 chunks
+  #   Index identity: index metadata is missing
+  #   Vector search: paused until memory is rebuilt
+  #   Issues: memory directory missing (~/workspace/memory)
+  #
+  # With an empty corpus every layer above it degrades silently. memory_search
+  # has nothing to return, so it looks like the agent simply has no memory.
+  # Dreaming runs its sweep nightly on schedule and promotes nothing, because
+  # promotion ranks *recall hits* and there is nothing to hit. And a `memory/`
+  # that does not exist means the agent's own attempts to save a dated note fail
+  # on the write rather than creating the directory.
+  #
+  # `f` creates only when absent and never truncates, so the seed text below is
+  # a one-time bootstrap: once the agent (or dreaming) starts editing MEMORY.md,
+  # rebuilds leave it alone. That is deliberate -- this file is agent-owned
+  # state, and Nix's job here is to make sure it exists, not to own its content.
+  # The seed is not just a placeholder either: an empty file indexes as zero
+  # chunks, which leaves the index identity unwritten and vector search paused.
   systemd.tmpfiles.rules = [
     "d ${stateDir} 0700 openclaw openclaw -"
     "d ${workspace} 0750 openclaw openclaw -"
+    "d ${workspace}/memory 0750 openclaw openclaw -"
+    "f ${workspace}/MEMORY.md 0640 openclaw openclaw - ${memorySeed}"
   ];
 
   systemd.services.openclaw = {
