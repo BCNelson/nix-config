@@ -14,7 +14,7 @@
   # (openclaw/openclaw#97933). The `additions` overlay shadows the nixpkgs
   # attribute, so `pkgs.openclaw` here is ours. Version, hashes and the reason
   # for dropping the insecure marker are all documented there.
-  openclaw = pkgs.openclaw;
+  inherit (pkgs) openclaw;
 
   # OPENCLAW_NIX_MODE is what makes this file, rather than the running daemon,
   # the source of truth. Without it openclaw treats openclaw.json as mutable and
@@ -134,8 +134,48 @@
         ];
     };
 
+    # ../ollama.nix on this same host, reached over loopback exactly like every
+    # other consumer (librechat.nix, tendant.nix, goose.nix). The model list is
+    # deliberately absent: openclaw discovers it live from the daemon, so
+    # `services.ollama.loadModels` stays the single source of truth for which
+    # models exist and this file never has to be kept in sync with it.
+    #
+    # Discovery queries /api/tags for the catalog and /api/show per model for
+    # capabilities, which is strictly better than a hand-written list -- it
+    # picks up the real context windows (262k on the qwen3.5 line, 131k on
+    # deepseek-r1, 16k on deepseek-coder), the `vision` capability that makes
+    # the qwen3.5 models accept image attachments, and the `tools` capability
+    # that deepseek-coder:6.7b lacks. Verified with
+    # `openclaw models list --provider ollama`.
+    #
+    # Adding a non-empty `models` array here would switch openclaw to that
+    # array and disable discovery entirely, so leave it out unless a model has
+    # to be described in a way /api/show cannot express.
+    #
+    # Fields that only work on the explicit path are likewise omitted: on the
+    # discovery path openclaw returns the *discovered* provider and does not
+    # merge this block into it, so `timeoutSeconds` or per-model `params`
+    # (e.g. keep_alive) would be silently dropped rather than applied. They
+    # need the explicit `models` array to take effect.
+    models.providers.ollama = {
+      # No /v1 suffix. That path selects openclaw's OpenAI-compatible mode,
+      # where upstream documents tool calling as unreliable -- models emit raw
+      # tool-call JSON as assistant text instead. The bare origin selects the
+      # native /api/chat API, which is what `api = "ollama"` below pins.
+      baseUrl = "http://127.0.0.1:11434";
+      # A documented non-secret marker, not a credential: the ollama plugin
+      # lists "ollama-local" in its nonSecretAuthMarkers, and openclaw accepts
+      # it for loopback/LAN/.local hosts instead of reporting a missing key.
+      # Safe in the world-readable store for the same reason -- ollama itself
+      # is unauthenticated on loopback, so there is nothing here to leak.
+      apiKey = "ollama-local";
+      # Redundant against the built-in provider default, but stated so a future
+      # upstream change of default cannot quietly move this onto the /v1 path.
+      api = "ollama";
+    };
+
     agents.defaults = {
-      workspace = workspace;
+      inherit workspace;
       model.primary = "cliproxy/gpt-5.5";
     };
 
@@ -233,8 +273,12 @@ in {
   systemd.services.openclaw = {
     description = "OpenClaw gateway";
     wantedBy = ["multi-user.target"];
-    wants = ["network-online.target" "cli-proxy-api.service"];
-    after = ["network-online.target" "cli-proxy-api.service"];
+    # ollama.service is ordered but not required: the gateway starts fine
+    # without it and simply discovers an empty ollama catalog, which would
+    # leave `ollama/*` refs unresolvable until something re-triggers discovery.
+    # Ordering after it makes the catalog populated on a clean boot.
+    wants = ["network-online.target" "cli-proxy-api.service" "ollama.service"];
+    after = ["network-online.target" "cli-proxy-api.service" "ollama.service"];
 
     environment = {
       OPENCLAW_NIX_MODE = "1";
@@ -242,6 +286,23 @@ in {
       OPENCLAW_STATE_DIR = stateDir;
       OPENCLAW_WORKSPACE_DIR = workspace;
       HOME = stateDir;
+
+      # Required, and not obviously so: the `apiKey = "ollama-local"` in the
+      # provider block above is enough for catalog *discovery*, but the agent
+      # resolves the credential for an actual turn out of its own auth store
+      # and falls back to this env var, not to provider config. Without it the
+      # models list fine and every turn dies with
+      #   No API key found for provider "ollama". Auth store:
+      #   /var/lib/openclaw/agents/main/agent/openclaw-agent.sqlite
+      # Not a secret -- see the marker note on models.providers.ollama.apiKey.
+      #
+      # Side effect worth knowing: the bundled ollama plugin declares this same
+      # env var for its `ollama-cloud` provider, so setting it also makes four
+      # hosted models (kimi-k2.5, minimax-m2.7, glm-5.1, glm-5.2) appear in the
+      # catalog as authenticated. They are not: ollama.com rejects the local
+      # marker, so selecting one fails the turn rather than silently shipping a
+      # prompt off-box. Cosmetic noise in the picker, nothing more.
+      OLLAMA_API_KEY = "ollama-local";
     };
 
     # The agent shells out; give it the same modest toolset goose.nix does
