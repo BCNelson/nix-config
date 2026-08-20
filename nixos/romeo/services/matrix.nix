@@ -249,36 +249,39 @@ in {
     forceSSL = true;
     enableACME = true;
     acmeRoot = null;
-    # HTTP/1.1 only, deliberately, and this is the one setting here that was
-    # arrived at by measurement rather than reasoning.
+    # HTTP/2 is on, with a known and deliberately accepted caveat: Firefox
+    # loses roughly a sixth of its requests to this vhost over h2. Chrome does
+    # not. Measured on this host, same vhost, same minute:
     #
-    # Element over HTTP/2 loses a sixth of its requests to this vhost. Same
-    # client, same session, same server -- only the protocol differs:
+    #   Chrome   HTTP/2     35x 200,  0x 499
+    #   Firefox  HTTP/2     55x 200,  3x 499     (~15% over a longer sample)
+    #   Firefox  HTTP/1.1   51x 200,  0x 499
     #
-    #   HTTP/2                          297x 200, 63x 499   (~17% lost)
-    #   HTTP/2 + keepalive tuning       127x 200, 21x 499   (~14% lost)
-    #   HTTP/1.1                        104x 200,  2x 499   (~2%)
+    # The server is not at fault, and that was established rather than assumed:
+    #   - curl over h2 against this vhost: 120 requests at 24-way concurrency,
+    #     and a real 30s blocking /sync long-poll sharing the connection with
+    #     30 short requests -- zero failures on either.
+    #   - every other vhost on this host is clean over h2 from the same Firefox;
+    #     every 499 from that browser lands here.
+    #   - every response continuwuity produces carries correct CORS headers,
+    #     including on 401 and 404.
     #
-    # nginx logs 499 (client closed before the response), and the request the
-    # client was making is then never retried: it has no remote address in
-    # devtools and never appears here again, so the browser reports it as
-    # "CORS request did not succeed" with a null status. That is a lie of
-    # abstraction -- every response continuwuity produces carries correct CORS
-    # headers, on 200, 401 and 404 alike, and a request that reaches it always
-    # gets one. The failures are connections dying, not headers missing.
+    # nginx logs the failures as 499 (client closed before the response) and the
+    # request is never retried, so Firefox reports "CORS request did not
+    # succeed" with a null status and no remote address. That symptom is deeply
+    # misleading -- it sent the original investigation through DNS-over-HTTPS,
+    # Local Network Access, aborted preflights and keepalive tuning before a
+    # second browser settled it. If this resurfaces, check the protocol and the
+    # browser before touching anything here.
     #
-    # The middle row is the failed fix: raising keepalive_timeout to 300s and
-    # keepalive_requests to 100000 (nginx 1.30.4 governs h2 with those since
-    # 1.25.1) moved almost nothing, which rules out connection lifetime as the
-    # cause. What is actually going wrong between Firefox and nginx's h2 stack
-    # here is still unidentified.
+    # Raising keepalive_timeout to 300s and keepalive_requests to 100000 was
+    # tried and moved almost nothing (~17% -> ~14%), which rules out connection
+    # lifetime; those directives are gone rather than kept as cargo.
     #
-    # So this trades multiplexing on one internal vhost for a client that
-    # works. HTTP/1.1's stale-connection retry is decades old and handles
-    # whatever this is transparently. Revisit if nginx or Firefox changes; the
-    # test is one toggle of network.http.http2.enabled and a status count in
-    # this access log.
-    http2 = false;
+    # Workaround for a Firefox session, if one is ever needed: set
+    # network.http.http2.enabled = false in about:config, which drops this host
+    # to HTTP/1.1 and makes the failures disappear.
+    http2 = true;
     extraConfig = "client_max_body_size ${toString maxRequestSizeMb}M;";
     locations."/" = {
       proxyPass = "http://127.0.0.1:${toString port}";
