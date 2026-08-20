@@ -338,6 +338,30 @@
       enabled = true;
       homeserver = "https://${matrixServerName}";
 
+      # Without this the channel never starts. It dies immediately with
+      #   channel exited: Blocked: resolves to private/internal/special-use IP
+      #   address
+      # then auto-restarts on a doubling backoff and gives up after 10 tries,
+      # leaving the gateway healthy and the channel silently dead.
+      #
+      # The guard is an SSRF protection: openclaw resolves the homeserver name
+      # and refuses private ranges unless the account opts in. bot.nel.family is
+      # a *public* name, but romeo's own unbound answers it with 192.168.3.7 --
+      # the split-horizon hairpin from ../unbound.nix -- so the guard sees a
+      # LAN address and blocks. Nothing about the name being public helps; the
+      # check is on the resolved address.
+      #
+      # "dangerously" is aimed at the case where a prompt-injected agent picks
+      # the homeserver, which cannot happen here: the value is pinned in this
+      # file and Nix mode forbids the gateway rewriting it. Upstream documents
+      # exactly this setting for LAN/Tailscale/internal homeservers
+      # (docs/channels/matrix.md, "Private/LAN homeservers").
+      #
+      # Same class of exemption as models.providers.cliproxy's
+      # request.allowPrivateNetwork above, for the same reason: the service
+      # being talked to is on this host.
+      network.dangerouslyAllowPrivateNetwork = true;
+
       # Password auth rather than a pasted access token, which is the whole
       # reason for self-hosting: ./matrix.nix creates this account *from* this
       # password, so declaring the account and configuring the client are the
