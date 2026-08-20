@@ -154,6 +154,39 @@
       workspace = workspace;
       model.primary = "cliproxy/gpt-5.5";
     };
+
+    # `/pair qr` has to embed a URL the phone can actually reach. The gateway
+    # only knows it is bound to 127.0.0.1, so without this it refuses outright:
+    #   Gateway is only bound to loopback. Set gateway.bind=lan, enable
+    #   tailscale serve, or configure plugins.entries.device-pair.config.publicUrl
+    #
+    # publicUrl is the right one of those three for a reverse-proxied setup --
+    # it tells the pairing plugin what the outside world calls this gateway
+    # while leaving the socket on loopback. The alternatives are both wrong
+    # here:
+    #
+    #   - gateway.bind = "lan" puts the raw gateway on the LAN, bypassing
+    #     nginx's TLS and the tailnet/LAN allowlist that is the only thing
+    #     restricting access to an agent with shell access.
+    #   - `tailscale serve` would break unrelated services. Per ./goose.nix, it
+    #     intercepts its configured ports inside tailscaled's netstack ahead of
+    #     the host socket and hard-fails any SNI that is not the node's
+    #     *.ts.net name -- so claiming 443 would take out every other vhost on
+    #     romeo (jellyfin, immich, nextcloud, ...).
+    #
+    # Reachability of this name is a DNS question, not an nginx one: it resolves
+    # to 192.168.3.7 on the LAN via unbound's h.b.nel.family redirect zone, but
+    # a roaming client follows the *.h.b.nel.family wildcard to the public A
+    # record and lands in `deny all`. Off-LAN pairing needs the explicit CNAME
+    # to romeo.b.nel.family that ./goose.nix documents.
+    #
+    # No `enabled = true` needed: device-pair ships enabledByDefault and the
+    # gateway loads it at startup. Running `openclaw qr` from a shell prints
+    # "plugin disabled (bundled (disabled by default)) but config is present" --
+    # that is the CLI's own activation context talking, not the gateway's, and
+    # the QR renders anyway. publicUrl is the plugin's only accepted key
+    # (configSchema sets additionalProperties: false).
+    plugins.entries.device-pair.config.publicUrl = "https://${domain}";
   };
 in {
   # Authenticates every Control UI / CLI client to the gateway. Generated rather
