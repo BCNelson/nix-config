@@ -135,28 +135,44 @@
     };
 
     # ../ollama.nix on this same host, reached over loopback exactly like every
-    # other consumer (librechat.nix, tendant.nix, goose.nix). The model list is
-    # deliberately absent: openclaw discovers it live from the daemon, so
-    # `services.ollama.loadModels` stays the single source of truth for which
-    # models exist and this file never has to be kept in sync with it.
+    # other consumer (librechat.nix, tendant.nix, goose.nix).
     #
-    # Discovery queries /api/tags for the catalog and /api/show per model for
-    # capabilities, which is strictly better than a hand-written list -- it
-    # picks up the real context windows (262k on the qwen3.5 line, 131k on
-    # deepseek-r1, 16k on deepseek-coder), the `vision` capability that makes
-    # the qwen3.5 models accept image attachments, and the `tools` capability
-    # that deepseek-coder:6.7b lacks. Verified with
-    # `openclaw models list --provider ollama`.
+    # The models are listed explicitly, which does switch openclaw off live
+    # discovery for this provider -- and that is the point. Discovery only ever
+    # runs on CLI paths. The gateway deliberately serves models.list from a
+    # read-only, side-effect-free catalog ("Keep gateway models.list on
+    # side-effect-free sources. The RPC timeout cannot fire while provider
+    # discovery blocks the event loop", src/agents/model-catalog.ts), so a
+    # provider with no `models` array gets persisted to
+    # <state>/agents/main/agent/plugins/ollama/catalog.json as `"models": []`
+    # and every gateway client -- Control UI, phone app, TUI picker, agent
+    # model refs -- sees an ollama provider with nothing in it.
     #
-    # Adding a non-empty `models` array here would switch openclaw to that
-    # array and disable discovery entirely, so leave it out unless a model has
-    # to be described in a way /api/show cannot express.
+    # `openclaw models list --provider ollama` is what made the discovery-only
+    # version look verified: that path probes /api/tags and /api/show live and
+    # happily prints all ten. The gateway path never probes, and
+    # `openclaw models list --gateway` showed only the cliproxy models.
     #
-    # Fields that only work on the explicit path are likewise omitted: on the
-    # discovery path openclaw returns the *discovered* provider and does not
-    # merge this block into it, so `timeoutSeconds` or per-model `params`
-    # (e.g. keep_alive) would be silently dropped rather than applied. They
-    # need the explicit `models` array to take effect.
+    # So this list has to be kept in sync with services.ollama.loadModels by
+    # hand. The schema is all-or-nothing per entry: omit a field and startup
+    # fails with "models.providers.ollama.models.N.<key>: Invalid input", one
+    # key at a time, exactly as documented on the cliproxy block above.
+    #
+    # deepseek-coder:6.7b is preloaded but deliberately absent here: /api/show
+    # reports only `completion` for it -- no tools, no thinking -- so an agent
+    # turn on it could not call a single tool. Every other preloaded model
+    # reports both.
+    #
+    # contextWindow is 32k rather than each model's real ceiling (262k on the
+    # qwen3.5 and gemma4 lines, 131k on deepseek-r1). It feeds compaction and
+    # session budgeting, and the B580 only offers ~10.2 GiB for weights plus KV
+    # cache, so a session allowed to grow toward 262k would push the cache off
+    # the GPU mid-conversation. 32k is measured to fit with room to spare:
+    # gemma4:12b still holds 49/49 layers on the GPU at 64k, because only 8 of
+    # its 48 layers keep a full KV cache and the rest are sliding-window.
+    #
+    # cost is zero across the board because this is local inference; the
+    # numbers only feed openclaw's spend reporting.
     models.providers.ollama = {
       # No /v1 suffix. That path selects openclaw's OpenAI-compatible mode,
       # where upstream documents tool calling as unreliable -- models emit raw
@@ -172,6 +188,71 @@
       # Redundant against the built-in provider default, but stated so a future
       # upstream change of default cannot quietly move this onto the /v1 path.
       api = "ollama";
+      # input mirrors what /api/show reports per model: the gemma4 pair take
+      # audio as well as images, the qwen3.5 line is text+image, and qwen3:4b
+      # and the deepseek-r1 line are text only. reasoning is true for all ten
+      # -- every one of them reports the `thinking` capability.
+      models =
+        map (m: {
+          inherit (m) id name;
+          reasoning = true;
+          input = m.input or ["text"];
+          cost = {
+            input = 0;
+            output = 0;
+            cacheRead = 0;
+            cacheWrite = 0;
+          };
+          contextWindow = 32768;
+          maxTokens = 8192;
+        }) [
+          {
+            id = "gemma4:12b";
+            name = "Gemma 4 12B";
+            input = ["text" "image" "audio"];
+          }
+          {
+            id = "gemma4:12b-it-qat";
+            name = "Gemma 4 12B (QAT)";
+            input = ["text" "image" "audio"];
+          }
+          {
+            id = "qwen3.5:9b";
+            name = "Qwen 3.5 9B";
+            input = ["text" "image"];
+          }
+          {
+            id = "qwen3.5:4b";
+            name = "Qwen 3.5 4B";
+            input = ["text" "image"];
+          }
+          {
+            id = "qwen3.5:2b";
+            name = "Qwen 3.5 2B";
+            input = ["text" "image"];
+          }
+          {
+            id = "qwen3.5:0.8b";
+            name = "Qwen 3.5 0.8B";
+            input = ["text" "image"];
+          }
+          {
+            id = "qwen3:4b";
+            name = "Qwen 3 4B";
+          }
+          {
+            id = "deepseek-r1:8b";
+            name = "DeepSeek-R1 8B";
+          }
+          {
+            id = "deepseek-r1:7b";
+            name = "DeepSeek-R1 7B";
+          }
+          {
+            id = "deepseek-r1:1.5b";
+            name = "DeepSeek-R1 1.5B";
+          }
+        ];
     };
 
     agents.defaults = {
