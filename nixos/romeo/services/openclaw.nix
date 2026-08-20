@@ -43,6 +43,13 @@
   # Consequence worth knowing: `openclaw config set ...` and `openclaw plugins
   # install ...` will refuse to run. Editing this file and rebuilding is the
   # only way to change configuration, which is the point.
+  #
+  # Startup logs one harmless warning as a result:
+  #   failed to promote config last-known-good backup: EROFS: read-only file
+  #   system, open '/nix/store/...-openclaw.json.last-good'
+  # openclaw keeps a .last-good sidecar next to the config to roll back a bad
+  # self-edit. There are no self-edits to roll back here and the store is
+  # read-only, so the warning is expected and the gateway continues to "ready".
 
   # JSON is a strict subset of the JSON5 the gateway parses, so the normal
   # generator is fine -- no custom writer needed.
@@ -80,14 +87,50 @@
       # implicitly trusts its own baseUrl origin, but state this explicitly so a
       # future port change does not silently start failing the guard.
       request.allowPrivateNetwork = true;
-      # Catalog must match what cli-proxy-api actually serves. There is no plain
-      # "gpt-5"; the proxy exposes gpt-5.4{,-mini}, gpt-5.5 and gpt-5.6-*.
-      # Same list librechat.nix and goose.nix document.
-      models = [
-        {id = "gpt-5.5";}
-        {id = "gpt-5.4";}
-        {id = "gpt-5.4-mini";}
-      ];
+      # Catalog must match what cli-proxy-api actually serves. Verified against
+      # its /v1/models on romeo: gpt-5.4, gpt-5.4-mini, gpt-5.5, gpt-5.6-{sol,
+      # luna,terra}, plus image/codex entries. There is no plain "gpt-5".
+      #
+      # Every field below is REQUIRED by openclaw's schema for a custom
+      # provider. Omitting them fails startup with
+      # "models.providers.cliproxy.models.N.name: Invalid input" -- the schema
+      # reports only the first missing key per entry, so a partial fix just
+      # surfaces the next one. Built-in providers fetch this metadata from a
+      # remote catalog; a custom provider has to declare it inline.
+      #
+      # cost is 0 across the board because this rides the ChatGPT subscription
+      # through cli-proxy-api rather than per-token API billing -- these numbers
+      # only feed openclaw's spend reporting, and a nonzero rate here would
+      # invent charges that do not exist. contextWindow/maxTokens are the
+      # published GPT-5-family figures; they drive compaction and session
+      # budgeting only, so adjust them if a model's real limits differ.
+      models =
+        map (m: {
+          inherit (m) id name;
+          reasoning = true;
+          input = ["text" "image"];
+          cost = {
+            input = 0;
+            output = 0;
+            cacheRead = 0;
+            cacheWrite = 0;
+          };
+          contextWindow = 400000;
+          maxTokens = 128000;
+        }) [
+          {
+            id = "gpt-5.5";
+            name = "GPT-5.5";
+          }
+          {
+            id = "gpt-5.4";
+            name = "GPT-5.4";
+          }
+          {
+            id = "gpt-5.4-mini";
+            name = "GPT-5.4 mini";
+          }
+        ];
     };
 
     agents.defaults = {
