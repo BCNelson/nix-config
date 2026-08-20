@@ -349,6 +349,24 @@ resource "porkbun_dns_record" "goose_h_b_nel_family-CNAME" {
   type    = "CNAME"
   content = "romeo.b.nel.family"
 }
+# openclaw.h.b      CNAME  romeo.b.nel.family.
+# Same reasoning as goose.h.b above: without an explicit name the *.h.b wildcard
+# resolves openclaw to the public ingress, and openclaw's vhost only admits
+# tailnet/LAN sources, so an off-LAN client gets a 403.
+#
+# This one also gates mobile pairing, not just the browser UI. The Android node
+# scans a QR whose URL comes from plugins.entries.device-pair.config.publicUrl
+# (https://openclaw.h.b.nel.family), so pairing away from home resolves through
+# exactly this record.
+#
+# romeo.b is a 100.64/10 CGNAT address, so this only helps clients actually on
+# the tailnet -- it does not make the service reachable from plain cellular.
+resource "porkbun_dns_record" "openclaw_h_b_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "openclaw.h.b"
+  type    = "CNAME"
+  content = "romeo.b.nel.family"
+}
 
 # *.romeo.b      CNAME  romeo.b.nel.family.
 resource "porkbun_dns_record" "wildcard_romeo_b_nel_family-CNAME" {
