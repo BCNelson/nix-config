@@ -43,6 +43,17 @@ in
     ];
 
     ports = [ "127.0.0.1:${toString port}:8083" ];
+
+    # The image ships its own HEALTHCHECK. Without a *startup* check podman runs
+    # it immediately, it fails while CWA is still bringing up Calibre + Python,
+    # and the transient healthcheck unit exits non-zero -- which makes
+    # switch-to-configuration return 4 and fails the whole auto-update run even
+    # though the container is fine. Same fix as jellyfin.nix. `/` 302s to
+    # /login, hence -L.
+    extraOptions = [
+      "--health-startup-cmd=for i in $(seq 1 60); do curl -fsSL http://127.0.0.1:8083/ >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1"
+      "--health-startup-success=1"
+    ];
     labels = {
       "io.containers.autoupdate" = "registry";
     };
