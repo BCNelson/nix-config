@@ -50,8 +50,16 @@ in
     # switch-to-configuration return 4 and fails the whole auto-update run even
     # though the container is fine. Same fix as jellyfin.nix. `/` 302s to
     # /login, hence -L.
+    #
+    # The loop must finish inside --health-startup-timeout or podman kills it
+    # and the transient unit fails with 125 anyway, which is the bug this
+    # replaces: 60 iterations at 2s ran to 120s against the 30s default. Any
+    # failing probe leaves a failed systemd unit behind, so the point of the
+    # loop is to turn many polls into one long-running success -- which only
+    # works if the timeout accommodates it. 45x2s = 90s, inside a 120s timeout.
     extraOptions = [
-      "--health-startup-cmd=for i in $(seq 1 60); do curl -fsSL http://127.0.0.1:8083/ >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1"
+      "--health-startup-cmd=for i in $(seq 1 45); do curl -fsSL http://127.0.0.1:8083/ >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1"
+      "--health-startup-timeout=120s"
       "--health-startup-success=1"
     ];
     labels = {
