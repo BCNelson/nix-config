@@ -3,6 +3,7 @@
   stdenvNoCC,
   buildPackages,
   fetchFromGitHub,
+  fetchurl,
   fetchPnpmDeps,
   pnpmConfigHook,
   pnpm_11,
@@ -39,6 +40,57 @@ let
   #   Did not find version 2026.7.1-2 in the output of ... --version
   # followed by a --help retry, which prints a wall of usage text and no error.
   releaseTag = "v2026.7.1-2";
+
+  # The bundled Matrix channel plugin (extensions/matrix) depends on
+  # @matrix-org/matrix-sdk-crypto-nodejs, whose npm tarball ships no binary at
+  # all: a postinstall script downloads the prebuilt napi module from GitHub
+  # releases. pnpmConfigHook installs with lifecycle scripts disabled, so the
+  # package lands in the output with index.js and no matrix-sdk-crypto.*.node
+  # beside it.
+  #
+  # That is a *runtime* failure, not a build one, and it is narrow: E2EE text
+  # goes through matrix-js-sdk's initRustCrypto, which uses the pure-wasm
+  # @matrix-org/matrix-sdk-crypto-wasm and does ship complete. Only
+  # encryptMedia/decryptMedia in extensions/matrix/src/matrix/sdk/crypto-facade.ts
+  # touch the native binding -- i.e. images and voice notes in encrypted rooms,
+  # which includes the `/pair qr` reply this version exists to fix.
+  #
+  # Left missing, the failure mode is worse than a plain error:
+  # ensureMatrixCryptoRuntime() catches the missing-binding require() and
+  # spawns `node download-lib.js` with cwd set to the package directory, which
+  # is a read-only store path. So it fails with an EROFS-flavoured download
+  # error after a network round trip, on every encrypted media send.
+  #
+  # Vendoring the binding makes that first require() succeed, so the downloader
+  # branch is never reached.
+  #
+  # No patchelf needed: the module needs libgcc_s.so.1, libm and libc, and node
+  # has all three loaded via its own RPATH before it dlopens this, so the
+  # soname lookup resolves against already-loaded objects. Verified by
+  # process.dlopen()ing this exact file under nodejs-slim_22.
+  #
+  # Bumping openclaw: check whether pnpm still resolves
+  # @matrix-org/matrix-sdk-crypto-nodejs to 0.6.1 (the version is in
+  # extensions/matrix/package.json, and download-lib.js builds its URL from
+  # that same version). A stale binding here does not fail the build -- it
+  # fails media sends at runtime, so the version has to be checked by hand.
+  #
+  # Only x86_64-linux is vendored, because romeo is the only consumer.
+  # Elsewhere the file is simply absent and encrypted media falls back to the
+  # broken downloader path; add an entry to fix that, using the asset names
+  # from download-lib.js.
+  matrixCryptoNativeVersion = "0.6.1";
+  matrixCryptoNativeBySystem = {
+    x86_64-linux = rec {
+      name = "matrix-sdk-crypto.linux-x64-gnu.node";
+      src = fetchurl {
+        url = "https://github.com/matrix-org/matrix-rust-sdk-crypto-nodejs/releases/download/v${matrixCryptoNativeVersion}/${name}";
+        hash = "sha256-yw0qhr1nIfgtmIrmsMVMw8XTZP9ZoG+Vk061h9w1yfQ=";
+      };
+    };
+  };
+  matrixCryptoNative =
+    matrixCryptoNativeBySystem.${stdenvNoCC.hostPlatform.system} or null;
 in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "openclaw";
@@ -117,6 +169,18 @@ in
       # noBrokenSymlinks fails the build on those, so sweep them the same way
       # the recipe already sweeps extensions/ below.
       find $libdir/packages -xtype l -delete
+      ${lib.optionalString (matrixCryptoNative != null) ''
+
+        # Native crypto binding for the Matrix channel plugin; see the long note
+        # in the let block above for why it is fetched rather than installed.
+        # Placed in the hoisted copy of the package because that is where
+        # createRequire() from dist/extensions/matrix resolves it, and index.js
+        # then loads the .node relative to itself. matrix-sdk-crypto-nodejs is
+        # hoisted to node_modules/@matrix-org as a real directory (no .pnpm
+        # indirection), so there is exactly one place to put this.
+        install -Dm444 ${matrixCryptoNative.src} \
+          $libdir/node_modules/@matrix-org/matrix-sdk-crypto-nodejs/${matrixCryptoNative.name}
+      ''}
 
       mkdir -p $libdir/src
       cp --reflink=auto -r src/agents $libdir/src/
