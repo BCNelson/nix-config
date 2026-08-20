@@ -161,6 +161,23 @@ in {
   age.secrets.openclaw-gateway-token = {
     rekeyFile = ./secrets/openclaw_gateway_token.age;
     generator.script = {pkgs, ...}: "${pkgs.openssl}/bin/openssl rand -hex 32";
+    # Nobody ever types this value, so without a Bitwarden copy the only ways to
+    # read it are decrypting the repo secret or catting /run/agenix on romeo.
+    #
+    # `username` is what makes this a *login* item rather than a secure note,
+    # and only login items carry URIs -- dropping it would silently cost the
+    # domain match this exists for. There is no real username to record: the
+    # Control UI prompts for a bearer token, so "token" names what the password
+    # field actually holds.
+    bitwarden = {
+      name = "OpenClaw Gateway Token";
+      username = "token";
+      uris = {
+        uri = "https://${domain}";
+        matchType = "host";
+      };
+      notes = "Gateway auth token for OpenClaw on romeo-2 (gateway.auth.token). Paste it into the Control UI at https://${domain} on first connect from each browser; the device is remembered afterwards. Leave the password field empty -- no gateway password is configured. Rotating it means regenerating the agenix secret and rebuilding, since Nix mode forbids the gateway editing its own config.";
+    };
   };
 
   # CLI_PROXY_API_KEY is the *proxy's* key, not a real OpenAI key -- it only
