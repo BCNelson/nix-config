@@ -1,5 +1,8 @@
-{ inputs, pkgs, ... }:
 {
+  inputs,
+  pkgs,
+  ...
+}: {
   imports = [
     inputs.zen-browser.homeModules.twilight
   ];
@@ -30,6 +33,27 @@
           force = true;
         };
         settings = {
+          # Preemptive, not a fix for anything currently broken: DoH is off in
+          # this profile (network.trr.mode = 0), so nothing consults it today.
+          #
+          # It is here because the failure it prevents is genuinely
+          # undiagnosable from the browser side. Every nel.family service is
+          # split-horizon -- romeo's unbound answers LAN clients with
+          # 192.168.3.7 while the public record points at the WAN ingress
+          # (66.118.47.137) -- and the router does not do NAT loopback: a LAN
+          # host connecting to the public address gets an immediate RST
+          # (measured, 2ms). DoH bypasses the OS resolver entirely, so if
+          # Mozilla ever flips DoH on by default here, every one of these
+          # services starts failing with a browser "CORS Failed" and 0 bytes,
+          # which points at exactly the wrong layer.
+          #
+          # Excluding the domain rather than disabling DoH keeps encrypted DNS
+          # for everything else. Suffix match, so it covers *.nel.family.
+          #
+          # The real fix for the underlying problem is NAT loopback on the
+          # router, which would make this irrelevant for every client rather
+          # than one browser.
+          "network.trr.excluded-domains" = "nel.family";
           # Disable the builtin Password manager
           "signon.rememberSignons" = false;
           "signon.rememberSignons.visibilityToggle" = false;
