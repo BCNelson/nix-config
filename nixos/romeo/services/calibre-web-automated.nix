@@ -10,7 +10,9 @@ in
     # at startup, and a major bump arriving unattended via podman-auto-update
     # would migrate the family's library DB with nobody watching. The autoupdate
     # label below still tracks this tag's digest, so point fixes land.
-    image = "crocodilestick/calibre-web-automated:v4.0.6";
+    # Fully qualified: podman has no unqualified-search registries configured on
+    # romeo, so a bare "crocodilestick/..." short name fails the pull outright.
+    image = "docker.io/crocodilestick/calibre-web-automated:v4.0.6";
 
     # Deliberately no `user =`. This is a linuxserver.io s6-overlay image: the
     # entrypoint must start as root and drops to PUID/PGID itself. Setting
