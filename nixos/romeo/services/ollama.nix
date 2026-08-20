@@ -1,12 +1,11 @@
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   services.ollama = {
     enable = true;
     # Tailscale Serve is the only remote entry point; do not expose Ollama on
     # the LAN, where its unauthenticated API would otherwise be reachable.
     host = "127.0.0.1";
     port = 11434;
-    loadModels = [ 
+    loadModels = [
       "qwen3:4b"
       "qwen3.5:0.8b"
       "qwen3.5:2b"
@@ -113,12 +112,33 @@
       # Re-test on ollama/mesa bumps: drop this, ask a model to say hello, and
       # look for doubled words. Currently mesa 26.2.0, ollama 0.32.7.
       GGML_VK_DISABLE_ASYNC = "1";
+
+      # Default is 5 minutes, which is too short now that ../services/openclaw.nix
+      # puts a local model on a *blocking* path. Its active-memory plugin runs a
+      # recall sub-agent in front of every DM reply on gemma4:12b. Measured here
+      # via /api/generate, forcing eviction with keep_alive=0 between runs:
+      # 16.9s cold (14.8s of that model load) against 1.9s warm. At the
+      # 5-minute default any conversation with a pause longer than a coffee
+      # refill pays that 14.8s again on its next message, so the slow path would
+      # be the common one.
+      #
+      # 60m rather than -1 (never unload). The B580's ~10.2 GiB fits gemma4:12b
+      # at 8.4 plus the 0.3 GiB nomic-embed-text encoder, and that is close
+      # enough to the ceiling that pinning weights forever would make picking any
+      # other model from the catalog an eviction. An hour covers a working day of
+      # intermittent DMs and the 03:00 dreaming sweep's three phases without
+      # holding the GPU hostage overnight.
+      #
+      # This is a residency knob, not a correctness one -- shortening it costs
+      # latency, never answers. If cold loads still show up in active-memory
+      # logs, -1 is the next step; if something else needs the B580, drop it.
+      OLLAMA_KEEP_ALIVE = "60m";
     };
   };
 
   # Ensure ollama user has GPU access
   systemd.services.ollama.serviceConfig = {
-    SupplementaryGroups = [ "render" "video" ];
+    SupplementaryGroups = ["render" "video"];
   };
 
   # No `tailscale serve` here on purpose. It used to publish 11434 on the

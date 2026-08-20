@@ -356,7 +356,26 @@
 
     agents.defaults = {
       inherit workspace;
-      model.primary = "cliproxy/gpt-5.5";
+      model = {
+        primary = "cliproxy/gpt-5.5";
+
+        # Gemma is the local default everywhere a model gets picked on this
+        # host: here, the active-memory recall sub-agent, and memory-core's
+        # dream diary. One model rather than three keeps a single set of weights
+        # resident on the B580 instead of thrashing them -- see the note on
+        # active-memory's `model` below for the VRAM arithmetic.
+        #
+        # This list is only consulted when the primary *fails* -- cli-proxy-api
+        # down, subscription quota exhausted, upstream 5xx. Before it existed
+        # those turns simply died; now they land locally instead.
+        #
+        # Worth being clear about the trade, because it is a silent one: a
+        # fallback turn is answered by a 12B on a consumer GPU, not gpt-5.5, and
+        # openclaw does not announce the swap in the reply. Answer quality drops
+        # noticeably while it is in effect. Drop this list if a failed turn is
+        # preferable to a quietly weaker one.
+        fallbacks = ["ollama/gemma4:12b" "ollama/gemma4:12b-it-qat"];
+      };
 
       # What memory_search retrieves with. Unset, this defaults to OpenAI
       # embeddings, finds no OPENAI_API_KEY, and quietly degrades to keyword-only
@@ -680,7 +699,7 @@
       # operator opts in. Scoped to exactly the one model rather than left open.
       subagent = {
         allowModelOverride = true;
-        allowedModels = ["ollama/qwen3.5:4b"];
+        allowedModels = ["ollama/gemma4:12b" "ollama/gemma4:12b-it-qat"];
       };
 
       config = {
@@ -699,20 +718,36 @@
         # a far heavier leak than dreaming's once-nightly diary. Pinning it
         # keeps the whole recall path on romeo's GPU.
         #
-        # qwen3.5:4b rather than the gemma4:12b dreaming uses, because this one
-        # is blocking and the trade is inverted. Dreaming writes prose at 03:00
-        # where 26s is free; this runs in front of a human waiting for a reply,
-        # and the task is much easier -- read recall output, decide relevant or
-        # NONE, write <=220 chars. 4b at ~3 GiB also coexists with the 0.3 GiB
-        # nomic-embed-text encoder without evicting it, which matters because
-        # the encoder is what serves the very memory_search this sub-agent calls.
-        model = "ollama/qwen3.5:4b";
+        # The same gemma4:12b dreaming uses, and sharing it is the point rather
+        # than a coincidence. The B580 offers ~10.2 GiB; gemma4:12b takes 8.4 of
+        # it and nomic-embed-text 0.3, which fits together with room to spare --
+        # but only just. Pinning a *second* local chat model here (a 4b at ~3
+        # GiB) would not fit alongside both, so the two would evict each other
+        # all day: every recall reloads a model, and the nightly sweep reloads
+        # again on top. One resident chat model keeps the whole memory path warm.
+        #
+        # The cost is latency, and it is real: this sub-agent blocks the reply.
+        # Measured on the B580 via /api/generate, forcing eviction with
+        # keep_alive=0 between runs:
+        #
+        #   cold  16.9s total (14.8s of it model load)
+        #   warm   1.9s total (0.6s load)
+        #
+        # So the warm case is comfortably inside timeoutMs and the cold case is
+        # what setupGraceTimeoutMs below exists to absorb. ../ollama.nix's
+        # OLLAMA_KEEP_ALIVE is what makes warm the common case -- at ollama's
+        # 5-minute default every DM after a pause pays that 14.8s load. Those
+        # two settings are why a 12B is usable on a blocking path at all; do not
+        # change one without rechecking the other.
+        model = "ollama/gemma4:12b";
 
         # Never reached in normal operation -- it applies only if the pinned
-        # model above fails to resolve at all. Named as another local model
-        # rather than a hosted one so the privacy property survives that case
-        # instead of silently falling back to cliproxy.
-        modelFallback = "ollama/qwen3.5:2b";
+        # model above fails to resolve at all. The QAT build of the same model:
+        # local, so the privacy property survives that case instead of silently
+        # falling back to cliproxy, and same family so a fallback turn does not
+        # quietly change recall behaviour. Smaller too (6 vs 7 GiB on disk),
+        # which helps if the miss was memory pressure in the first place.
+        modelFallback = "ollama/gemma4:12b-it-qat";
 
         # `recent` is upstream's recommended starting point: the sub-agent sees
         # the current message plus a couple of prior turns, which is what makes
