@@ -189,7 +189,8 @@ pub struct BitwardenUri {
     pub match_type: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+// Clone so sync.rs can carry hand-added fields across an item rewrite.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BitwardenField {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

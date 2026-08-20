@@ -22,6 +22,89 @@ pub struct SecretSyncer {
     pin: Arc<Mutex<Option<String>>>,
 }
 
+/// Custom fields this tool writes on every sync. They are always overwritten,
+/// and anything under one of these names is considered ours to clobber.
+///
+/// `age_managed_fields` is what makes removals work: it records the
+/// *configuration-declared* field names written on the previous run, so a
+/// field dropped from `bitwarden.fields` in Nix can be told apart from a field
+/// a human added by hand in the vault. Without it, merging would preserve
+/// stale declared fields forever.
+const BUILTIN_FIELD_NAMES: &[&str] = &[
+    "age_path",
+    "nix_attribute",
+    "hostname",
+    "age_checksum",
+    "age_source_checksum",
+    "last_synced",
+    "age_managed_fields",
+    "age_notes_checksum",
+    "url",
+];
+
+fn field_named<'a>(fields: &'a [BitwardenField], name: &str) -> Option<&'a str> {
+    fields
+        .iter()
+        .find(|f| f.name.as_deref() == Some(name))
+        .and_then(|f| f.value.as_deref())
+}
+
+/// Names the previous sync claimed ownership of: the built-ins, plus whatever
+/// `age_managed_fields` recorded. An item written before this field existed
+/// yields just the built-ins, which is the safe answer -- its declared custom
+/// fields get preserved once and re-adopted on the following sync.
+fn previously_managed(existing: &[BitwardenField]) -> Vec<String> {
+    let mut names: Vec<String> = BUILTIN_FIELD_NAMES.iter().map(|n| n.to_string()).collect();
+    if let Some(recorded) = field_named(existing, "age_managed_fields") {
+        names.extend(
+            recorded
+                .split(',')
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+                .map(str::to_string),
+        );
+    }
+    names
+}
+
+/// Merge freshly built fields over an item's existing ones.
+///
+/// Rules, in the order they matter:
+///   - a field this run declares wins outright (it is in `next`);
+///   - a field the *previous* run declared but this one does not is dropped,
+///     so removing an entry from `bitwarden.fields` in Nix still removes it;
+///   - everything else is a hand-added field and is carried through untouched,
+///     in its original order, after the managed ones.
+///
+/// The last rule is the point of the exercise: values a person put in the
+/// vault by hand -- an E2EE recovery key next to the account password, say --
+/// must survive a password rotation rewriting the item.
+fn merge_fields(existing: &[BitwardenField], next: Vec<BitwardenField>) -> Vec<BitwardenField> {
+    let claimed = previously_managed(existing);
+    let now_managed: Vec<String> = next
+        .iter()
+        .filter_map(|f| f.name.clone())
+        .collect();
+
+    let mut merged = next;
+    for field in existing {
+        let name = match field.name.as_deref() {
+            Some(name) => name,
+            // A nameless field cannot be matched against anything, so it can
+            // only be something a human made; keep it.
+            None => {
+                merged.push(field.clone());
+                continue;
+            }
+        };
+        if now_managed.iter().any(|n| n == name) || claimed.iter().any(|c| c == name) {
+            continue;
+        }
+        merged.push(field.clone());
+    }
+    merged
+}
+
 impl SecretSyncer {
     pub async fn new(flake_path: String, age_identities: Vec<String>) -> Result<Self> {
         Self::new_with_filter(flake_path, age_identities, Vec::new()).await
@@ -161,8 +244,12 @@ impl SecretSyncer {
         let item_name = format!("{} - {}", secret.bitwarden.name, secret.hostname);
 
         if let Some(mut existing) = existing_item {
+            // Snapshot before mutating: the merge below needs the fields as
+            // they are in the vault right now, including any a human added.
+            let existing_fields = existing.fields.clone().unwrap_or_default();
+
             // Update existing item (source changed, so always refresh)
-            existing.name = item_name;
+            existing.name = item_name.clone();
             existing.folder_id = Some(folder_id.clone());
             existing.favorite = secret.bitwarden.favorite;
             existing.reprompt = if secret.bitwarden.reprompt { 1 } else { 0 };
@@ -170,9 +257,35 @@ impl SecretSyncer {
             existing.collection_ids = secret.bitwarden.collection_ids.clone();
             
             // Determine item type and set content
+            let mut notes_checksum: Option<String> = None;
             if secret.bitwarden.username.is_some() {
                 existing.item_type = 1; // Login
-                existing.notes = secret.bitwarden.notes.clone();
+                // Notes get the same treatment as custom fields: ours to
+                // rewrite until a human touches them.
+                //
+                // `age_notes_checksum` records what this tool last wrote, so an
+                // edit made in the vault is detectable. When one is detected the
+                // note is left exactly as it is and the configured text is
+                // dropped for this item -- losing a documentation string is
+                // recoverable, losing a hand-written recovery key is not.
+                //
+                // An item stamped before this field existed has no checksum to
+                // compare against; that ambiguity resolves to "preserve", which
+                // costs at most one stale notes string and never costs data.
+                let human_edited = match (&existing.notes, field_named(&existing_fields, "age_notes_checksum")) {
+                    (Some(current), Some(previous)) => calculate_checksum(current) != previous,
+                    (Some(current), None) => Some(current) != secret.bitwarden.notes.as_ref(),
+                    (None, _) => false,
+                };
+                if human_edited {
+                    warn!(
+                        "↷ Preserving hand-edited notes on '{}'; configured notes not applied",
+                        item_name
+                    );
+                } else {
+                    existing.notes = secret.bitwarden.notes.clone();
+                }
+                notes_checksum = existing.notes.as_deref().map(calculate_checksum);
                 existing.secure_note = None;
                 existing.login = Some(BitwardenLogin {
                     username: secret.bitwarden.username.clone(),
@@ -191,8 +304,17 @@ impl SecretSyncer {
                 });
             }
 
-            // Update fields
-            existing.fields = Some(self.build_fields(secret, &age_path, &checksum, &source_checksum));
+            // Managed fields are rebuilt; everything else on the item survives.
+            let mut next_fields = self.build_fields(secret, &age_path, &checksum, &source_checksum);
+            if let Some(notes_checksum) = notes_checksum {
+                next_fields.push(BitwardenField {
+                    name: Some("age_notes_checksum".to_string()),
+                    value: Some(notes_checksum),
+                    field_type: 1, // Hidden
+                    linked_id: None,
+                });
+            }
+            existing.fields = Some(merge_fields(&existing_fields, next_fields));
 
             self.bitwarden.update_item(&existing).await?;
             Ok(SyncResult::Updated)
@@ -235,6 +357,22 @@ impl SecretSyncer {
                 new_item.secure_note = Some(BitwardenSecureNote {
                     note_type: 0, // Generic note
                 });
+            }
+
+            // Stamp the notes baseline on creation too, so the *first* update
+            // can already tell an edited note from an untouched one.
+            if let Some(notes) = new_item.notes.as_deref() {
+                if secret.bitwarden.username.is_some() {
+                    new_item
+                        .fields
+                        .get_or_insert_with(Vec::new)
+                        .push(BitwardenField {
+                            name: Some("age_notes_checksum".to_string()),
+                            value: Some(calculate_checksum(notes)),
+                            field_type: 1, // Hidden
+                            linked_id: None,
+                        });
+                }
             }
 
             self.bitwarden.create_item(&new_item).await?;
@@ -290,12 +428,25 @@ impl SecretSyncer {
             },
         ];
 
-        // Add custom fields from the configuration
+        // Add custom fields from the configuration, and record their names so
+        // the next run can tell a field we stopped declaring apart from one a
+        // human added. See merge_fields().
+        let mut declared: Vec<String> = Vec::new();
         if let Some(custom_fields) = &secret.bitwarden.fields {
             for custom_field in custom_fields {
-                fields.push(custom_field.to_bitwarden_field());
+                let field = custom_field.to_bitwarden_field();
+                if let Some(name) = field.name.clone() {
+                    declared.push(name);
+                }
+                fields.push(field);
             }
         }
+        fields.push(BitwardenField {
+            name: Some("age_managed_fields".to_string()),
+            value: Some(declared.join(",")),
+            field_type: 0,
+            linked_id: None,
+        });
 
         // Add URL as a field if not used in login and if it's a secure note
         if secret.bitwarden.username.is_none() {
@@ -467,4 +618,100 @@ fn calculate_checksum_bytes(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn field(name: &str, value: &str) -> BitwardenField {
+        BitwardenField {
+            name: Some(name.to_string()),
+            value: Some(value.to_string()),
+            field_type: 0,
+            linked_id: None,
+        }
+    }
+
+    fn value_of<'a>(fields: &'a [BitwardenField], name: &str) -> Option<&'a str> {
+        field_named(fields, name)
+    }
+
+    #[test]
+    fn hand_added_fields_survive_a_rewrite() {
+        let existing = vec![
+            field("age_path", "hosts/romeo-2/matrix-password-openclaw"),
+            field("last_synced", "2026-08-20T00:00:00Z"),
+            field("age_managed_fields", ""),
+            field("recovery_key", "EsT3 dGvS ..."),
+        ];
+        let next = vec![
+            field("age_path", "hosts/romeo-2/matrix-password-openclaw"),
+            field("last_synced", "2026-09-01T00:00:00Z"),
+            field("age_managed_fields", ""),
+        ];
+
+        let merged = merge_fields(&existing, next);
+
+        assert_eq!(value_of(&merged, "recovery_key"), Some("EsT3 dGvS ..."));
+        assert_eq!(value_of(&merged, "last_synced"), Some("2026-09-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn declared_fields_are_overwritten_not_duplicated() {
+        let existing = vec![
+            field("age_managed_fields", "environment"),
+            field("environment", "staging"),
+        ];
+        let next = vec![
+            field("age_managed_fields", "environment"),
+            field("environment", "production"),
+        ];
+
+        let merged = merge_fields(&existing, next);
+
+        assert_eq!(value_of(&merged, "environment"), Some("production"));
+        assert_eq!(
+            merged.iter().filter(|f| f.name.as_deref() == Some("environment")).count(),
+            1
+        );
+    }
+
+    #[test]
+    fn undeclaring_a_field_removes_it() {
+        let existing = vec![
+            field("age_managed_fields", "environment"),
+            field("environment", "staging"),
+            field("recovery_key", "keep me"),
+        ];
+        // `environment` is no longer declared in Nix, so it is absent here.
+        let next = vec![field("age_managed_fields", "")];
+
+        let merged = merge_fields(&existing, next);
+
+        assert_eq!(value_of(&merged, "environment"), None);
+        assert_eq!(value_of(&merged, "recovery_key"), Some("keep me"));
+    }
+
+    #[test]
+    fn builtins_are_never_treated_as_hand_added() {
+        // An item written before age_managed_fields existed: no marker at all.
+        let existing = vec![
+            field("age_path", "hosts/romeo-2/x"),
+            field("hostname", "romeo-2"),
+            field("recovery_key", "keep me"),
+        ];
+        let next = vec![
+            field("age_path", "hosts/romeo-2/x"),
+            field("hostname", "romeo-2"),
+            field("age_managed_fields", ""),
+        ];
+
+        let merged = merge_fields(&existing, next);
+
+        assert_eq!(
+            merged.iter().filter(|f| f.name.as_deref() == Some("age_path")).count(),
+            1
+        );
+        assert_eq!(value_of(&merged, "recovery_key"), Some("keep me"));
+    }
 }
