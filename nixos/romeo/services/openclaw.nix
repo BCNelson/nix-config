@@ -9,6 +9,62 @@
   stateDir = "/var/lib/openclaw";
   workspace = "${stateDir}/workspace";
 
+  # ./matrix.nix on this same host. Both of the accounts named here are
+  # provisioned by its `accounts` roster, and the gateway's password is the
+  # same agenix secret that roster created it with -- so there is exactly one
+  # source of truth for the credential and nothing to mint by hand.
+  matrixServerName = "bot.nel.family";
+
+  # The only Matrix ID allowed to talk to the agent, and the only one it will
+  # answer. It is a plain allowlist entry, so a wrong value here fails closed:
+  # the bot joins the DM and then silently ignores every message in it.
+  #
+  # Display names are deliberately not matchable (channels.matrix has a
+  # dangerouslyAllowNameMatching escape hatch precisely because display names
+  # are mutable and therefore spoofable); this has to be the full @user:server
+  # MXID.
+  ownerMxid = "@bcnelson:${matrixServerName}";
+
+  agentTools = [pkgs.bash pkgs.coreutils pkgs.git pkgs.ripgrep pkgs.jq pkgs.curl];
+
+  # E2EE is not purely declarative: cross-signing, device verification and the
+  # room-key backup are all *state*, bootstrapped by `openclaw matrix ...`
+  # commands that have to see the same config, state dir and access token the
+  # daemon does. `sudo -u openclaw openclaw ...` does not -- it inherits none
+  # of the unit's environment, so it silently reads a nonexistent
+  # ~/.openclaw/openclaw.json and reports a gateway with no channels.
+  #
+  # systemd-run reconstructs that environment from the unit's own definition
+  # rather than a second copy of it, so the two cannot drift, and
+  # EnvironmentFile is read by systemd as root instead of being catted into an
+  # argv where the token would be visible in ps output. --pipe rather than
+  # --pty because the openclaw CLI hangs waiting on a controlling terminal that
+  # a transient unit does not have.
+  #
+  # Usage: sudo openclaw-admin matrix encryption setup
+  #        sudo openclaw-admin doctor
+  #        printf '%s\n' "$KEY" | sudo openclaw-admin matrix verify device --recovery-key-stdin
+  #
+  # The crypto store is a sqlite file the running gateway holds open, so if a
+  # verification command reports it as locked, `systemctl stop openclaw` first.
+  openclawAdmin = pkgs.writeShellApplication {
+    name = "openclaw-admin";
+    runtimeInputs = [pkgs.systemd];
+    text = ''
+      exec systemd-run --pipe --quiet --wait --collect \
+        --uid=openclaw --gid=openclaw \
+        --property=WorkingDirectory=${workspace} \
+        --property=EnvironmentFile=${config.age-template.files.openclaw-env.path} \
+        --setenv=PATH=${lib.makeBinPath agentTools} \
+        ${
+        lib.concatMapStringsSep " \\\n        " (
+          name: "--setenv=${name}=${config.systemd.services.openclaw.environment.${name}}"
+        ) (builtins.attrNames config.systemd.services.openclaw.environment)
+      } \
+        ${lib.getExe openclaw} "$@"
+    '';
+  };
+
   # pkgs/openclaw.nix, not nixpkgs' openclaw: nixpkgs tracks the 2026.6
   # maintenance line, which never received the `/pair qr` "Media failed" fix
   # (openclaw/openclaw#97933). The `additions` overlay shadows the nixpkgs
@@ -260,6 +316,97 @@
       model.primary = "cliproxy/gpt-5.5";
     };
 
+    # Matrix is how this thing reaches me: DMs in, notifications and cron job
+    # output back. Everything below is either a credential, a gate on who may
+    # drive the agent, or a note about why the obvious alternative is wrong.
+    #
+    # The plugin does NOT have to be installed first, despite what
+    # docs/channels/matrix.md says ("openclaw plugins install @openclaw/matrix"
+    # -- a command Nix mode refuses). 2026.7.x ships it in-tree at
+    # extensions/matrix and ../../../pkgs/openclaw.nix copies both the source
+    # and dist/extensions/matrix into the output, which makes its origin
+    # "bundled". canStartConfiguredChannelPlugin returns true unconditionally
+    # for bundled plugins, so a channels.matrix block is the whole activation
+    # story. The manifest's `activation.onStartup: false` governs lazy loading
+    # in the CLI, not the gateway.
+    #
+    # One caveat carried by that same packaging: see the matrixCryptoNative
+    # note in pkgs/openclaw.nix. Encrypted *text* rides the wasm crypto module
+    # and always worked; encrypted *media* needs a native binding that npm only
+    # ships via a postinstall downloader, which is why the package vendors it.
+    channels.matrix = {
+      enabled = true;
+      homeserver = "https://${matrixServerName}";
+
+      # Password auth rather than a pasted access token, which is the whole
+      # reason for self-hosting: ./matrix.nix creates this account *from* this
+      # password, so declaring the account and configuring the client are the
+      # same act. A token would have to be minted by hand from a running
+      # server and pasted back into agenix -- a manual step per agent, and one
+      # that cannot be reproduced from the repo alone.
+      #
+      # The plugin logs in once and caches the resulting token under
+      # <state>/credentials/matrix/, so the password is not sent on every
+      # start. userId is mandatory on this path (there is no token to run
+      # /whoami against).
+      #
+      # Substituted from the process environment at config load, exactly like
+      # gateway.auth.token above -- resolveConfigEnvVars walks the whole parsed
+      # config, not a fixed list of keys, and throws MissingEnvVarError naming
+      # this path if the var is unset or empty.
+      userId = "@openclaw:${matrixServerName}";
+      password = "\${MATRIX_PASSWORD}";
+
+      # Names the session in your Matrix client's device list, which is what
+      # you cross-sign during verification. Worth being specific: an unnamed
+      # device is indistinguishable from a stolen-token session.
+      deviceName = "OpenClaw (romeo)";
+
+      # Rust crypto via matrix-js-sdk. The device starts unverified, which
+      # makes clients render shields on its messages until it is cross-signed;
+      # `openclaw-admin matrix encryption setup` (below) does that bootstrap.
+      #
+      # startupVerification is left at its default of "if-unverified", so an
+      # unverified gateway asks this account to verify it at startup, at most
+      # once per 24h. That is the intended first-run prompt, not a bug.
+      encryption = true;
+
+      # Who may DM the agent. "pairing" (the upstream default flow) would let
+      # any stranger start a pairing handshake; "allowlist" answers exactly one
+      # MXID and ignores the rest. This is the whole authorization story for an
+      # agent with shell access on romeo, so it stays closed.
+      dm = {
+        policy = "allowlist";
+        allowFrom = [ownerMxid];
+      };
+
+      # Rooms are a different surface with different failure modes (other
+      # members, invite-driven membership, mention parsing), and nothing here
+      # needs them yet. Disabled means group messages are dropped even in rooms
+      # the bot has joined.
+      groupPolicy = "disabled";
+
+      # autoJoin has to be permissive for the *first* DM to exist at all:
+      # invites arrive before openclaw can classify them as DM or group, so
+      # autoJoin runs first and dm.policy only applies afterwards, and
+      # autoJoinAllowlist accepts room ids/aliases -- neither of which is known
+      # before the room does. "off" would mean the bot never joins anything and
+      # the channel is inert.
+      #
+      # Joining is not answering: with the two policies above, an uninvited
+      # room is joined and then completely ignored. Once the DM room exists,
+      # tighten this to autoJoin = "allowlist" with its concrete
+      # "!roomid:${matrixServerName}" (get it from your client's room settings,
+      # or `openclaw-admin channels resolve --channel matrix`).
+      autoJoin = "always";
+    };
+
+    # Belt and braces. Bundled channel plugins start on the strength of the
+    # channels.matrix block alone, but Nix mode means the config file is the
+    # only surface that can ever enable a plugin -- `openclaw plugins enable`
+    # is refused -- so the intent is stated where it can actually be acted on.
+    plugins.entries.matrix.enabled = true;
+
     # `/pair qr` has to embed a URL the phone can actually reach. The gateway
     # only knows it is bound to 127.0.0.1, so without this it refuses outright:
     #   Gateway is only bound to loopback. Set gateway.bind=lan, enable
@@ -325,6 +472,9 @@ in {
     vars = {
       GATEWAY_TOKEN = config.age.secrets.openclaw-gateway-token.path;
       PROXY_KEY = config.age.secrets.cli-proxy-api-key.path;
+      # Declared by ./matrix.nix, not here: it is the same secret the
+      # homeserver created the @openclaw account with.
+      MATRIX_PW = config.age.secrets.matrix-password-openclaw.path;
     };
     owner = "openclaw";
     group = "openclaw";
@@ -332,6 +482,7 @@ in {
     content = ''
       OPENCLAW_GATEWAY_TOKEN=$GATEWAY_TOKEN
       CLI_PROXY_API_KEY=$PROXY_KEY
+      MATRIX_PASSWORD=$MATRIX_PW
     '';
   };
 
@@ -342,9 +493,11 @@ in {
   };
   users.groups.openclaw = {};
 
-  # On PATH so `sudo -u openclaw openclaw doctor` / `openclaw gateway status`
-  # inspect exactly the config the daemon runs.
-  environment.systemPackages = [openclaw];
+  # openclaw itself for the read-only, environment-independent subcommands
+  # (`openclaw --version`, `--help`); openclaw-admin for anything that has to
+  # see the daemon's config, state or credentials -- which is every `matrix`
+  # and `doctor` invocation. See the note on openclawAdmin above.
+  environment.systemPackages = [openclaw openclawAdmin];
 
   systemd.tmpfiles.rules = [
     "d ${stateDir} 0700 openclaw openclaw -"
@@ -387,8 +540,9 @@ in {
     };
 
     # The agent shells out; give it the same modest toolset goose.nix does
-    # rather than leaving it with a bare PATH.
-    path = [pkgs.bash pkgs.coreutils pkgs.git pkgs.ripgrep pkgs.jq pkgs.curl];
+    # rather than leaving it with a bare PATH. Shared with openclaw-admin so a
+    # command run by hand sees the same tools the daemon would.
+    path = agentTools;
 
     serviceConfig = {
       ExecStart = "${lib.getExe openclaw} gateway --port ${toString port}";
