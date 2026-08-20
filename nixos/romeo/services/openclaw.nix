@@ -15,15 +15,26 @@
   # source of truth for the credential and nothing to mint by hand.
   matrixServerName = "bot.nel.family";
 
-  # The only Matrix ID allowed to talk to the agent, and the only one it will
-  # answer. It is a plain allowlist entry, so a wrong value here fails closed:
-  # the bot joins the DM and then silently ignores every message in it.
+  # The Matrix IDs allowed to talk to the agent, and the only ones it will
+  # answer. These are plain allowlist entries, so a wrong value here fails
+  # closed: the bot joins the DM and then silently ignores every message in it.
   #
   # Display names are deliberately not matchable (channels.matrix has a
   # dangerouslyAllowNameMatching escape hatch precisely because display names
-  # are mutable and therefore spoofable); this has to be the full @user:server
-  # MXID.
-  ownerMxid = "@bcnelson:${matrixServerName}";
+  # are mutable and therefore spoofable); each of these has to be the full
+  # @user:server MXID.
+  #
+  # An MXID is per-homeserver, not per-person: the same human on a different
+  # server is a different principal here and has to be listed separately. The
+  # matrix.org entry is the pre-existing account, reaching this homeserver over
+  # federation -- which works because ./matrix.nix sets allow_federation and
+  # lists matrix.org in trusted_servers. Federated DMs are still E2EE, so this
+  # costs nothing in confidentiality, but it does mean the allowlist now
+  # depends on matrix.org's account security as well as this host's.
+  ownerMxids = [
+    "@bcnelson:${matrixServerName}"
+    "@bcnelson:matrix.org"
+  ];
 
   agentTools = [pkgs.bash pkgs.coreutils pkgs.git pkgs.ripgrep pkgs.jq pkgs.curl];
 
@@ -401,7 +412,7 @@
       # agent with shell access on romeo, so it stays closed.
       dm = {
         policy = "allowlist";
-        allowFrom = [ownerMxid];
+        allowFrom = ownerMxids;
       };
 
       # Rooms are a different surface with different failure modes (other
