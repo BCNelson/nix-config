@@ -70,6 +70,23 @@
       # [A-Z_][A-Z0-9_]* names are substituted, and a missing/empty var is a
       # hard error at startup rather than a silently unauthenticated gateway.
       auth.token = "\${OPENCLAW_GATEWAY_TOKEN}";
+
+      # Without this the Control UI loads but the gateway rejects its WebSocket
+      # with "Browser origin not allowed".
+      #
+      # The gateway auto-trusts same-origin UI loads from loopback, RFC1918,
+      # link-local, *.local, *.ts.net and Tailscale CGNAT hosts -- which is why
+      # this is not needed for a plain http://<lan-ip>:18789 load. It IS needed
+      # here because the vhost is reached by a public DNS name
+      # (openclaw.h.b.nel.family), and openclaw classifies the origin by the
+      # name in the browser's address bar, not by the address it resolves to.
+      # nginx being LAN/tailnet-only makes no difference to that check.
+      #
+      # Exact origin match: scheme + host, no trailing slash, no port (443 is
+      # implicit for https). The alternative upstream offers is
+      # dangerouslyAllowHostHeaderOriginFallback, which trusts the Host header
+      # an attacker controls -- an explicit allowlist is the safe form.
+      controlUi.allowedOrigins = ["https://${domain}"];
     };
 
     models.providers.cliproxy = {
