@@ -121,9 +121,9 @@ resource "porkbun_dns_record" "h_b_nel_family-A" {
 }
 
 resource "porkbun_dns_record" "nixcache_nel_family-CNAME" {
-  domain = "nel.family"
-  name = "nixcache"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "nixcache"
+  type    = "CNAME"
   content = "h.b.nel.family"
 }
 
@@ -244,30 +244,30 @@ resource "porkbun_dns_record" "romeo_b_nel_family-AAAA" {
 }
 
 resource "porkbun_dns_record" "charlie_b_nel_family-A" {
-  domain = "nel.family"
-  name = "charlie.b"
-  type = "A"
+  domain  = "nel.family"
+  name    = "charlie.b"
+  type    = "A"
   content = "100.83.96.109"
 }
 
 resource "porkbun_dns_record" "charlie_b_nel_family-AAAA" {
-  domain = "nel.family"
-  name = "charlie.b"
-  type = "AAAA"
+  domain  = "nel.family"
+  name    = "charlie.b"
+  type    = "AAAA"
   content = "fd7a:115c:a1e0::2f01:607e"
 }
 
 resource "porkbun_dns_record" "homeassistant_b_nel_family-A" {
-  domain = "nel.family"
-  name = "homeassistant.b"
-  type = "A"
+  domain  = "nel.family"
+  name    = "homeassistant.b"
+  type    = "A"
   content = "100.66.76.95"
 }
 
 resource "porkbun_dns_record" "homeassistant_b_nel_family-AAAA" {
-  domain = "nel.family"
-  name = "homeassistant.b"
-  type = "AAAA"
+  domain  = "nel.family"
+  name    = "homeassistant.b"
+  type    = "AAAA"
   content = "fd7a:115c:a1e0:ab12:4843:cd96:6242:4c5f"
 }
 
@@ -359,16 +359,16 @@ resource "porkbun_dns_record" "wildcard_romeo_b_nel_family-CNAME" {
 }
 # romeo.kvm.nel.family      A
 resource "porkbun_dns_record" "romeo_kvm_nel_family-A" {
-  domain = "nel.family"
-  name = "romeo.kvm"
-  type = "A"
+  domain  = "nel.family"
+  name    = "romeo.kvm"
+  type    = "A"
   content = "100.67.188.61"
 }
 # romeo.kvm.nel.family      AAAA
 resource "porkbun_dns_record" "romeo_kvm_nel_family-AAAA" {
-  domain = "nel.family"
-  name = "romeo.kvm"
-  type = "AAAA"
+  domain  = "nel.family"
+  name    = "romeo.kvm"
+  type    = "AAAA"
   content = "fd7a:115c:a1e0::7401:bc42"
 }
 # audiobooks      CNAME  audiobooks.h.b.nel.family.
@@ -394,24 +394,24 @@ resource "porkbun_dns_record" "check_nel_family-CNAME" {
 }
 
 resource "porkbun_dns_record" "monitor_nel_family-CNAME" {
-  domain = "nel.family"
-  name = "monitor"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "monitor"
+  type    = "CNAME"
   content = "gay-oxpecker.pikapod.net"
 }
 
 resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
-  domain = "nel.family"
-  name = "*.arr.b"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "*.arr.b"
+  type    = "CNAME"
   content = "h.b.nel.family"
 }
 
 # rss.b     CNAME  dainty-bull.pikapod.net
 resource "porkbun_dns_record" "rss_b_nel_family-CNAME" {
-  domain = "nel.family"
-  name = "rss.b"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "rss.b"
+  type    = "CNAME"
   content = "dainty-bull.pikapod.net"
 }
 
@@ -478,9 +478,9 @@ resource "porkbun_dns_record" "nel_family-A" {
 }
 
 resource "porkbun_dns_record" "rom_nel_family" {
-  domain = "nel.family"
-  name = "rom"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "rom"
+  type    = "CNAME"
   content = "h.b.nel.family"
 }
 
@@ -514,21 +514,21 @@ resource "porkbun_dns_record" "vault_nel_family-CNAME" {
 }
 
 resource "porkbun_dns_record" "grafana_b_nel_family-CNAME" {
-  domain = "nel.family"
-  name = "grafana.b"
-  type = "CNAME"
+  domain  = "nel.family"
+  name    = "grafana.b"
+  type    = "CNAME"
   content = "public.whiskey.b.nel.family"
 }
 
 resource "porkbun_dns_record" "nel_to-CAA" {
-  domain = "nel.to"
-  type = "CAA"
+  domain  = "nel.to"
+  type    = "CAA"
   content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
 
 resource "porkbun_dns_record" "nel_to-CNAME" {
-  domain = "nel.to"
-  type = "CNAME"
+  domain  = "nel.to"
+  type    = "CNAME"
   content = "h.b.nel.family"
 }
 
@@ -554,16 +554,16 @@ resource "cloudflare_record" "git_bcnelson_dev-CNAME" {
 }
 
 resource "porkbun_dns_record" "idm_nel_family-CNAME" {
-  domain = "nel.family"
-  type = "CNAME"
-  name = "idm"
+  domain  = "nel.family"
+  type    = "CNAME"
+  name    = "idm"
   content = "public.whiskey.b.nel.family"
 }
 
 resource "porkbun_dns_record" "auth_nel_family-CNAME" {
-  domain = "nel.family"
-  type = "CNAME"
-  name = "auth"
+  domain  = "nel.family"
+  type    = "CNAME"
+  name    = "auth"
   content = "public.whiskey.b.nel.family"
 }
 
@@ -575,9 +575,9 @@ resource "cloudflare_record" "bcnelson_dev-github-verify" {
 }
 
 resource "porkbun_dns_record" "nel_family-github-verify" {
-  domain = "nel.family"
-  type = "TXT"
-  name = "_github-pages-challenge-bcnelson"
+  domain  = "nel.family"
+  type    = "TXT"
+  name    = "_github-pages-challenge-bcnelson"
   content = "fd1501e619123965c3b215277162ad"
 }
 
