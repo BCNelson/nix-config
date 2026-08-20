@@ -9,6 +9,12 @@
   stateDir = "/var/lib/openclaw";
   workspace = "${stateDir}/workspace";
 
+  # Read back out of the NixOS module rather than repeated as a literal, so
+  # ../searxng.nix stays the single source of truth for where SearXNG listens and
+  # a port change there cannot leave this file pointing at a closed socket. See
+  # the tools.web.search block below for what consumes it.
+  searxngUrl = "http://${config.services.searx.settings.server.bind_address}:${toString config.services.searx.settings.server.port}";
+
   # ./matrix.nix on this same host. Both of the accounts named here are
   # provisioned by its `accounts` roster, and the gateway's password is the
   # same agenix secret that roster created it with -- so there is exactly one
@@ -551,6 +557,49 @@
       };
     };
 
+    # Web search. Without this block the agent cannot look anything up: the
+    # `web_search` tool is enabled by default, but with no provider configured it
+    # has nothing to call.
+    #
+    # The fallback that looks like it should cover that and does not is OpenAI's
+    # native hosted search. Upstream enables it only for Responses-API models on
+    # the built-in `openai` provider at an official OpenAI base URL, and
+    # explicitly not for "OpenAI-compatible proxy base URLs" -- which is exactly
+    # what models.providers.cliproxy above is. So gpt-5.5 turns through
+    # cli-proxy-api get no search at all until a managed provider is named here.
+    #
+    # ../searxng.nix is that provider: self-hosted metasearch on loopback, no API
+    # key, no per-query cost, nothing to mint by hand outside the repo. That file
+    # documents why it was picked over Brave/Tavily/Exa and why it has no vhost.
+    #
+    # This is a pin, not a hint. openclaw validates the id against the web-search
+    # provider ids declared by bundled and installed plugin manifests, so a typo
+    # fails config validation at startup instead of silently falling back to
+    # auto-detection.
+    tools.web.search.provider = "searxng";
+
+    plugins.entries.searxng = {
+      # Same reasoning as the matrix and memory-core entries above, and less
+      # optional than either: this plugin's manifest carries
+      # `activation.onStartup: false`, and Nix mode makes this file the only
+      # surface that can ever enable a plugin.
+      enabled = true;
+
+      config.webSearch = {
+        # No private-network escape hatch needed here, unlike channels.matrix and
+        # models.providers.cliproxy above. The searxng plugin inverts the usual
+        # guard: an `http://` base URL is *required* to resolve to a loopback or
+        # private address (public endpoints must use https://), so the same SSRF
+        # check that blocks the others is what admits this one.
+        baseUrl = searxngUrl;
+
+        # categories and language are deliberately unset. SearXNG defaults to the
+        # `general` category and no language filter, which is the right default
+        # for an agent that asks about arbitrary things, and the `web_search`
+        # tool accepts both as per-call overrides when a specific turn needs them.
+      };
+    };
+
     # `/pair qr` has to embed a URL the phone can actually reach. The gateway
     # only knows it is bound to 127.0.0.1, so without this it refuses outright:
     #   Gateway is only bound to loopback. Set gateway.bind=lan, enable
@@ -662,8 +711,13 @@ in {
     # rather than retrying forever. Ordering is not a guarantee -- account
     # creation happens a moment *after* continuwuity is up -- so a first boot
     # can still need one `systemctl restart openclaw`.
-    wants = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service"];
-    after = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service"];
+    #
+    # searx.service is ordering hygiene rather than a fix for anything: the
+    # web_search provider is resolved per tool call, not at startup, so a gateway
+    # that comes up first simply fails the first search and works on the next
+    # one. Listed so a clean boot does not have that window.
+    wants = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service" "searx.service"];
+    after = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service" "searx.service"];
 
     environment = {
       OPENCLAW_NIX_MODE = "1";

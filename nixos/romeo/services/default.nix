@@ -24,6 +24,7 @@ in {
     ./gotosocial.nix
     ./matrix.nix
     ./ollama.nix
+    ./searxng.nix
     ./librechat.nix
     ./cli-proxy-api.nix
     ./goose.nix
