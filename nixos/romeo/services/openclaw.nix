@@ -511,8 +511,15 @@ in {
     # without it and simply discovers an empty ollama catalog, which would
     # leave `ollama/*` refs unresolvable until something re-triggers discovery.
     # Ordering after it makes the catalog populated on a clean boot.
-    wants = ["network-online.target" "cli-proxy-api.service" "ollama.service"];
-    after = ["network-online.target" "cli-proxy-api.service" "ollama.service"];
+    # continuwuity is ordered for the same reason ollama is, but the failure it
+    # prevents is nastier: the @openclaw account does not exist until
+    # ./matrix.nix's admin_execute runs at homeserver startup, and a gateway
+    # that comes up first gets M_FORBIDDEN on login and leaves the channel dead
+    # rather than retrying forever. Ordering is not a guarantee -- account
+    # creation happens a moment *after* continuwuity is up -- so a first boot
+    # can still need one `systemctl restart openclaw`.
+    wants = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service"];
+    after = ["network-online.target" "cli-proxy-api.service" "ollama.service" "continuwuity.service"];
 
     environment = {
       OPENCLAW_NIX_MODE = "1";
