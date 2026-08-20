@@ -396,6 +396,21 @@ resource "porkbun_dns_record" "audiobooks_nel_family-CNAME" {
   type    = "CNAME"
   content = "audiobooks.h.b.nel.family"
 }
+# books      CNAME  romeo.b.nel.family.   (Calibre-Web-Automated on romeo)
+# Points at romeo's tailnet address, not the public ingress: the vhost only
+# admits tailnet/LAN sources, so resolving this to 66.118.47.137 would just
+# hand roaming clients a 403. Same reasoning as goose.h.b / openclaw.h.b above.
+#
+# romeo.b is a 100.64/10 CGNAT address, so this only helps clients actually on
+# the tailnet. An e-reader cannot join the tailnet, so the Kobo running KOReader
+# syncs on the LAN only, where romeo's unbound answers books.nel.family with
+# 192.168.3.7 before this record is ever consulted.
+resource "porkbun_dns_record" "books_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "books"
+  type    = "CNAME"
+  content = "romeo.b.nel.family"
+}
 # auth      CNAME  h.b.nel.family.
 resource "porkbun_dns_record" "auth_h_b_nel_family-CNAME" {
   domain  = "nel.family"

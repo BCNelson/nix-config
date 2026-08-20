@@ -8,6 +8,7 @@ in {
   imports = [
     ./actual.nix
     ./audiobookshelf.nix
+    ./calibre-web-automated.nix
     ./fastenhealth.nix
     ./foundryvtt.nix
     ./homebox.nix
