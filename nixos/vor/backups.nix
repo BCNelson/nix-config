@@ -55,7 +55,27 @@ in
         yearly = 5;
         useTemplate = [ "common" ];
       };
-      "vault/Backups/Nelson Family Data" = {
+      # Replication targets: syncoid never prunes the receiving side, so each
+      # of these needs its own retention policy or snapshots accumulate forever.
+      "vault/Backups/NelsonData" = {
+        hourly = 72;
+        daily = 31;
+        weekly = 52;
+        monthly = 24;
+        yearly = 10;
+        useTemplate = [ "common" ];
+        autosnap = false;
+      };
+      "vault/Backups/bcnelson/level1" = {
+        hourly = 72;
+        daily = 31;
+        weekly = 52;
+        monthly = 24;
+        yearly = 10;
+        useTemplate = [ "common" ];
+        autosnap = false;
+      };
+      "vault/Backups/bcnelson/level2" = {
         hourly = 72;
         daily = 31;
         weekly = 52;
