@@ -29,7 +29,6 @@
     (config.lib.nixGL.wrap pkgs.zoom-us)
     pkgs.gh
     inputs.scaffold.packages.${pkgs.stdenv.hostPlatform.system}.default
-    (config.lib.nixGL.wrap pkgs.amazing-marvin)
     (config.lib.nixGL.wrap pkgs.todoist-electron)
     pkgs.yt-dlp
   ];
