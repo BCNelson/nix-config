@@ -217,6 +217,36 @@ in {
       # buy a few tenths on the exposure score, but both contradict the point
       # of this unit -- a UDP server reachable by anyone on the internet who
       # has the password (see allowedPlayers above).
+
+      ##########################################################################
+      # Resource limits
+      #
+      # romeo has no swap, so an unbounded memory leak or a runaway world
+      # doesn't degrade -- it goes straight to the system OOM killer picking a
+      # victim anywhere on the host, not necessarily this unit. A cgroup
+      # MemoryMax contains that risk to just this service.
+      #
+      # Sized against two things measured directly rather than guessed: this
+      # unit's own current usage (384MB fresh-save baseline, matching public
+      # reports of 300-500MB for a new save) and romeo's real headroom (17GiB
+      # kernel-reported "available", not the much larger but ZFS-ARC-inflated
+      # "used" figure). Public reports put even a mature, heavily-produced
+      # world (dozens of players, hundreds of hours) around 2-4GB; this is a
+      # small private server, so 6GB is a backstop with real margin over that
+      # outlier, not a tight fit.
+      ##########################################################################
+      MemoryHigh = "3G";
+      MemoryMax = "6G";
+
+      # Checked against the live unit, not assumed: it runs 45 threads (a
+      # GameUpdate thread, a TaskManager pool, TransferSource, and workers),
+      # so this is not the single-core-bound process it's sometimes described
+      # as -- a tight quota risks throttling legitimate bursts (autosave
+      # compression, fast map exploration) into visible lag. romeo has 32
+      # threads at a load average of ~2.6, so 1600% (16 cores, half the host)
+      # only catches a genuinely pathological runaway and never touches normal
+      # play.
+      CPUQuota = "1600%";
     };
     # 2. Without this, a boot that races the vault would let systemd create and
     #    chown an empty /var/lib/factorio on the root pool, and Factorio would
