@@ -535,6 +535,17 @@ resource "porkbun_dns_record" "rom_nel_family" {
   content = "h.b.nel.family"
 }
 
+# gym      CNAME  h.b.nel.family.   (openGym on romeo)
+# LAN clients do not use this record: romeo's unbound answers gym.nel.family
+# with 192.168.3.7 (see nixos/romeo/unbound.nix). Passkeys are bound to this
+# exact hostname, so it cannot change once anyone has enrolled one.
+resource "porkbun_dns_record" "gym_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "gym"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 resource "porkbun_dns_record" "journal_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "journal"

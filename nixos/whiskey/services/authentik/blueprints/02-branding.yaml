@@ -1,6 +1,12 @@
 version: 1
 metadata:
-  name: nel-family-branding
+  # Distinct from branding.yaml's `nel-family-branding`. BlueprintInstance.name
+  # is UNIQUE, and authentik looks instances up by path -- so two files sharing a
+  # name make discovery INSERT a duplicate, raise IntegrityError, and roll back
+  # the entire blueprints_discovery run. That silently froze every custom
+  # blueprint at its 2026-07-18 state (01-admin-bcnelson and this file never
+  # registered at all) until it was found while deploying opengym.
+  name: nel-family-branding-theme
 entries:
   # Personalize the default brand (the one upstream creates as
   # default/default-brand.yaml with `domain: authentik-default`,
