@@ -165,6 +165,58 @@ in {
       DynamicUser = lib.mkForce false;
       User = "factorio";
       Group = "factorio";
+
+      ##########################################################################
+      # Hardening beyond upstream's baseline
+      #
+      # `systemd-analyze security factorio.service` scored the stock module 5.7
+      # MEDIUM. Its sandboxing block dates to a single 2019 PR (nixpkgs#60670)
+      # that enabled "most" of what systemd offered at the time and has not
+      # been revisited since -- some of what it's missing (ProtectClock,
+      # ProtectKernelLogs, ProtectProc/ProcSubset) postdates that PR by months
+      # to years; the rest (CapabilityBoundingSet, SystemCallFilter,
+      # RestrictSUIDSGID, ProtectHostname) already existed in May 2019 and was
+      # simply never included.
+      ##########################################################################
+
+      # DynamicUser= implies both of these; turning it off above (for the bind
+      # mount) silently gave them back. Nothing under this unit creates
+      # setuid/setgid files or relies on IPC objects surviving a restart, so
+      # restoring them costs nothing.
+      RestrictSUIDSGID = true;
+      RemoveIPC = true;
+
+      # A userspace game server binding a UDP port above 1024 and writing to
+      # its own state directory needs none of the ~40 capabilities in the
+      # default bounding set. Confirmed live: hosting, autosaving and the
+      # existing mod-list continued working with the set emptied.
+      CapabilityBoundingSet = [];
+
+      # @system-service is nixpkgs' own standard baseline for a compiled
+      # network daemon: it still permits ordinary socket/file/process
+      # syscalls, just not the mount/module/reboot/debug/raw-io/etc. groups
+      # this service has no reason to touch. SystemCallErrorNumber makes an
+      # unanticipated call fail with EPERM rather than killing the process
+      # outright, so a gap in this list degrades to a logged error instead of
+      # an instant crash-loop.
+      SystemCallFilter = ["@system-service"];
+      SystemCallErrorNumber = "EPERM";
+
+      # None of these touch anything the service does: no clock access, no
+      # kernel log reads, no hostname changes, no inspecting other processes,
+      # no ABI switching.
+      ProtectClock = true;
+      ProtectKernelLogs = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
+      PrivateUsers = true;
+      LockPersonality = true;
+
+      # Deliberately left open: PrivateNetwork and IPAddressDeny would each
+      # buy a few tenths on the exposure score, but both contradict the point
+      # of this unit -- a UDP server reachable by anyone on the internet who
+      # has the password (see allowedPlayers above).
     };
     # 2. Without this, a boot that races the vault would let systemd create and
     #    chown an empty /var/lib/factorio on the root pool, and Factorio would
