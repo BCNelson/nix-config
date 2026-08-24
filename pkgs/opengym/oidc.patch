@@ -1,0 +1,544 @@
+diff --git a/.env.example b/.env.example
+index a2c44dd..8fd87e8 100644
+--- a/.env.example
++++ b/.env.example
+@@ -77,6 +77,69 @@ RP_NAME=openGym
+ # Whatever you run in front has to overwrite these headers rather than pass a
+ # client-supplied one through — they are only as trustworthy as your proxy.
+ 
++# ── Listen address (optional) ──────────────────────────────────────────────
++# Unset (the default) listens on every interface, which is what the bundled
++# compose stack wants — the API is only reachable on the internal network. If
++# you run the API directly on a host instead, bind it to loopback so the only
++# way in is the web server in front of it:
++#
++#   HOST=127.0.0.1
++
++# ── Single sign-on / OpenID Connect (optional) ─────────────────────────────
++# Off unless all three of the first settings are given. When on, a "Sign in
++# with …" button appears next to the passkey one and both work: SSO does not
++# replace passkeys, it joins them. Every route behind either is identical.
++#
++#   OIDC_ISSUER=https://auth.example.com/application/o/opengym/
++#   OIDC_CLIENT_ID=opengym
++#   OIDC_CLIENT_SECRET=…
++#
++# The discovery document is read from <issuer>/.well-known/openid-configuration.
++# Register this exact redirect URI with your provider — it is derived from
++# ORIGIN and cannot be set separately, because it has to be same-origin with
++# the app just like passkeys are:
++#
++#   <ORIGIN>/api/oidc/callback
++#
++# Authorization-code flow with PKCE. Confidential client, so the provider must
++# be set to require a client secret.
++#
++# Label on the button. Cosmetic:
++#
++#   OIDC_NAME=SSO
++#
++# Scopes requested. The default is almost always right; `profile` is also what
++# carries group membership on most providers:
++#
++#   OIDC_SCOPES=openid profile email
++#
++# Groups from the id_token's `groups` claim that get the admin dashboard.
++# Empty (default) leaves admin to ADMIN_UIDS. Set it and it becomes
++# authoritative for SSO users, re-checked at every sign-in — so removing
++# somebody from the group in your provider actually takes their admin away:
++#
++#   OIDC_ADMIN_GROUPS=service_admins,household_admins
++#
++# Create a profile the first time somebody your provider vouches for signs in.
++# On by default. INVITE_ONLY does not apply here: it gates the open passkey
++# signup form, while everyone arriving through SSO has already been vetted by
++# your provider. Turn it off to allow SSO only into profiles that exist:
++#
++#   OIDC_AUTO_PROVISION=0
++#
++# Adopt an existing passkey profile whose name matches, rather than making a
++# second one next to it. On by default, and it is what makes an instance that
++# already has people on it migratable — without it everyone's history appears
++# to vanish at their first SSO login. Turn it off if two people on this
++# instance share a display name:
++#
++#   OIDC_LINK_EXISTING=0
++#
++# SSO does not close the other doors. To make it the only way in, close them:
++# INVITE_ONLY=1 (no new passkey profiles) and ALLOW_GUEST=0 (no local-only
++# guests). Existing passkeys keep working — remove them from ./data/db.json if
++# that is not what you want.
++
+ # ── Session length (optional) ──────────────────────────────────────────────
+ # How long a sign-in lasts, in days. Default 90 — long enough that people who
+ # train regularly never see a login screen, short enough that a stolen cookie
+diff --git a/api/server.js b/api/server.js
+index ca994fa..973d878 100644
+--- a/api/server.js
++++ b/api/server.js
+@@ -11,6 +11,11 @@ import {
+ import webpush from 'web-push';
+ 
+ const PORT = +(process.env.PORT || 3000);
++// Which address to listen on. Unset means every interface, which is what a container wants and
++// what this has always done. Outside a container it is the wrong default: the API is meant to be
++// reached only through the web server that fronts it, so a host deployment sets HOST=127.0.0.1
++// and stops relying on a firewall to keep the port private.
++const HOST = process.env.HOST || undefined;
+ const DATA = process.env.DATA_DIR || '/data';
+ const RP_ID = process.env.RP_ID || 'localhost';
+ const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+@@ -33,6 +38,36 @@ const MAX_BODY = 5 * 1024 * 1024;
+ // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
+ const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
+ 
++// OpenID Connect (optional). Off unless all three of issuer/client-id/client-secret are set, so
++// an instance that doesn't configure it behaves exactly as before. When on it sits *alongside*
++// passkeys rather than replacing them: both paths end at the same signed session cookie, and
++// every authenticated route still goes through readSession() untouched. To make SSO the only way
++// in, close the other two doors with INVITE_ONLY=1 and ALLOW_GUEST=0 — this does not do it for
++// you, because an instance may well want both.
++const OIDC_ISSUER = (process.env.OIDC_ISSUER || '').replace(/\/+$/, '');
++const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID || '';
++const OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || '';
++const OIDC = !!(OIDC_ISSUER && OIDC_CLIENT_ID && OIDC_CLIENT_SECRET);
++// Shown on the sign-in button ("Sign in with Authentik"). Purely cosmetic.
++const OIDC_NAME = (process.env.OIDC_NAME || 'SSO').slice(0, 40);
++const OIDC_SCOPES = process.env.OIDC_SCOPES || 'openid profile email';
++// Fixed, not configurable: it has to be an exact match against what the provider has registered,
++// and it has to be same-origin with the app, which ORIGIN already pins for the passkey flow.
++const OIDC_REDIRECT = ORIGIN + '/api/oidc/callback';
++// Names from the id_token's `groups` claim that grant the admin dashboard. Leave empty and admin
++// stays whatever ADMIN_UIDS / user.admin already said; set it and it becomes authoritative for
++// SSO users, re-evaluated on every sign-in so revoking the group in the IdP actually takes.
++const OIDC_ADMIN_GROUPS = (process.env.OIDC_ADMIN_GROUPS || '').split(',').map(s => s.trim()).filter(Boolean);
++// Create a profile the first time someone the IdP vouches for signs in. Off means SSO can only
++// sign in to accounts that already exist. INVITE_ONLY is deliberately not consulted: that gates
++// the open passkey signup form, whereas everyone arriving here has already been vetted by the IdP.
++const OIDC_AUTO_PROVISION = !/^(0|false|no|off)$/i.test(process.env.OIDC_AUTO_PROVISION || '');
++// Adopt an existing passkey profile whose name matches, instead of creating a second one beside
++// it. This is what makes an existing instance migratable — without it everyone's history appears
++// to vanish on their first SSO login. Matching is by display name because that is the only thing
++// a passkey profile has; on an instance where two people picked the same name, turn it off.
++const OIDC_LINK_EXISTING = !/^(0|false|no|off)$/i.test(process.env.OIDC_LINK_EXISTING || '');
++
+ fs.mkdirSync(DATA, { recursive: true });
+ 
+ /* ---------- secret + db ---------- */
+@@ -174,11 +209,13 @@ function makeSession(user) {
+   const exp = Date.now() + SESSION_DAYS * 86400000;
+   return sign(user.id + ':' + exp + ':' + sessionVersion(user));
+ }
+-function readSession(req) {
+-  const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
++function cookies(req) {
++  return Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
+     const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
+   }));
+-  const tok = cookies.gymsid;
++}
++function readSession(req) {
++  const tok = cookies(req).gymsid;
+   if (!tok) return null;
+   const payload = verifySig(tok);
+   if (!payload) return null;
+@@ -207,6 +244,65 @@ function sessionCookie(user) {
+ }
+ const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
+ 
++/* ---------- OpenID Connect ---------- */
++// Authorization-code flow with PKCE, no dependencies: node has fetch, URLSearchParams and the
++// crypto it needs built in. Only reached when OIDC is on.
++
++// The discovery document, re-read hourly. Fetched lazily rather than at boot so that an IdP that
++// is slow to come up (or briefly down) delays a sign-in instead of preventing the app from
++// starting at all — on one box, openGym and the IdP may well be booting together.
++let oidcMeta = null, oidcMetaAt = 0;
++async function oidcDiscover() {
++  if (oidcMeta && Date.now() - oidcMetaAt < 3600000) return oidcMeta;
++  const r = await fetch(OIDC_ISSUER + '/.well-known/openid-configuration');
++  if (!r.ok) throw new Error('discovery: HTTP ' + r.status);
++  const meta = await r.json();
++  for (const k of ['issuer', 'authorization_endpoint', 'token_endpoint']) {
++    if (typeof meta[k] !== 'string' || !meta[k]) throw new Error('discovery: no ' + k);
++  }
++  oidcMeta = meta; oidcMetaAt = Date.now();
++  return meta;
++}
++
++// state -> {nonce, verifier, exp}. Same shape and lifetime as the WebAuthn challenge store, kept
++// separate so the two flows can never consume each other's entries. In memory only: a restart
++// mid-sign-in costs one retry, and there is nothing here worth persisting.
++const oidcStates = new Map();
++setInterval(() => { for (const [k, v] of oidcStates) if (v.exp < Date.now()) oidcStates.delete(k); }, 60000).unref();
++
++const s256 = v => crypto.createHash('sha256').update(v).digest('base64url');
++const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
++
++// The id_token's signature is deliberately not checked. In the authorization-code flow the token
++// is handed to us directly by the token endpoint over a TLS connection we opened to the issuer,
++// authenticated with our client secret — so the channel already provides what the signature would,
++// and OpenID Connect Core 3.1.3.7 makes the check optional for exactly this case. The claims below
++// (iss/aud/exp/nonce) are still validated: they defend against a token that is genuine but meant
++// for someone else, or replayed. Verifying the JWS as well would mean a JWKS fetch, key-rollover
++// handling and alg pinning for no additional guarantee on this path.
++function oidcClaims(token) {
++  const parts = String(token || '').split('.');
++  if (parts.length !== 3) throw new Error('id_token is not a JWT');
++  const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
++  if (!claims || typeof claims !== 'object') throw new Error('id_token has no claims');
++  return claims;
++}
++
++// Failures land on a plain page rather than a redirect with an error in the query string: the SPA
++// would have to grow a whole error channel to say what this says directly, and a stuck sign-in is
++// exactly when a person needs the actual reason rather than a toast. The message is always one of
++// our own fixed strings — nothing the IdP or the caller supplied is ever echoed back.
++function oidcFail(res, msg, extraCookie) {
++  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' };
++  if (extraCookie) headers['Set-Cookie'] = extraCookie;
++  res.writeHead(400, headers);
++  res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
++    + '<title>Sign-in failed</title><body style="font:16px/1.6 system-ui,-apple-system,sans-serif;max-width:32rem;margin:16vh auto;padding:0 1.25rem">'
++    + '<h1 style="font-size:1.3rem;margin:0 0 .6rem">Sign-in failed</h1>'
++    + '<p style="margin:0 0 1.4rem;color:#555">' + escHtml(msg) + '</p>'
++    + '<p><a href="/">Back to openGym</a></p>');
++}
++
+ /* ---------- challenge store (in-memory, 5 min TTL) ---------- */
+ const challenges = new Map(); // cid -> {challenge, name?, uid?, exp}
+ function putChallenge(data) {
+@@ -354,7 +450,7 @@ const routes = {
+   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
+ 
+   // Public config the login screen needs before anyone is signed in.
+-  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST }),
++  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST, oidc: OIDC ? OIDC_NAME : null }),
+ 
+   'GET /api/me': async (req, res) => {
+     const user = readSession(req);
+@@ -498,6 +594,131 @@ const routes = {
+     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+   },
+ 
++  /* ---------- OpenID Connect ---------- */
++  // Both routes are browser navigations, not fetches: the app sends the tab to /api/oidc/start and
++  // gets it back at /api/oidc/callback with a session cookie already set, at which point the normal
++  // boot path (GET /api/me) sees a signed-in user. Nothing in the SPA has to understand OAuth.
++  'GET /api/oidc/start': async (req, res) => {
++    if (!OIDC) return json(res, 404, { error: 'not found' });
++    let meta;
++    try { meta = await oidcDiscover(); }
++    catch (e) {
++      console.error('oidc discovery failed:', e.message);
++      audit(req, 'auth.oidc.fail', { ok: false, msg: 'discovery' });
++      return oidcFail(res, 'The identity provider could not be reached. Try again in a moment.');
++    }
++    const state = crypto.randomBytes(16).toString('base64url');
++    const nonce = crypto.randomBytes(16).toString('base64url');
++    const verifier = crypto.randomBytes(32).toString('base64url');
++    oidcStates.set(state, { nonce, verifier, exp: Date.now() + 5 * 60000 });
++
++    const u = new URL(meta.authorization_endpoint);
++    u.searchParams.set('response_type', 'code');
++    u.searchParams.set('client_id', OIDC_CLIENT_ID);
++    u.searchParams.set('redirect_uri', OIDC_REDIRECT);
++    u.searchParams.set('scope', OIDC_SCOPES);
++    u.searchParams.set('state', state);
++    u.searchParams.set('nonce', nonce);
++    u.searchParams.set('code_challenge', s256(verifier));
++    u.searchParams.set('code_challenge_method', 'S256');
++    res.writeHead(302, {
++      Location: u.toString(),
++      'Cache-Control': 'no-store',
++      // Ties the callback to the browser that started the flow. Without it, someone can run the
++      // flow themselves and hand the victim the resulting callback URL, silently signing them into
++      // the attacker's account (login CSRF) — where anything they then log is the attacker's to
++      // read. Scoped to /api/oidc so it is not attached to ordinary requests, and Lax still lets it
++      // ride the IdP's top-level redirect back.
++      'Set-Cookie': `gymoidc=${state}; Path=/api/oidc; Max-Age=300; HttpOnly;${SECURE} SameSite=Lax`
++    });
++    res.end();
++  },
++
++  'GET /api/oidc/callback': async (req, res) => {
++    if (!OIDC) return json(res, 404, { error: 'not found' });
++    const clear = `gymoidc=; Path=/api/oidc; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
++    const q = new URL(req.url, 'http://x').searchParams;
++    const fail = (reason, msg) => {
++      audit(req, 'auth.oidc.fail', { ok: false, msg: reason });
++      oidcFail(res, msg, clear);
++    };
++
++    // The IdP refused before we ever got a code — usually the account isn't allowed this app.
++    if (q.get('error')) {
++      console.error('oidc provider error:', q.get('error'), q.get('error_description') || '');
++      return fail('provider-error', 'The identity provider refused the sign-in. Your account may not have access to this app.');
++    }
++
++    // state must match both what we issued and what this browser was given.
++    const state = q.get('state') || '';
++    const st = oidcStates.get(state);
++    oidcStates.delete(state);
++    if (!st || st.exp < Date.now()) return fail('state-expired', 'That sign-in took too long. Please try again.');
++    if (cookies(req).gymoidc !== state) return fail('state-mismatch', 'This sign-in did not start in this browser. Please try again.');
++
++    const code = q.get('code');
++    if (!code) return fail('no-code', 'The identity provider did not return an authorization code.');
++
++    let claims;
++    try {
++      const meta = await oidcDiscover();
++      const r = await fetch(meta.token_endpoint, {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
++        body: new URLSearchParams({
++          grant_type: 'authorization_code',
++          code,
++          redirect_uri: OIDC_REDIRECT,
++          client_id: OIDC_CLIENT_ID,
++          client_secret: OIDC_CLIENT_SECRET,
++          code_verifier: st.verifier
++        })
++      });
++      // The body of a failed token response can contain the code and our own client_id, so it is
++      // logged to the console for the operator and never surfaced to the caller.
++      if (!r.ok) throw new Error('token endpoint: HTTP ' + r.status + ' ' + (await r.text()).slice(0, 300));
++      const tok = await r.json();
++      claims = oidcClaims(tok.id_token);
++
++      if (claims.iss !== meta.issuer) throw new Error('id_token issuer mismatch');
++      const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
++      if (!aud.includes(OIDC_CLIENT_ID)) throw new Error('id_token audience mismatch');
++      if (!(+claims.exp > 0) || claims.exp * 1000 < Date.now()) throw new Error('id_token expired');
++      if (claims.nonce !== st.nonce) throw new Error('id_token nonce mismatch');
++      if (!claims.sub) throw new Error('id_token has no sub');
++    } catch (e) {
++      console.error('oidc exchange failed:', e.message);
++      return fail('exchange', 'Could not complete the sign-in with the identity provider.');
++    }
++
++    // `sub` is the only claim guaranteed stable for the life of the account — names and email
++    // addresses change, so neither is ever the key, only the label.
++    const sub = String(claims.sub);
++    const name = String(claims.name || claims.preferred_username || claims.email || '').trim().slice(0, 40) || 'User';
++
++    let user = db.users.find(u => u.oidc_sub === sub);
++    if (!user && OIDC_LINK_EXISTING) {
++      user = db.users.find(u => !u.oidc_sub && String(u.name || '').toLowerCase() === name.toLowerCase());
++      if (user) user.oidc_sub = sub;   // claimed once; the sub lookup above wins from here on
++    }
++    if (!user) {
++      if (!OIDC_AUTO_PROVISION) return fail('no-account', 'There is no profile for this account on this instance, and this instance does not create them automatically.');
++      // Same id shape as a passkey profile, so nothing downstream can tell the two apart.
++      user = { id: crypto.randomBytes(12).toString('base64url'), name, oidc_sub: sub, created: new Date().toISOString() };
++      db.users.push(user);
++    }
++    if (user.disabled) return fail('account-disabled', 'This account has been disabled.');
++
++    if (OIDC_ADMIN_GROUPS.length) {
++      const groups = Array.isArray(claims.groups) ? claims.groups.map(String) : [];
++      user.admin = groups.some(g => OIDC_ADMIN_GROUPS.includes(g));
++    }
++    saveDb();
++    audit(req, 'auth.oidc.ok', { user });
++    res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store', 'Set-Cookie': [sessionCookie(user), clear] });
++    res.end();
++  },
++
+   // Reads the session purely so the sign-out can be recorded; the cookie is cleared either way.
+   // A logout with no valid cookie is a no-op and isn't worth an entry.
+   'POST /api/logout': async (req, res) => {
+@@ -737,4 +958,4 @@ http.createServer(async (req, res) => {
+     console.error(key, e);
+     if (!res.headersSent) json(res, 500, { error: 'server error' });
+   }
+-}).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
++}).listen(PORT, HOST, () => console.log(`gym-api on ${HOST || '*'}:${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
+diff --git a/frontend/src/lib/api.js b/frontend/src/lib/api.js
+index 6a7e620..0aa658e 100644
+--- a/frontend/src/lib/api.js
++++ b/frontend/src/lib/api.js
+@@ -45,6 +45,11 @@ function credToJSON(cred) {
+   }
+   return out
+ }
++// SSO is a browser navigation, not a fetch: the server answers with a redirect to the identity
++// provider, which may need to show its own login form, and hands the tab back to
++// /api/oidc/callback with the session cookie already set. fetch() cannot drive that.
++export function oidcStart() { window.location.href = '/api/oidc/start' }
++
+ export async function passkeyRegister(name, code) {
+   const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify({ name, code: code || '' }) })
+   const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
+diff --git a/frontend/src/locales/de.js b/frontend/src/locales/de.js
+index b726cb1..2a78550 100644
+--- a/frontend/src/locales/de.js
++++ b/frontend/src/locales/de.js
+@@ -242,6 +242,7 @@ export default {
+   'Create passkey': 'Passkey erstellen',
+   'Your workouts. Your weights. Your profile.': 'Deine Trainings. Deine Gewichte. Dein Profil.',
+   'Sign in with passkey': 'Mit Passkey anmelden',
++  'Sign in with {0}': 'Mit {0} anmelden',
+   'Create new profile': 'Neues Profil erstellen',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Dieser Browser unterstützt keine Passkeys — du kannst openGym trotzdem lokal auf diesem Gerät nutzen.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Dieser Browser unterstützt keine Passkeys, und dieser Server verlangt ein Konto. Probier einen Browser oder ein Gerät mit Passkey-Unterstützung.',
+diff --git a/frontend/src/locales/es.js b/frontend/src/locales/es.js
+index 99b88cc..5cc14e7 100644
+--- a/frontend/src/locales/es.js
++++ b/frontend/src/locales/es.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Crear passkey',
+   'Your workouts. Your weights. Your profile.': 'Tus entrenamientos. Tus pesos. Tu perfil.',
+   'Sign in with passkey': 'Iniciar sesión con passkey',
++  'Sign in with {0}': 'Iniciar sesión con {0}',
+   'Create new profile': 'Crear perfil nuevo',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Este navegador no admite passkeys — aun así puedes usar openGym localmente en este dispositivo.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Este navegador no admite passkeys y este servidor requiere una cuenta. Prueba con un navegador o dispositivo compatible con passkeys.',
+diff --git a/frontend/src/locales/fr.js b/frontend/src/locales/fr.js
+index 1324543..72e9b68 100644
+--- a/frontend/src/locales/fr.js
++++ b/frontend/src/locales/fr.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Créer une passkey',
+   'Your workouts. Your weights. Your profile.': 'Tes séances. Tes charges. Ton profil.',
+   'Sign in with passkey': 'Se connecter avec une passkey',
++  'Sign in with {0}': 'Se connecter avec {0}',
+   'Create new profile': 'Créer un nouveau profil',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Ce navigateur ne prend pas en charge les passkeys — tu peux quand même utiliser openGym localement sur cet appareil.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Ce navigateur ne prend pas en charge les passkeys, et ce serveur exige un compte. Essaie un navigateur ou un appareil compatible avec les passkeys.',
+diff --git a/frontend/src/locales/hi.js b/frontend/src/locales/hi.js
+index 119d3e9..ba1f174 100644
+--- a/frontend/src/locales/hi.js
++++ b/frontend/src/locales/hi.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'पासकी बनाएँ',
+   'Your workouts. Your weights. Your profile.': 'आपके वर्कआउट। आपके वज़न। आपकी प्रोफ़ाइल।',
+   'Sign in with passkey': 'पासकी से साइन इन करें',
++  'Sign in with {0}': '{0} से साइन इन करें',
+   'Create new profile': 'नई प्रोफ़ाइल बनाएँ',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'यह ब्राउज़र पासकी सपोर्ट नहीं करता — फिर भी आप इस डिवाइस पर openGym लोकली इस्तेमाल कर सकते हैं।',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'यह ब्राउज़र पासकी सपोर्ट नहीं करता, और इस सर्वर के लिए खाता ज़रूरी है। पासकी सपोर्ट वाला ब्राउज़र या डिवाइस आज़माएँ।',
+diff --git a/frontend/src/locales/it.js b/frontend/src/locales/it.js
+index 2aeed2e..b5e73ee 100644
+--- a/frontend/src/locales/it.js
++++ b/frontend/src/locales/it.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Crea passkey',
+   'Your workouts. Your weights. Your profile.': 'I tuoi allenamenti. I tuoi pesi. Il tuo profilo.',
+   'Sign in with passkey': 'Accedi con passkey',
++  'Sign in with {0}': 'Accedi con {0}',
+   'Create new profile': 'Crea nuovo profilo',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Questo browser non supporta le passkey — puoi comunque usare openGym localmente su questo dispositivo.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Questo browser non supporta le passkey e questo server richiede un account. Prova un browser o un dispositivo che supporti le passkey.',
+diff --git a/frontend/src/locales/ko.js b/frontend/src/locales/ko.js
+index 7a3ff84..d7d49ce 100644
+--- a/frontend/src/locales/ko.js
++++ b/frontend/src/locales/ko.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': '패스키 만들기',
+   'Your workouts. Your weights. Your profile.': '당신의 운동. 당신의 무게. 당신의 프로필.',
+   'Sign in with passkey': '패스키로 로그인',
++  'Sign in with {0}': '{0}(으)로 로그인',
+   'Create new profile': '새 프로필 만들기',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": '이 브라우저는 패스키를 지원하지 않아요 — 그래도 이 기기에서 openGym을 로컬로 사용할 수 있습니다.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": '이 브라우저는 패스키를 지원하지 않고, 이 서버는 계정이 필요합니다. 패스키를 지원하는 브라우저나 기기를 사용해 보세요.',
+diff --git a/frontend/src/locales/pl.js b/frontend/src/locales/pl.js
+index 27634f7..5ca8ab8 100644
+--- a/frontend/src/locales/pl.js
++++ b/frontend/src/locales/pl.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Utwórz passkey',
+   'Your workouts. Your weights. Your profile.': 'Twoje treningi. Twoje ciężary. Twój profil.',
+   'Sign in with passkey': 'Zaloguj się passkey',
++  'Sign in with {0}': 'Zaloguj się przez {0}',
+   'Create new profile': 'Utwórz nowy profil',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Ta przeglądarka nie obsługuje passkey — mimo to możesz używać openGym lokalnie na tym urządzeniu.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Ta przeglądarka nie obsługuje passkey, a ten serwer wymaga konta. Spróbuj przeglądarki lub urządzenia z obsługą passkey.',
+diff --git a/frontend/src/locales/pt.js b/frontend/src/locales/pt.js
+index c46e111..9e67350 100644
+--- a/frontend/src/locales/pt.js
++++ b/frontend/src/locales/pt.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Criar passkey',
+   'Your workouts. Your weights. Your profile.': 'Os teus treinos. Os teus pesos. O teu perfil.',
+   'Sign in with passkey': 'Entrar com passkey',
++  'Sign in with {0}': 'Entrar com {0}',
+   'Create new profile': 'Criar novo perfil',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Este navegador não suporta passkeys — ainda assim podes usar o openGym localmente neste dispositivo.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Este navegador não suporta passkeys e este servidor exige uma conta. Experimenta um navegador ou dispositivo com suporte a passkeys.',
+diff --git a/frontend/src/locales/ru.js b/frontend/src/locales/ru.js
+index 720dacd..0f25b09 100644
+--- a/frontend/src/locales/ru.js
++++ b/frontend/src/locales/ru.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Создать ключ доступа',
+   'Your workouts. Your weights. Your profile.': 'Твои тренировки. Твои веса. Твой профиль.',
+   'Sign in with passkey': 'Войти по ключу доступа',
++  'Sign in with {0}': 'Войти через {0}',
+   'Create new profile': 'Создать новый профиль',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Этот браузер не поддерживает ключи доступа — но openGym можно использовать локально на этом устройстве.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Этот браузер не поддерживает ключи доступа, а на этом сервере нужен аккаунт. Попробуйте браузер или устройство с поддержкой ключей доступа.',
+diff --git a/frontend/src/locales/tr.js b/frontend/src/locales/tr.js
+index 9539877..26cb215 100644
+--- a/frontend/src/locales/tr.js
++++ b/frontend/src/locales/tr.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': 'Geçiş anahtarı oluştur',
+   'Your workouts. Your weights. Your profile.': 'Senin antrenmanların. Senin ağırlıkların. Senin profilin.',
+   'Sign in with passkey': 'Geçiş anahtarıyla giriş yap',
++  'Sign in with {0}': '{0} ile giriş yap',
+   'Create new profile': 'Yeni profil oluştur',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": 'Bu tarayıcı geçiş anahtarlarını desteklemiyor — yine de openGym’i bu cihazda yerel olarak kullanabilirsin.',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": 'Bu tarayıcı geçiş anahtarlarını desteklemiyor ve bu sunucu bir hesap gerektiriyor. Geçiş anahtarı destekleyen bir tarayıcı veya cihaz dene.',
+diff --git a/frontend/src/locales/zh.js b/frontend/src/locales/zh.js
+index 3ec38c3..8a7f875 100644
+--- a/frontend/src/locales/zh.js
++++ b/frontend/src/locales/zh.js
+@@ -229,6 +229,7 @@ export default {
+   'Create passkey': '创建通行密钥',
+   'Your workouts. Your weights. Your profile.': '你的训练。你的重量。你的档案。',
+   'Sign in with passkey': '用通行密钥登录',
++  'Sign in with {0}': '用{0}登录',
+   'Create new profile': '创建新档案',
+   "This browser doesn't support passkeys — you can still use openGym locally on this device.": '此浏览器不支持通行密钥——你仍可在本设备上本地使用 openGym。',
+   "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": '此浏览器不支持通行密钥，且此服务器需要账户。请换用支持通行密钥的浏览器或设备。',
+diff --git a/frontend/src/views/Login.jsx b/frontend/src/views/Login.jsx
+index 0df9748..7811725 100644
+--- a/frontend/src/views/Login.jsx
++++ b/frontend/src/views/Login.jsx
+@@ -1,6 +1,6 @@
+ import { useStore } from '../store/useStore.js'
+ import { useUI } from '../store/useUI.js'
+-import { webauthnOK, passkeyLogin, passkeyRegister, BIO } from '../lib/api.js'
++import { webauthnOK, passkeyLogin, passkeyRegister, oidcStart, BIO } from '../lib/api.js'
+ import { hasData } from '../store/useStore.js'
+ import { t } from '../lib/i18n.js'
+ import { DEMO, REPO } from '../lib/demo.js'
+@@ -50,6 +50,9 @@ export default function Login() {
+   const { setUser, pullState, setGuest } = useStore()
+   const config = useStore(s => s.config)
+   const canGuest = guestAllowed(config)
++  // Null unless the server has an identity provider configured; otherwise the provider's display
++  // name, which is what the button is labelled with.
++  const sso = config?.oidc || null
+   const signIn = async () => {
+     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
+     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
+@@ -79,8 +82,15 @@ export default function Login() {
+     <div className="narrow" style={wrap}>
+       {head}
+       <div className="muted" style={{ marginBottom: 34 }}>{t('Your workouts. Your weights. Your profile.')}</div>
++      {/* Single sign-on, when the instance is configured for it. Sits above the passkey button and
++          takes the primary style off it, because on an instance that has an identity provider this
++          is the way in that is expected to work — but passkeys stay offered, not replaced. */}
++      {sso && <>
++        <Button variant="primary" icon="shield" onClick={oidcStart}>{t('Sign in with {0}', sso)}</Button>
++        <div style={{ height: 10 }} />
++      </>}
+       {webauthnOK() ? <>
+-        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
++        <Button variant={sso ? 'plain' : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
+         <div style={{ height: 10 }} />
+         <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
+         {canGuest && <div style={{ height: 10 }} />}

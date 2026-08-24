@@ -34,6 +34,7 @@ in {
     ./journiv.nix
     ./tendant.nix
     ./forgejo-runner.nix
+    ./opengym.nix
   ];
 
   systemd.timers.podman-auto-update = {

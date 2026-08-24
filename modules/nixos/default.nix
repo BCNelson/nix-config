@@ -12,4 +12,5 @@
   authentikBlueprints = import ./authentik-blueprints.nix;
   thinClient = import ./thinClient;
   thinClientBuilder = import ./thinClientBuilder;
+  opengym = import ./opengym.nix;
 }

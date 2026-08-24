@@ -39,6 +39,13 @@ in {
     generator.script = "alnum";
   };
 
+  # OAuth2 client secret for the openGym provider — same rekeyFile as
+  # nixos/romeo/services/opengym.nix, so the two sides can never drift.
+  age.secrets.opengym-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/opengym_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -46,12 +53,14 @@ in {
       SECRET_KEY = config.age.secrets.authentik-secret-key.path;
       BOOTSTRAP_PASSWORD = config.age.secrets.authentik-bootstrap-password.path;
       GOTOSOCIAL_SECRET = config.age.secrets.gotosocial-oauth-client-secret.path;
+      OPENGYM_SECRET = config.age.secrets.opengym-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
       AUTHENTIK_BOOTSTRAP_PASSWORD=$BOOTSTRAP_PASSWORD
       AUTHENTIK_BOOTSTRAP_EMAIL=bradley@nel.family
       GOTOSOCIAL_OAUTH_CLIENT_SECRET=$GOTOSOCIAL_SECRET
+      OPENGYM_OAUTH_CLIENT_SECRET=$OPENGYM_SECRET
     '';
   };
 
