@@ -133,6 +133,11 @@ in {
       # The port is internet-facing, so it gets a ceiling rather than the
       # upstream default of unlimited.
       max_players = 10;
+      # The level4 offsite borg job is commented out (see stateDir comment
+      # above), so ZFS snapshots plus these in-game autosave slots are the only
+      # rollback path. 50 covers roughly 8 hours of history at the 10-minute
+      # interval below -- upstream's default of 5 is only 50 minutes.
+      autosave_slots = 50;
     };
   };
 
