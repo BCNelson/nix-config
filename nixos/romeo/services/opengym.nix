@@ -42,9 +42,12 @@ in {
 
     environmentFile = config.age-template.files.opengym-env.path;
 
-    # Both doors that bypass the identity provider stay shut: no open passkey
-    # signup form, and no "continue without account" guest mode. Together with
-    # the OIDC block below, authentik is the only way in.
+    # Every door that bypasses the identity provider stays shut. Passkey signup
+    # is closed outright rather than invite-gated, so authentik is the only way
+    # a profile comes into existence at all; guest mode is off; and inviteOnly
+    # is kept as a belt-and-braces default that has nothing left to gate while
+    # allowPasskeySignup is false.
+    allowPasskeySignup = false;
     inviteOnly = true;
     allowGuest = false;
 

@@ -395,6 +395,10 @@ testers.runNixOSTest {
       # No ACME in a VM with no DNS and no reachable CA.
       useACME = false;
       dataDir = "/var/lib/opengym";
+      # Matches romeo: SSO is the only way a profile comes into existence. The
+      # passkey subtests below re-enable it with a drop-in so both states are
+      # covered on one VM.
+      allowPasskeySignup = false;
       environmentFile = "/etc/opengym-secret.env";
       oidc = {
         enable = true;
@@ -479,7 +483,12 @@ testers.runNixOSTest {
 
     with subtest("the instance advertises SSO and nothing else"):
         cfg = json.loads(api("/api/config"))
-        assert cfg == {"invite_only": True, "allow_guest": False, "oidc": "TestIdP"}, cfg
+        assert cfg == {
+            "invite_only": True,
+            "allow_guest": False,
+            "allow_passkey_signup": False,
+            "oidc": "TestIdP",
+        }, cfg
 
     with subtest("a full OIDC sign-in creates a profile and a session"):
         # -L walks the whole dance: /api/oidc/start -> the provider's authorize
@@ -524,14 +533,40 @@ testers.runNixOSTest {
         me = json.loads(machine.succeed("curl -sS -b /tmp/jar http://${host}/api/me"))
         assert me["user"]["admin"] is True, f"admin was not restored with the group: {me}"
 
-    with subtest("passkey signup is refused without an invite"):
-        # INVITE_ONLY=1 is what stops the passkey form being a way around the
-        # identity provider, so it is worth pinning rather than assuming.
+    with subtest("passkey signup is closed, at the endpoint and not just the button"):
+        # Hiding the button is not a control: /api/register/* is unauthenticated
+        # and reachable by anyone who can see the instance. Both halves of the
+        # handshake have to refuse, because they are separate requests and a
+        # challenge minted earlier must not stay spendable.
+        for path in ["/api/register/options", "/api/register/verify"]:
+            code = machine.succeed(
+                "curl -sS -o /dev/null -w %{http_code} -X POST "
+                f"-H 'Content-Type: application/json' -d '{{}}' http://${host}{path}"
+            ).strip()
+            assert code == "403", f"{path} answered {code}, expected 403"
         machine.fail(
             'passkey register http://${host} http://${host} ${host} Nobody "" /tmp/nope.json'
         )
         health = json.loads(api("/api/health"))
         assert health["users"] == 1, health
+
+    with subtest("reopening signup brings the passkey path back"):
+        # A drop-in rather than a second VM: it exercises the same unit both ways
+        # for the cost of one restart.
+        machine.succeed("mkdir -p /run/systemd/system/opengym-api.service.d")
+        machine.succeed(
+            "printf '[Service]\\nEnvironment=ALLOW_PASSKEY_SIGNUP=1\\n' "
+            "> /run/systemd/system/opengym-api.service.d/signup.conf"
+        )
+        machine.succeed("systemctl daemon-reload && systemctl restart opengym-api.service")
+        machine.wait_for_open_port(3111, addr="127.0.0.1")
+        machine.wait_until_succeeds("curl -sSf http://${host}/api/health -o /dev/null", timeout=30)
+        cfg = json.loads(api("/api/config"))
+        assert cfg["allow_passkey_signup"] is True, cfg
+        # INVITE_ONLY is still on underneath, so signup is gated again, not open.
+        machine.fail(
+            'passkey register http://${host} http://${host} ${host} Nobody "" /tmp/nope.json'
+        )
 
     with subtest("an SSO admin can issue an invite, and a passkey can use it"):
         # The realistic path: whoever signed in through SSO and landed in the

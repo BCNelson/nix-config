@@ -1,8 +1,28 @@
 diff --git a/.env.example b/.env.example
-index a2c44dd..8fd87e8 100644
+index a2c44dd..9a5e472 100644
 --- a/.env.example
 +++ b/.env.example
-@@ -77,6 +77,69 @@ RP_NAME=openGym
+@@ -42,6 +42,19 @@ RP_NAME=openGym
+ #
+ #   ALLOW_GUEST=0
+ 
++# ── Passkey signup (optional) ──────────────────────────────────────────────
++# Whether anyone can create a profile by registering a passkey. On by default.
++# Off removes the "Create new profile" button and refuses both halves of the
++# registration handshake outright -- not gated behind an invite code, closed.
++# That is what you want when profiles come from somewhere else entirely, e.g.
++# an identity provider (see the SSO section) that is meant to be the only way
++# in. Existing passkeys keep working: this stops profiles being created, not
++# people signing in with one they already have.
++#
++#   ALLOW_PASSKEY_SIGNUP=0
++#
++# With this off, INVITE_ONLY has nothing left to gate.
++
+ # ── Activity log (optional) ────────────────────────────────────────────────
+ # The admin dashboard shows an activity log: who signed in, who tried and
+ # failed, and every admin action (disabling an account, creating or revoking an
+@@ -77,6 +90,69 @@ RP_NAME=openGym
  # Whatever you run in front has to overwrite these headers rather than pass a
  # client-supplied one through — they are only as trustworthy as your proxy.
  
@@ -73,7 +93,7 @@ index a2c44dd..8fd87e8 100644
  # How long a sign-in lasts, in days. Default 90 — long enough that people who
  # train regularly never see a login screen, short enough that a stolen cookie
 diff --git a/api/server.js b/api/server.js
-index ca994fa..973d878 100644
+index ca994fa..5abb6bf 100644
 --- a/api/server.js
 +++ b/api/server.js
 @@ -11,6 +11,11 @@ import {
@@ -88,7 +108,20 @@ index ca994fa..973d878 100644
  const DATA = process.env.DATA_DIR || '/data';
  const RP_ID = process.env.RP_ID || 'localhost';
  const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
-@@ -33,6 +38,36 @@ const MAX_BODY = 5 * 1024 * 1024;
+@@ -24,6 +29,12 @@ const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
+ // out of is still the wrong front door (#42). Default ON, so existing instances are unchanged;
+ // the polarity is inverted from INVITE_ONLY because the safe default here is the permissive one.
+ const ALLOW_GUEST = !/^(0|false|no|off)$/i.test(process.env.ALLOW_GUEST || '');
++// Whether anyone can create a profile by registering a passkey. Default on, so nothing changes
++// for an instance that doesn't set it. Off closes the signup form completely -- not gated behind
++// an invite code, gone -- which is what an instance wants when accounts come from somewhere else
++// entirely, e.g. an identity provider that is the only way in. Existing passkeys keep working:
++// this stops profiles being *created*, it does not stop anyone signing in with one they have.
++const ALLOW_PASSKEY_SIGNUP = !/^(0|false|no|off)$/i.test(process.env.ALLOW_PASSKEY_SIGNUP || '');
+ // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
+ // cookie staying good for a year. Overridable because a family instance and one on the open
+ // internet don't want the same number. Only affects cookies minted from now on — the expiry is
+@@ -33,6 +44,36 @@ const MAX_BODY = 5 * 1024 * 1024;
  // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
  const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
  
@@ -125,7 +158,7 @@ index ca994fa..973d878 100644
  fs.mkdirSync(DATA, { recursive: true });
  
  /* ---------- secret + db ---------- */
-@@ -174,11 +209,13 @@ function makeSession(user) {
+@@ -174,11 +215,13 @@ function makeSession(user) {
    const exp = Date.now() + SESSION_DAYS * 86400000;
    return sign(user.id + ':' + exp + ':' + sessionVersion(user));
  }
@@ -142,7 +175,7 @@ index ca994fa..973d878 100644
    if (!tok) return null;
    const payload = verifySig(tok);
    if (!payload) return null;
-@@ -207,6 +244,65 @@ function sessionCookie(user) {
+@@ -207,6 +250,65 @@ function sessionCookie(user) {
  }
  const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
  
@@ -208,16 +241,38 @@ index ca994fa..973d878 100644
  /* ---------- challenge store (in-memory, 5 min TTL) ---------- */
  const challenges = new Map(); // cid -> {challenge, name?, uid?, exp}
  function putChallenge(data) {
-@@ -354,7 +450,7 @@ const routes = {
+@@ -354,7 +456,7 @@ const routes = {
    'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
  
    // Public config the login screen needs before anyone is signed in.
 -  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST }),
-+  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST, oidc: OIDC ? OIDC_NAME : null }),
++  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST, allow_passkey_signup: ALLOW_PASSKEY_SIGNUP, oidc: OIDC ? OIDC_NAME : null }),
  
    'GET /api/me': async (req, res) => {
      const user = readSession(req);
-@@ -498,6 +594,131 @@ const routes = {
+@@ -363,6 +465,10 @@ const routes = {
+   },
+ 
+   'POST /api/register/options': async (req, res) => {
++    if (!ALLOW_PASSKEY_SIGNUP) {
++      audit(req, 'auth.register.denied', { ok: false, msg: 'passkey-signup-disabled' });
++      return json(res, 403, { error: 'this instance does not accept new passkey profiles' });
++    }
+     const body = await readBody(req);
+     const name = String(body.name || '').trim().slice(0, 40);
+     if (!name) return json(res, 400, { error: 'name required' });
+@@ -385,6 +491,10 @@ const routes = {
+   },
+ 
+   'POST /api/register/verify': async (req, res) => {
++    if (!ALLOW_PASSKEY_SIGNUP) {
++      audit(req, 'auth.register.denied', { ok: false, msg: 'passkey-signup-disabled' });
++      return json(res, 403, { error: 'this instance does not accept new passkey profiles' });
++    }
+     const body = await readBody(req);
+     const c = takeChallenge(body.cid);
+     if (!c || !c.uid) {
+@@ -498,6 +608,131 @@ const routes = {
      json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
    },
  
@@ -349,7 +404,7 @@ index ca994fa..973d878 100644
    // Reads the session purely so the sign-out can be recorded; the cookie is cleared either way.
    // A logout with no valid cookie is a no-op and isn't worth an entry.
    'POST /api/logout': async (req, res) => {
-@@ -737,4 +958,4 @@ http.createServer(async (req, res) => {
+@@ -737,4 +972,4 @@ http.createServer(async (req, res) => {
      console.error(key, e);
      if (!res.headersSent) json(res, 500, { error: 'server error' });
    }
@@ -504,7 +559,7 @@ index 3ec38c3..8a7f875 100644
    "This browser doesn't support passkeys — you can still use openGym locally on this device.": '此浏览器不支持通行密钥——你仍可在本设备上本地使用 openGym。',
    "This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.": '此浏览器不支持通行密钥，且此服务器需要账户。请换用支持通行密钥的浏览器或设备。',
 diff --git a/frontend/src/views/Login.jsx b/frontend/src/views/Login.jsx
-index 0df9748..7811725 100644
+index 0df9748..00822af 100644
 --- a/frontend/src/views/Login.jsx
 +++ b/frontend/src/views/Login.jsx
 @@ -1,6 +1,6 @@
@@ -515,30 +570,38 @@ index 0df9748..7811725 100644
  import { hasData } from '../store/useStore.js'
  import { t } from '../lib/i18n.js'
  import { DEMO, REPO } from '../lib/demo.js'
-@@ -50,6 +50,9 @@ export default function Login() {
+@@ -50,6 +50,11 @@ export default function Login() {
    const { setUser, pullState, setGuest } = useStore()
    const config = useStore(s => s.config)
    const canGuest = guestAllowed(config)
 +  // Null unless the server has an identity provider configured; otherwise the provider's display
 +  // name, which is what the button is labelled with.
 +  const sso = config?.oidc || null
++  // Undefined on an instance that predates the setting, which must read as allowed.
++  const canSignUp = config?.allow_passkey_signup !== false
    const signIn = async () => {
      try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
      catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
-@@ -79,8 +82,15 @@ export default function Login() {
+@@ -79,10 +84,19 @@ export default function Login() {
      <div className="narrow" style={wrap}>
        {head}
        <div className="muted" style={{ marginBottom: 34 }}>{t('Your workouts. Your weights. Your profile.')}</div>
+-      {webauthnOK() ? <>
+-        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
 +      {/* Single sign-on, when the instance is configured for it. Sits above the passkey button and
 +          takes the primary style off it, because on an instance that has an identity provider this
 +          is the way in that is expected to work — but passkeys stay offered, not replaced. */}
 +      {sso && <>
 +        <Button variant="primary" icon="shield" onClick={oidcStart}>{t('Sign in with {0}', sso)}</Button>
-+        <div style={{ height: 10 }} />
-+      </>}
-       {webauthnOK() ? <>
--        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
-+        <Button variant={sso ? 'plain' : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
          <div style={{ height: 10 }} />
-         <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
+-        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
++      </>}
++      {webauthnOK() ? <>
++        <Button variant={sso ? 'plain' : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
++        {canSignUp && <>
++          <div style={{ height: 10 }} />
++          <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
++        </>}
          {canGuest && <div style={{ height: 10 }} />}
+       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{canGuest
+         ? t("This browser doesn't support passkeys — you can still use openGym locally on this device.")

@@ -101,6 +101,19 @@ in {
       '';
     };
 
+    allowPasskeySignup = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Whether anyone can create a profile by registering a passkey. Off
+        removes the button and refuses the registration endpoints outright --
+        hiding the button alone is not a control, since they are unauthenticated
+        and reachable by anyone who can see the instance. Set this off when
+        {option}`oidc` is meant to be the only way an account comes into
+        existence. Existing passkeys keep working either way.
+      '';
+    };
+
     allowGuest = mkOption {
       type = types.bool;
       default = false;
@@ -266,6 +279,7 @@ in {
 
           INVITE_ONLY = boolEnv cfg.inviteOnly;
           ALLOW_GUEST = boolEnv cfg.allowGuest;
+          ALLOW_PASSKEY_SIGNUP = boolEnv cfg.allowPasskeySignup;
 
           # nginx overwrites X-Forwarded-For and drops CF-Connecting-IP below, so
           # the addresses reaching the audit log are the real peer. Network only:

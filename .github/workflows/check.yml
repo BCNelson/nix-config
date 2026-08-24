@@ -9,6 +9,13 @@ on:
     paths:
       - "**.nix"
       - "**.age"
+      # Blueprints and other data files are part of a host's configuration, but
+      # they are not .nix, so a change to one used to reach main without ever
+      # running check-hosts -- which meant the auto-update branch never advanced
+      # and the change simply never deployed. Found when the authentik blueprint
+      # fix in e6933a4 sat on main doing nothing.
+      - "nixos/**/*.yaml"
+      - "nixos/**/*.yml"
       - ".github/workflows/check.yml"
       - "flake.lock"
   push:
@@ -17,6 +24,13 @@ on:
     paths:
       - "**.nix"
       - "**.age"
+      # Blueprints and other data files are part of a host's configuration, but
+      # they are not .nix, so a change to one used to reach main without ever
+      # running check-hosts -- which meant the auto-update branch never advanced
+      # and the change simply never deployed. Found when the authentik blueprint
+      # fix in e6933a4 sat on main doing nothing.
+      - "nixos/**/*.yaml"
+      - "nixos/**/*.yml"
       - ".github/workflows/check.yml"
       - "flake.lock"
   workflow_dispatch:
