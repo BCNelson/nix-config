@@ -268,6 +268,42 @@ in {
     depends = [dataDirs.level4];
   };
 
+  # 4. RequiresMountsFor (which fileSystems.<path>.depends generates, as
+  #    "After=mnt-vault-data-level4.mount") only orders this bind mount's own
+  #    *startup* after the vault dataset's mount. It does nothing once both are
+  #    already active: on 2026-08-24 an unrelated flake.lock bump forced a
+  #    restart of zfs-import-vault.service mid-session, and the vault pool
+  #    spent ~20s in "MISSING" while re-importing. This bind mount was never
+  #    told to go down with it, so it silently kept its old reference -- which,
+  #    once the pool was gone, resolved to the empty mountpoint directory
+  #    sitting underneath on the root disk. factorio.service then restarted,
+  #    found no save file at that (wrong, empty) location, and generated a
+  #    fresh world, discarding hours of play that were never actually lost --
+  #    just no longer reachable through this mount. (continuwuity's identical
+  #    bind-mount pattern in ../services/matrix.nix hit the exact same window
+  #    that night and needs this same fix.)
+  #
+  #    BindsTo= is the missing half: unlike Requires=, it also propagates
+  #    *stop*. If mnt-vault-data-level4.mount ever goes down again, this mount
+  #    goes down with it instead of quietly going stale, and RequiresMountsFor
+  #    already guarantees it won't come back until the vault genuinely has.
+  #
+  #    This has to be layered on as a drop-in rather than written directly
+  #    into fileSystems.<path>: fileSystems produces a /etc/fstab entry that
+  #    systemd's own fstab-generator converts into a unit at activation time,
+  #    entirely outside anything systemd.units already knows about -- so
+  #    overrideStrategy = "asDropinIfExists" (the default) would see no prior
+  #    definition and write a *competing* full unit instead of extending the
+  #    generator's one. "asDropin" is unconditional: it always renders to
+  #    var-lib-factorio.mount.d/overrides.conf, which systemd merges onto
+  #    whatever already defines that unit name, regardless of where that
+  #    definition came from. Confirmed by reading the render logic in
+  #    nixos/lib/systemd-lib.nix directly rather than assuming.
+  systemd.units."var-lib-factorio.mount" = {
+    overrideStrategy = "asDropin";
+    text = "[Unit]\nBindsTo=mnt-vault-data-level4.mount\n";
+  };
+
   # The mount point has to exist on the vault before anything can bind it.
   # 0750 matches the module's UMask=0007 posture: the service account and its
   # group, nobody else.
