@@ -1,8 +1,9 @@
 {pkgs, ...}: {
   services.ollama = {
     enable = true;
-    # Tailscale Serve is the only remote entry point; do not expose Ollama on
-    # the LAN, where its unauthenticated API would otherwise be reachable.
+    # The nginx vhost at the bottom of this file is the only remote entry
+    # point; do not expose Ollama on the LAN, where its unauthenticated API
+    # would otherwise be reachable.
     host = "127.0.0.1";
     port = 11434;
     loadModels = [
@@ -148,10 +149,79 @@
   # *.ts.net cert and made nginx unreachable there for every vhost.
   # ../services/goose.nix needs 443 to fall through to nginx.
   #
-  # Nothing was lost. Every consumer talks to ollama over loopback
+  # Nothing was lost. Every on-host consumer talks to ollama over loopback
   # (librechat.nix, tendant.nix, goose.nix all use http://127.0.0.1:11434), and
   # the tailnet endpoint never worked anyway: ollama rejects any request whose
   # Host is not localhost, so it returned 403 to everything Serve forwarded.
-  # If remote access is ever wanted, give it an nginx vhost with the usual
-  # allow 100.64.0.0/10 + proxy_set_header Host 127.0.0.1.
+  # The vhost below is the remote entry point that comment used to point at.
+
+  # --- Remote access for Home Assistant (LAN + tailnet only) ---
+  # Home Assistant runs on its own box (192.168.3.6, HA OS -- not in this repo)
+  # and its Ollama integration is the one consumer that is not on romeo, so it
+  # cannot use the loopback socket every other consumer uses. Front ollama with
+  # the same LAN/tailnet-only vhost shape as ../services/librechat.nix rather
+  # than moving services.ollama.host off 127.0.0.1: binding the daemon to the
+  # LAN would publish an unauthenticated API -- including /api/delete and
+  # /api/create -- to every device on the network, where this publishes a
+  # single allowlisted port and keeps the daemon itself on loopback.
+  #
+  # *.h.b.nel.family already resolves to romeo (192.168.3.7) for LAN clients:
+  # ../unbound.nix has a "h.b.nel.family" redirect local-zone, so this name
+  # needs no new DNS record. The cert is DNS-01 via porkbun like every other
+  # vhost, so it is trusted by HA without an exception.
+  services.nginx.virtualHosts."ollama.h.b.nel.family" = {
+    forceSSL = true;
+    enableACME = true;
+    acmeRoot = null;
+    extraConfig = ''
+      # Allow access from Tailscale network
+      allow 100.64.0.0/10;
+      # Allow access from local network
+      allow 192.168.0.0/16;
+      deny all;
+
+      # Model uploads are not expected here, but /api/create with a blob is
+      # large enough that the default 1m would truncate it.
+      client_max_body_size 0;
+    '';
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:11434";
+
+      # Off deliberately. The module emits the recommended-proxy include
+      # *after* this location's extraConfig, and nginx takes the last
+      # proxy_set_header for a header -- so with it on, the include's
+      # `Host $host` would win over the rewrite below and ollama would 403
+      # every request. See [[nginx-recommended-proxy-xff]] for the same
+      # ordering trap on X-Forwarded-For.
+      recommendedProxySettings = false;
+
+      extraConfig = ''
+        # ollama's allowed-hosts middleware only accepts localhost/127.0.0.1
+        # while the daemon is bound to loopback; the real Host would be
+        # ollama.h.b.nel.family and come back 403. No port: ollama falls back
+        # to comparing the whole Host string when it does not parse as
+        # host:port, and the bare address passes both paths.
+        proxy_set_header Host 127.0.0.1;
+
+        # Same middleware rejects a cross-origin browser request. HA sends no
+        # Origin, but blank it so a browser pointed at this name cannot drive
+        # the API either.
+        proxy_set_header Origin "";
+
+        # Declaring any proxy_set_header here resets the inherited set from the
+        # http-level recommended block (X-Real-IP, X-Forwarded-*). That is fine
+        # -- ollama reads none of them -- but it is why they are not restated.
+
+        proxy_http_version 1.1;
+
+        # The http-level default is 60s, which a 12b model would blow through:
+        # a cold load is ~15s before the first token and a long generation runs
+        # well past a minute. Streaming responses need buffering off, or nginx
+        # holds tokens until the whole reply is done.
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_buffering off;
+      '';
+    };
+  };
 }
