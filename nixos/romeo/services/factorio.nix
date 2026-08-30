@@ -299,9 +299,50 @@ in {
   #    whatever already defines that unit name, regardless of where that
   #    definition came from. Confirmed by reading the render logic in
   #    nixos/lib/systemd-lib.nix directly rather than assuming.
+
+  # 5. BindsTo alone is not deployable, and finding that out cost two boots
+  #    (2026-08-28 and 2026-08-30, both times the server was simply gone in the
+  #    morning). mnt-vault-data-level4.mount has no FragmentPath and no
+  #    SourcePath: level4 is a ZFS-native mountpoint, not an fstab entry, so
+  #    that unit is only ever *passively tracked* -- it materialises when
+  #    zfs-mount.service mounts the dataset and systemd notices it in
+  #    /proc/self/mountinfo. It has an empty WantedBy and RequiredBy, and no
+  #    job can start it.
+  #
+  #    So BindsTo= on its own points this mount at something systemd cannot
+  #    bring up on demand. At boot, local-fs.target pulls in this bind mount
+  #    while the vault datasets are still unmounted, the dependency is
+  #    unsatisfiable, and the job is dropped -- silently, with not one line in
+  #    the journal for either unit. local-fs.target gives up ("Stopped target
+  #    Local File Systems"), factorio.service never runs because
+  #    RequiresMountsFor makes it require this mount, and zfs-mount.service
+  #    only gets round to the vault ~35-40s later, by which point nothing is
+  #    left waiting on it. continuwuity's copy of this pattern in
+  #    ../services/matrix.nix survived both boots precisely because it never
+  #    got the BindsTo drop-in.
+  #
+  #    Requires=/After=zfs-mount.service is the half that makes BindsTo safe.
+  #    Unlike the .mount unit, zfs-mount.service is a real, startable oneshot
+  #    (RemainAfterExit=yes, Before=local-fs.target), so requiring it pulls it
+  #    into the same early transaction as local-fs.target instead of leaving it
+  #    to arrive lazily via zfs.target, and ordering after it guarantees the
+  #    dataset is genuinely mounted before this bind mount is attempted. The
+  #    BindsTo then still does its original job -- propagating *stop* if the
+  #    pool drops out mid-session, which is the 2026-08-24 data-loss window
+  #    described above -- without being load-bearing at boot.
+  #
+  #    Kept as a drop-in for the reason spelled out below rather than folded
+  #    into fileSystems.<path>: only "bind" and the requires-mounts-for option
+  #    can be expressed there, and neither Requires= nor BindsTo= has an fstab
+  #    spelling.
   systemd.units."var-lib-factorio.mount" = {
     overrideStrategy = "asDropin";
-    text = "[Unit]\nBindsTo=mnt-vault-data-level4.mount\n";
+    text = ''
+      [Unit]
+      BindsTo=mnt-vault-data-level4.mount
+      Requires=zfs-mount.service
+      After=zfs-mount.service
+    '';
   };
 
   # The mount point has to exist on the vault before anything can bind it.
