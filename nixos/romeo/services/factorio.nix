@@ -321,25 +321,54 @@ in {
   #    ../services/matrix.nix survived both boots precisely because it never
   #    got the BindsTo drop-in.
   #
-  #    Requires=/After=zfs-mount.service is the half that makes BindsTo safe.
-  #    Unlike the .mount unit, zfs-mount.service is a real, startable oneshot
+  #    Requires=/After=zfs-mount.service orders this correctly: unlike the
+  #    .mount unit, zfs-mount.service is a real, startable oneshot
   #    (RemainAfterExit=yes, Before=local-fs.target), so requiring it pulls it
-  #    into the same early transaction as local-fs.target instead of leaving it
-  #    to arrive lazily via zfs.target, and ordering after it guarantees the
-  #    dataset is genuinely mounted before this bind mount is attempted. The
-  #    BindsTo then still does its original job -- propagating *stop* if the
-  #    pool drops out mid-session, which is the 2026-08-24 data-loss window
-  #    described above -- without being load-bearing at boot.
+  #    into the same early transaction as local-fs.target and ordering after it
+  #    guarantees the dataset is genuinely mounted before this bind mount is
+  #    attempted. That is what stops the mount landing on the empty mountpoint
+  #    directory underneath.
+
+  # 6. Ordering alone was still not enough, and the 2026-08-31 04:32 boot is
+  #    the proof: with Requires=/After=zfs-mount.service deployed, this mount
+  #    still produced no journal entries at all and ConditionResult stayed
+  #    "no" -- its job was never run. local-fs.target Requires= this mount, so
+  #    the target never activated either, and fourteen units died behind it.
   #
-  #    Kept as a drop-in for the reason spelled out below rather than folded
-  #    into fileSystems.<path>: only "bind" and the requires-mounts-for option
-  #    can be expressed there, and neither Requires= nor BindsTo= has an fstab
-  #    spelling.
+  #    The reason is that BindsTo= *implies Requires=*. When systemd builds
+  #    the boot transaction it needs a start job for mnt-vault-data-level4.mount
+  #    to satisfy that requirement, and no such job can ever exist: the unit is
+  #    passively tracked, with no FragmentPath, no SourcePath, and an empty
+  #    WantedBy/RequiredBy. The requirement is unsatisfiable at transaction
+  #    build time, which is *before* any ordering has a chance to apply, so the
+  #    job is discarded and no amount of After= can rescue it.
+  #
+  #    PartOf= is the dependency that expresses the actual intent. It
+  #    propagates stop and restart from mnt-vault-data-level4.mount -- so this
+  #    mount still goes down with the vault rather than going stale, which is
+  #    the whole point of the 2026-08-24 fix above -- but it creates no start
+  #    requirement, so it never needs a start job for a unit that cannot have
+  #    one. Boot stops depending on something systemd cannot provide.
+  #
+  #    continuwuity's mount in ../services/matrix.nix is the control that made
+  #    this obvious: same bind-mount pattern, no BindsTo, and it came up
+  #    cleanly on every boot this one failed.
+  #
+  #    This has to be layered on as a drop-in rather than written directly
+  #    into fileSystems.<path>: fileSystems produces a /etc/fstab entry that
+  #    systemd's own fstab-generator converts into a unit at activation time,
+  #    entirely outside anything systemd.units already knows about -- so
+  #    overrideStrategy = "asDropinIfExists" (the default) would see no prior
+  #    definition and write a *competing* full unit instead of extending the
+  #    generator's one. "asDropin" is unconditional: it always renders to
+  #    var-lib-factorio.mount.d/overrides.conf, which systemd merges onto
+  #    whatever already defines that unit name, regardless of where that
+  #    definition came from.
   systemd.units."var-lib-factorio.mount" = {
     overrideStrategy = "asDropin";
     text = ''
       [Unit]
-      BindsTo=mnt-vault-data-level4.mount
+      PartOf=mnt-vault-data-level4.mount
       Requires=zfs-mount.service
       After=zfs-mount.service
     '';
