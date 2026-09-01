@@ -6,7 +6,6 @@
 }:
 {
   imports = [
-    ./nvim.nix
     ./k8s.nix
     ../../_mixins/programs/libreOffice.nix
     ./mcp

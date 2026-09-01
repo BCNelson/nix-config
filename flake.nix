@@ -33,11 +33,6 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
-    nixvim = {
-      url = "github:nix-community/nixvim";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
-
     plasma-manager = {
       url = "github:nix-community/plasma-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
