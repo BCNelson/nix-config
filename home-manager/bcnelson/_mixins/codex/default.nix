@@ -55,12 +55,17 @@ in
     enable = true;
   };
 
-  # Codex records per-project trust decisions in the same config.toml it reads,
-  # so the declarative half cannot be a read-only symlink. config-merge owns the
-  # live file and replays those decisions on top of the base.
+  # Codex records per-project trust decisions and hook review state in the same
+  # config.toml it reads, so the declarative half cannot be a read-only symlink.
+  # config-merge owns the live file and replays that runtime state onto the base.
   services.config-merge.codex = {
     settings = baseSettings;
     live = "${codexHome}/config.toml";
-    runtimeKeys = [ "projects.*.trust_level" ];
+    runtimeKeys = [
+      "projects.*.trust_level"
+      # Codex stores the review state for hooks from hooks.json here. Preserve
+      # the whole table so trusting a hook survives the next reconciliation.
+      "hooks"
+    ];
   };
 }

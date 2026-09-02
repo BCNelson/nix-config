@@ -1,14 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// codexKeys is the pattern set that reproduces the original, codex-specific
-// behaviour this daemon was generalised from.
-var codexKeys = mustPatterns("projects.*.trust_level")
+// codexKeys covers the settings Codex writes back to its own config.
+var codexKeys = mustPatterns("projects.*.trust_level", "hooks")
 
 // herdrKeys covers the settings herdr's TUI writes back to its own config.
 var herdrKeys = mustPatterns("ui.sound.enabled", "ui.agent_panel_sort", "experimental.pane_history")
@@ -64,6 +66,30 @@ func TestExtractRuntimeState(t *testing.T) {
 	trusted, _ := asConfigMap(projects["/tmp/trusted"])
 	if _, exists := trusted["ignored"]; exists {
 		t.Fatalf("expected sibling keys of a matched path to be dropped")
+	}
+}
+
+func TestExtractRuntimeStatePreservesCodexHooks(t *testing.T) {
+	doc := configMap{
+		"hooks": configMap{
+			"state":        "trusted",
+			"trusted_hash": "sha256-example",
+		},
+		"model": "gpt-5.4",
+	}
+
+	got := extractRuntimeState(doc, codexKeys)
+
+	if value, _ := getPath(got, []string{"hooks", "state"}); value != "trusted" {
+		t.Fatalf("expected hooks.state to be preserved, got %#v", value)
+	}
+
+	if value, _ := getPath(got, []string{"hooks", "trusted_hash"}); value != "sha256-example" {
+		t.Fatalf("expected hooks.trusted_hash to be preserved, got %#v", value)
+	}
+
+	if _, exists := got["model"]; exists {
+		t.Fatalf("expected unrelated Codex settings to be dropped")
 	}
 }
 
@@ -224,6 +250,44 @@ func TestMergeConfigIgnoresUnmatchedRuntimeKeys(t *testing.T) {
 
 	if _, exists := merged["secret"]; exists {
 		t.Fatalf("expected runtime keys outside the pattern set to be ignored")
+	}
+}
+
+func TestRemovedKeyPaths(t *testing.T) {
+	live := configMap{
+		"model": "gpt-5.4",
+		"projects": configMap{
+			"/tmp/repo": configMap{
+				"trust_level": "trusted",
+				"note":        "discard me",
+			},
+		},
+		"ui": configMap{
+			"empty": configMap{},
+			"sound": configMap{"enabled": true},
+		},
+	}
+	replacement := configMap{
+		"model": "gpt-5.6",
+		"projects": configMap{
+			"/tmp/repo": configMap{"trust_level": "trusted"},
+		},
+	}
+
+	got := removedKeyPaths(live, replacement)
+	want := []string{
+		"projects./tmp/repo.note",
+		"ui.empty",
+		"ui.sound.enabled",
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("removedKeyPaths() = %#v, want %#v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("removedKeyPaths() = %#v, want %#v", got, want)
+		}
 	}
 }
 
@@ -604,6 +668,35 @@ func TestSyncDropsUnlistedOutOfBandEdit(t *testing.T) {
 
 	if _, exists := getPath(fixture.liveDoc(t), []string{"ui", "sidebar_width"}); exists {
 		t.Fatalf("expected an unlisted key to be discarded")
+	}
+}
+
+func TestSyncLogsDiscardedKeyPathsWithoutValues(t *testing.T) {
+	fixture := newSyncFixture(t, "toml", "[theme]\nname = \"catppuccin\"\n")
+	fixture.sync(t)
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	previousPrefix := log.Prefix()
+	log.SetOutput(&logs)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	t.Cleanup(func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+		log.SetPrefix(previousPrefix)
+	})
+
+	writeTestFile(t, fixture.live, readTestFile(t, fixture.live)+"\n[ui]\nsidebar_width = \"sensitive-value\"\n")
+	fixture.sync(t)
+
+	output := logs.String()
+	if !strings.Contains(output, "discarding unpreserved live config keys: ui.sidebar_width") {
+		t.Fatalf("expected the discarded key path to be logged, got %q", output)
+	}
+	if strings.Contains(output, "sensitive-value") {
+		t.Fatalf("expected discarded values not to be logged, got %q", output)
 	}
 }
 

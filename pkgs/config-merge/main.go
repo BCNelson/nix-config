@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -232,6 +233,12 @@ func (d *daemon) sync() error {
 	mergedRaw, err := encodeConfig(d.format, merged)
 	if err != nil {
 		return fmt.Errorf("marshal merged config: %w", err)
+	}
+
+	if liveChangedOutside {
+		if removed := removedKeyPaths(liveDoc, merged); len(removed) > 0 {
+			log.Printf("discarding unpreserved live config keys: %s", strings.Join(removed, ", "))
+		}
 	}
 
 	if mergedRaw != liveRaw {
@@ -549,6 +556,55 @@ func mergeConfig(base, runtime configMap, patterns []keyPattern) configMap {
 	}
 
 	return merged
+}
+
+// removedKeyPaths reports leaf keys present in the application's live config
+// but absent from the config that will replace it. Values are deliberately not
+// included: config files commonly contain credentials, while key paths are
+// enough to identify settings that need to be added to the runtime allowlist.
+func removedKeyPaths(live, replacement configMap) []string {
+	var removed []string
+
+	var collect func(value any, path []string)
+	collect = func(value any, path []string) {
+		if table, ok := asConfigMap(value); ok {
+			if len(table) == 0 {
+				removed = append(removed, strings.Join(path, "."))
+				return
+			}
+
+			for key, child := range table {
+				collect(child, append(append([]string(nil), path...), key))
+			}
+			return
+		}
+
+		removed = append(removed, strings.Join(path, "."))
+	}
+
+	var walk func(liveTable, replacementTable configMap, prefix []string)
+	walk = func(liveTable, replacementTable configMap, prefix []string) {
+		for key, liveValue := range liveTable {
+			path := append(append([]string(nil), prefix...), key)
+			replacementValue, exists := replacementTable[key]
+			if !exists {
+				collect(liveValue, path)
+				continue
+			}
+
+			liveChild, liveIsTable := asConfigMap(liveValue)
+			replacementChild, replacementIsTable := asConfigMap(replacementValue)
+			if liveIsTable && replacementIsTable {
+				walk(liveChild, replacementChild, path)
+			} else if liveIsTable && !replacementIsTable {
+				collect(liveValue, path)
+			}
+		}
+	}
+
+	walk(live, replacement, nil)
+	sort.Strings(removed)
+	return removed
 }
 
 func writeConfig(path string, content string) error {
