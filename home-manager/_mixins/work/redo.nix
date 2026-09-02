@@ -19,6 +19,9 @@
     pkgs.dive
     pkgs.bazel-buildtools
     # pkgs.zed-editor
+    # AI editor, VS Code fork. Plain autopatchelfed Electron -- not an FHS
+    # bubblewrap like the vscode mixin -- so the usual nixGL wrap applies.
+    (config.lib.nixGL.wrap pkgs.code-cursor)
     pkgs.cloudflared
     # Infrastructure as Code Pulumi
     pkgs.pulumi
