@@ -11,6 +11,7 @@
     ./_mixins/mcp/aws/support.nix
     ./_mixins/mcp/aws/cloudwatch.nix
     ./_mixins/mcp/datadog.nix
+    ./_mixins/mcp/gitlab.nix
     ./_mixins/mcp/redo-production-crdb.nix
     ./_mixins/mcp/mongodb-redo-production.nix
     ./_mixins/mcp/mongodb-redo-customer-events.nix
