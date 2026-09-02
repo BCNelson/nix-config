@@ -9,6 +9,11 @@
     (config.lib.nixGL.wrap pkgs.mongodb-compass)
     (config.lib.nixGL.wrap pkgs.hoppscotch)
     (config.lib.nixGL.wrap pkgs.dbeaver-bin)
+    # CockroachDB CLI -- `cockroach sql` against the production Cloud cluster
+    # (see ../../bcnelson/_mixins/mcp/redo-production-crdb.nix). This is our
+    # own pkgs/cockroachdb.nix, not the nixpkgs attribute of the same name,
+    # which still ships 23.1.14.
+    pkgs.cockroachdb
     pkgs.spec-kit
     pkgs.don # dev environment / task runner
     pkgs.dive
