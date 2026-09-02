@@ -27,14 +27,18 @@ in
       };
 
       Service = {
-        ExecStart = "${pkgs.nodejs}/bin/npx -y kubernetes-mcp-server@latest --port ${toString kubernetesMcpPort}";
+        ExecStart = "${pkgs.nodejs}/bin/npx -y kubernetes-mcp-server@latest --port ${toString kubernetesMcpPort} --bind-address 127.0.0.1";
         Environment = [
           "KUBECONFIG=${config.home.homeDirectory}/.config/kube/config"
 
           # npx resolves on its own (absolute store shebang), but the binary it
           # execs carries `#!/usr/bin/env node`, and a systemd user unit's PATH
           # has no nodejs - that was the exit 127 in the crash loop.
-          "PATH=${pkgs.nodejs}/bin"
+          #
+          # bash is needed too: npm shells out via `sh` to run the package bin,
+          # so a nodejs-only PATH fails with `spawn sh ENOENT` (exit 254) - that
+          # was the next crash loop, 4700+ restarts deep.
+          "PATH=${pkgs.nodejs}/bin:${pkgs.bash}/bin"
         ];
         Restart = "on-failure";
         RestartSec = 5;
