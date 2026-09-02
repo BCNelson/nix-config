@@ -57,6 +57,20 @@ _:
 
     home-manager.backupFileExtension = "bak";
 
+    # Redo's local dev stack (`don`) runs a Caddy reverse proxy as bcnelson,
+    # serving https://*.getredo.localhost on :443 with a :80 HTTP redirect. It
+    # died on every start with
+    #   listening on :443: listen tcp :443: bind: permission denied
+    # because Fedora's ip_unprivileged_port_start is 1024 and this host's caddy
+    # comes from the Nix profile, which -- unlike the Debian package everyone
+    # else on the team installs -- carries no cap_net_bind_service.
+    #
+    # Lowering the threshold rather than setting the capability: the binary
+    # lives at a content-addressed /nix/store path, so a setcap would be lost on
+    # the next caddy update or store GC, and system-manager has no way to
+    # reapply it.
+    system.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
+
     # Disable USB autosuspend on the Goodix 27c6:609c fingerprint reader so
     # it stays responsive while the lock screen is up.
     environment.etc."udev/rules.d/60-goodix-fingerprint-no-suspend.rules" = {

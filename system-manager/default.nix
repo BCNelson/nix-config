@@ -9,6 +9,7 @@
     ./_mixins/qmk.nix
     ./_mixins/uinput.nix
     ./_mixins/agenix.nix
+    ./_mixins/sysctl.nix
   ];
 
   config = {
