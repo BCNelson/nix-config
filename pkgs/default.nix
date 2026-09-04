@@ -30,6 +30,7 @@ pkgs: rec {
   herdr-mirror = pkgs.callPackage ./herdr-mirror { };
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };
+  grok-bot = pkgs.callPackage ./grok-bot.nix { };
   openclaw = pkgs.callPackage ./openclaw.nix { };
   inherit (pkgs.callPackage ./opengym { }) opengym-api opengym-web opengym-media;
   opengym-test = pkgs.callPackage ./opengym/nixos-test.nix {

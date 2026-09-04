@@ -22,6 +22,9 @@
     # AI editor, VS Code fork. Plain autopatchelfed Electron -- not an FHS
     # bubblewrap like the vscode mixin -- so the usual nixGL wrap applies.
     (config.lib.nixGL.wrap pkgs.code-cursor)
+    # xAI's desktop coding agent, also a Cursor-built Electron app (see
+    # ../../../pkgs/grok-bot.nix), so it takes the same nixGL wrap.
+    (config.lib.nixGL.wrap pkgs.grok-bot)
     pkgs.cloudflared
     # Infrastructure as Code Pulumi
     pkgs.pulumi
