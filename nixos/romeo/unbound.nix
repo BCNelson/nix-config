@@ -17,6 +17,7 @@ let
       nixcache.nel.family A 192.168.3.7
       journal.nel.family A 192.168.3.7
       gym.nel.family A 192.168.3.7
+      tube.nel.family A 192.168.3.7
     '';
     destination = "/localOverride";
   };

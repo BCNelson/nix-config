@@ -491,6 +491,14 @@ resource "porkbun_dns_record" "media_nel_family-CNAME" {
   content = "media.h.b.nel.family"
 }
 
+# PeerTube public instance on Romeo; LAN override lives in romeo/unbound.nix.
+resource "porkbun_dns_record" "tube_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "tube"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 # social      CNAME  h.b.nel.family.   (GoToSocial public instance on romeo)
 resource "porkbun_dns_record" "social_nel_family-CNAME" {
   domain  = "nel.family"
@@ -642,4 +650,3 @@ resource "porkbun_dns_record" "nel_family-github-verify" {
   name    = "_github-pages-challenge-bcnelson"
   content = "fd1501e619123965c3b215277162ad"
 }
-

@@ -46,6 +46,11 @@ in {
     generator.script = "alnum";
   };
 
+  age.secrets.peertube-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/peertube_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -54,6 +59,7 @@ in {
       BOOTSTRAP_PASSWORD = config.age.secrets.authentik-bootstrap-password.path;
       GOTOSOCIAL_SECRET = config.age.secrets.gotosocial-oauth-client-secret.path;
       OPENGYM_SECRET = config.age.secrets.opengym-oauth-client-secret.path;
+      PEERTUBE_SECRET = config.age.secrets.peertube-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
@@ -61,6 +67,7 @@ in {
       AUTHENTIK_BOOTSTRAP_EMAIL=bradley@nel.family
       GOTOSOCIAL_OAUTH_CLIENT_SECRET=$GOTOSOCIAL_SECRET
       OPENGYM_OAUTH_CLIENT_SECRET=$OPENGYM_SECRET
+      PEERTUBE_OAUTH_CLIENT_SECRET=$PEERTUBE_SECRET
     '';
   };
 

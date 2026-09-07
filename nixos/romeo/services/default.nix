@@ -35,6 +35,7 @@ in {
     ./tendant.nix
     ./forgejo-runner.nix
     ./opengym.nix
+    ./peertube.nix
     ./factorio.nix
   ];
 
