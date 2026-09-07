@@ -10,6 +10,74 @@
   modifications = final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
 
+    # Codex releases faster than nixpkgs can currently package them. Use the
+    # official release binary while the channel is behind, then fall back to
+    # nixpkgs automatically once it catches up.
+    codex =
+      let
+        pinnedVersion = "0.153.4";
+        targets = {
+          x86_64-linux = {
+            target = "x86_64-unknown-linux-musl";
+            sha256 = "f479424eca092484dc40d87ae28c44f4cc40234a60045d6131e493800d814a30";
+            codeModeHostSha256 = "f95830a869590957664bbfc67bccb08773806b693670baf15908176f89b4cd31";
+          };
+          aarch64-linux = {
+            target = "aarch64-unknown-linux-musl";
+            sha256 = "5cda6182bd94c3a30f2eb63a495489ebf7f691fddb14d70f48c6c1a5071b6cde";
+            codeModeHostSha256 = "d8047b8d33370d6090e729d27eb76de60a2686baa1c143c138c9b05dc70d813b";
+          };
+          x86_64-darwin = {
+            target = "x86_64-apple-darwin";
+            sha256 = "d69200f0bf841b1d1a07f80b80cf742a2e4fc2bab91ae8a44b1042f8e8ca9fa4";
+            codeModeHostSha256 = "2ffaebd0103d976232c358419a508859da862e128f3ca0bb071541346fbe3bf7";
+          };
+          aarch64-darwin = {
+            target = "aarch64-apple-darwin";
+            sha256 = "8cf911ea676523bfb2121ec561848d2aba564890ad536db4d8a3353f2b9850b1";
+            codeModeHostSha256 = "45a9b0fdf53b98b85a6bb91e175dd90e961328a7a14fb50a40902205199df1df";
+          };
+        };
+        platform = targets.${final.stdenv.hostPlatform.system};
+        usePin = builtins.compareVersions prev.codex.version pinnedVersion < 0;
+      in
+      if usePin then
+        final.stdenvNoCC.mkDerivation {
+          pname = "codex";
+          version = pinnedVersion;
+
+          src = final.fetchurl {
+            url = "https://github.com/openai/codex/releases/download/rust-v${pinnedVersion}/codex-${platform.target}.tar.gz";
+            inherit (platform) sha256;
+          };
+          codeModeHostSrc = final.fetchurl {
+            url = "https://github.com/openai/codex/releases/download/rust-v${pinnedVersion}/codex-code-mode-host-${platform.target}.tar.gz";
+            sha256 = platform.codeModeHostSha256;
+          };
+
+          dontUnpack = true;
+          nativeBuildInputs = [ final.makeWrapper ];
+
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out/bin"
+            tar -xzf "$src"
+            tar -xzf "$codeModeHostSrc"
+            install -m755 "codex-${platform.target}" "$out/bin/codex"
+            install -m755 "codex-code-mode-host-${platform.target}" "$out/bin/codex-code-mode-host"
+            wrapProgram "$out/bin/codex" \
+              --prefix PATH : ${final.lib.makeBinPath (
+                [ final.ripgrep ]
+                ++ final.lib.optionals final.stdenv.hostPlatform.isLinux [ final.bubblewrap ]
+              )}
+            runHook postInstall
+          '';
+
+          inherit (prev.codex) meta;
+        }
+      else
+        prev.codex;
+
     # gdal 3.13.1's zarr sharding test expects a `zarr.json.gmac` sidecar that
     # isn't produced in the `useMinimalFeatures = true` build (pulled in by
     # vtk -> freecad), so it fails with `assert None is not None` in

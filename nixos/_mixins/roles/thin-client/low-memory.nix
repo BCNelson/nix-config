@@ -50,10 +50,10 @@
   # systemd's default is to let the journal grow to 10% of the filesystem. On a
   # 8 GB eMMC that is both a lot of writes on flash with limited cycles and a
   # slow read for anything that tails it.
-  services.journald.extraConfig = lib.mkDefault ''
-    SystemMaxUse=64M
-    RuntimeMaxUse=16M
-  '';
+  services.journald.settings.Journal = {
+    SystemMaxUse = lib.mkDefault "64M";
+    RuntimeMaxUse = lib.mkDefault "16M";
+  };
 
   # If something does run away, kill it deliberately rather than letting the
   # machine thrash until the watchdog gives up. Enabled by default upstream;

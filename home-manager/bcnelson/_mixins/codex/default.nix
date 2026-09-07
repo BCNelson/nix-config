@@ -28,6 +28,10 @@ let
 
   baseSettings =
     {
+      approval_policy = "on-request";
+      approvals_reviewer = "auto_review";
+      default_permissions = ":workspace";
+
       experimental_use_rmcp_client = true;
 
       features = {
