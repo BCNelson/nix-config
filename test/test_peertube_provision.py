@@ -17,8 +17,12 @@ spec.loader.exec_module(provision)
 
 
 class ProvisionTests(unittest.TestCase):
-    def run_provision(self, missing=False, denied=False):
+    def run_provision(self, missing=False, denied=False, plugin_state=None):
         calls = []
+        if plugin_state is None:
+            plugin_state = {} if missing else {
+                provision.PLUGIN: {}, provision.TRANSCODING_PLUGIN: {},
+            }
 
         def respond(req, timeout):
             calls.append(req)
@@ -37,9 +41,16 @@ class ProvisionTests(unittest.TestCase):
                 body = {"access_token": "test-token"}
             else:
                 self.assertEqual(req.get_header("Authorization"), "Bearer test-token")
-                if missing and req.method == "GET":
-                    raise HTTPError(req.full_url, 404, "Not found", {}, None)
                 body = {}
+                if req.method == "GET":
+                    name = path.split("/")[2]
+                    if name not in plugin_state:
+                        raise HTTPError(req.full_url, 404, "Not found", {}, None)
+                    body = {"settings": plugin_state[name]}
+                elif req.method == "PUT":
+                    plugin_state[path.split("/")[2]] = json.loads(req.data)["settings"]
+                elif path == "/plugins/install":
+                    plugin_state[json.loads(req.data)["npmName"]] = {}
             return io.BytesIO(json.dumps(body).encode())
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -75,6 +86,24 @@ class ProvisionTests(unittest.TestCase):
         self.assertFalse(any(r.full_url.endswith("/install") for r in calls))
         self.assertEqual(sum(r.method == "PUT" for r in calls), 2)
         self.assertTrue(calls[-1].full_url.endswith("/users/revoke-token"))
+
+    def test_second_run_does_not_resave_settings_or_duplicate_auth_methods(self):
+        state = {}
+        self.run_provision(plugin_state=state)
+        calls = self.run_provision(plugin_state=state)
+        self.assertFalse(any(r.method == "PUT" for r in calls))
+        self.assertFalse(any(r.full_url.endswith("/install") for r in calls))
+        self.assertTrue(calls[-1].full_url.endswith("/users/revoke-token"))
+
+    def test_managed_drift_is_corrected_and_other_settings_are_preserved(self):
+        state = {}
+        self.run_provision(plugin_state=state)
+        state[provision.PLUGIN]["role-property"] = "admin_role"
+        state[provision.PLUGIN]["logout-redirect-uri"] = "https://tube.nel.family/"
+        calls = self.run_provision(plugin_state=state)
+        self.assertEqual(sum(r.method == "PUT" for r in calls), 1)
+        self.assertEqual(state[provision.PLUGIN]["role-property"], "")
+        self.assertEqual(state[provision.PLUGIN]["logout-redirect-uri"], "https://tube.nel.family/")
 
     def test_failed_admin_login_does_not_install_or_change_settings(self):
         calls = self.run_provision(denied=True)

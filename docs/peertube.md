@@ -33,8 +33,10 @@ The admin secret generator produces 40 characters (PeerTube limits login
 passwords to 50). The credential used during initial deployment was rotated
 through PeerTube's official reset-password CLI after this behavior was found.
 
-The helper reconciles plugin settings on boot and revokes its temporary admin
-session afterward. It can be run with
+The helper reconciles changed plugin settings on boot, preserves unrelated plugin
+options, and revokes its temporary admin session afterward. Unchanged settings
+are not saved again: the OIDC plugin can duplicate login methods if settings are
+re-saved while discovery is unavailable. It can be run with
 `sudo systemctl restart peertube-sso`. Its local root login must stay in sync
 with the encrypted admin-password secret. `PT_INITIAL_ROOT_PASSWORD` only sets
 the password when the database is first initialized: rotating the secret alone
@@ -116,9 +118,11 @@ sandbox does not prevent requests to other machines on the LAN.
 - Verified that the device cgroup denies opening the B580 render node.
 - Active `systemd-analyze security` exposure scores: PeerTube **1.8 OK**, helper
   **3.2 OK**. These measure systemd sandbox exposure, not application security.
-- Whiskey's configuration builds successfully. Its deployment and an actual
-  Authentik login still require the pending Tailscale SSH identity verification.
-  PeerTube's login plugin is configured, but SSO is not yet operational.
+- Published to main; Terraform and all Nix CI jobs passed, and Romeo's automatic
+  deployment completed successfully. Its checkout is back on `auto-update`.
+- Authentik's PeerTube discovery endpoint is live with the expected issuer,
+  RS256 signing support, and S256 PKCE. Full signed-in SSO and group-access
+  verification still require Whiskey's pending Tailscale SSH identity check.
 
 The repeatable integration check is `test/peertube_smoke.py`. Run it on Romeo
 as root with Python 3; it finds FFmpeg through the running service environment.

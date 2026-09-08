@@ -58,7 +58,7 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
     try:
         def ensure_plugin(name, version):
             try:
-                request("GET", f"/plugins/{name}")
+                return request("GET", f"/plugins/{name}").get("settings") or {}
             except HTTPError as error:
                 if error.code != 404:
                     raise
@@ -67,11 +67,21 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
                     "npmName": name,
                     "pluginVersion": version,
                 })
+                return {}
+
+        def reconcile_settings(name, current, desired):
+            # Re-saving unchanged OIDC settings can register duplicate login
+            # methods when discovery is unavailable. Keep reconciliation a no-op
+            # when managed values match, and preserve other administrator options.
+            if any(current.get(key) != value for key, value in desired.items()):
+                request("PUT", f"/plugins/{name}/settings", {
+                    "settings": {**current, **desired},
+                })
 
         # OIDC 2.x requires PeerTube >= 8.3; Romeo currently pins 8.2.4.
-        ensure_plugin(PLUGIN, "1.1.0")
+        oidc_settings = ensure_plugin(PLUGIN, "1.1.0")
 
-        request("PUT", f"/plugins/{PLUGIN}/settings", {"settings": {
+        reconcile_settings(PLUGIN, oidc_settings, {
             "auth-display-name": "Authentik",
             "discover-url": "https://auth.nel.family/application/o/peertube/",
             "client-id": "peertube",
@@ -86,8 +96,8 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
             "role-property": "",
             "group-property": "",
             "allowed-group": "",
-        }})
-        ensure_plugin(TRANSCODING_PLUGIN, "0.0.5")
+        })
+        transcoding_settings = ensure_plugin(TRANSCODING_PLUGIN, "0.0.5")
         profiles = {
             "vod": [{
                 "encoderName": "h264_vaapi",
@@ -110,10 +120,10 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
             "vod": [{"streamType": "video", "encoderName": "h264_vaapi", "priority": 1000}],
             "live": [],
         }
-        request("PUT", f"/plugins/{TRANSCODING_PLUGIN}/settings", {"settings": {
+        reconcile_settings(TRANSCODING_PLUGIN, transcoding_settings, {
             "transcoding-profiles": json.dumps(profiles),
             "encoders-priorities": json.dumps(priorities),
-        }})
+        })
     finally:
         # Do not accumulate reusable administrator sessions on every boot.
         request("POST", "/users/revoke-token")

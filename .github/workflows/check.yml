@@ -16,6 +16,7 @@ on:
       # fix in e6933a4 sat on main doing nothing.
       - "nixos/**/*.yaml"
       - "nixos/**/*.yml"
+      - "nixos/**/*.py"
       - ".github/workflows/check.yml"
       - "flake.lock"
   push:
@@ -31,6 +32,7 @@ on:
       # fix in e6933a4 sat on main doing nothing.
       - "nixos/**/*.yaml"
       - "nixos/**/*.yml"
+      - "nixos/**/*.py"
       - ".github/workflows/check.yml"
       - "flake.lock"
   workflow_dispatch:
