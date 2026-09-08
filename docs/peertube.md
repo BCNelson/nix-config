@@ -18,7 +18,7 @@ public videos private. SMTP is disabled, including email password resets.
    then deploy Romeo's configuration. Encrypted signing, root-password and OIDC
    secrets are included for the appropriate hosts using agenix-rekey naming.
 3. `peertube-sso.service` waits for PeerTube and installs the official
-   `peertube-plugin-auth-openid-connect` **1.1.0-nel.1**, then configures it
+   `peertube-plugin-auth-openid-connect` **1.1.0-rc.1001**, then configures it
    through the local admin API. This is upstream 1.1.0 with a small supported
    `userUpdater` hook to synchronize roles on existing accounts. Nix fetches
    the original archive by hash and builds the patched plugin; the helper

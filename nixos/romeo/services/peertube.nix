@@ -5,7 +5,7 @@
   renderDevice = "/dev/dri/by-driver/i915-render";
   # Upstream 1.1.0 only sets roles at account creation. Its supported userUpdater
   # hook lets existing SSO accounts follow Authentik group changes on login.
-  oidcPlugin = pkgs.runCommand "peertube-oidc-1.1.0-nel.1" {
+  oidcPlugin = pkgs.runCommand "peertube-oidc-1.1.0-rc.1001" {
     src = pkgs.fetchurl {
       url = "https://registry.npmjs.org/peertube-plugin-auth-openid-connect/-/peertube-plugin-auth-openid-connect-1.1.0.tgz";
       hash = "sha256-YlV/7g0fYJfwyyOabNSOOXGDfojK4YapO8eQVe62DU4=";
@@ -16,7 +16,15 @@
     mkdir -p "$plugin"
     tar -xzf "$src" --strip-components=1 -C "$plugin"
     substituteInPlace "$plugin/package.json" \
-      --replace-fail '"version": "1.1.0"' '"version": "1.1.0-nel.1"'
+      --replace-fail '"version": "1.1.0"' '"version": "1.1.0-rc.1001"'
+    # PeerTube permits only rc/alpha/beta prerelease suffixes, not arbitrary
+    # valid semver labels. Check against the pinned application's validator.
+    ${pkgs.peertube.nodejs}/bin/node --input-type=module -e '
+      import { readFileSync } from "node:fs";
+      import { isStableOrUnstableVersionValid } from "${pkgs.peertube}/dist/core/helpers/custom-validators/misc.js";
+      const { version } = JSON.parse(readFileSync(process.argv[1], "utf8"));
+      if (!isStableOrUnstableVersionValid(version)) throw new Error("Invalid PeerTube plugin version: " + version);
+    ' "$plugin/package.json"
     substituteInPlace "$plugin/dist/main.js" \
       --replace-fail '            role,' \
         "            role, userUpdater: require('./role-sync.cjs'),"

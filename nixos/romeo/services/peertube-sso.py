@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 PLUGIN = "peertube-plugin-auth-openid-connect"
-OIDC_VERSION = "1.1.0-nel.1"
+OIDC_VERSION = "1.1.0-rc.1001"
 TRANSCODING_PLUGIN = "peertube-plugin-transcoding-profile-debug"
 
 
