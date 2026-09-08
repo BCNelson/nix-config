@@ -89,6 +89,8 @@ in {
       admin.email = "admin@nel.family";
       instance.name = "Nel Family PeerTube";
       signup.enabled = false;
+      # Frigate's nginx RTMP server already owns 1935 on Romeo.
+      live.rtmp.port = 1936;
       # No SMTP credentials are provisioned; accounts are managed by the admin.
       smtp.transport = "smtp";
       smtp.hostname = null;
@@ -113,6 +115,8 @@ in {
     acmeRoot = null;
   };
 
+  networking.firewall.allowedTCPPorts = [1936];
+
   systemd.tmpfiles.rules = [
     "d ${storageDir} 0750 peertube peertube - -"
     "d ${storageDir}/storage 0750 peertube peertube - -"
@@ -123,7 +127,8 @@ in {
   systemd.services.peertube = {
     # PeerTube 8 uses pnpm for plugin installation; the native module still
     # supplies yarn. Keep pnpm's writable data beneath the service cache.
-    path = [pkgs.pnpm];
+    # pnpm lifecycle scripts (including livechat's dependencies) spawn sh by name.
+    path = [pkgs.pnpm pkgs.bash];
     environment = {
       XDG_DATA_HOME = "/var/cache/peertube";
       LIBVA_DRIVER_NAME = "iHD";

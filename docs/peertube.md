@@ -98,7 +98,7 @@ with the `render` supplementary group. `DevicePolicy=closed` and a single
 `DeviceAllow` entry permit the A380's `/dev/dri/by-driver/i915-render` device.
 The B580 and card/control nodes are not allowed by this service's device policy.
 The existing Intel media driver is provided explicitly in the service environment.
-The service also supplies pnpm for plugin installation, puts its data in the
+The service also supplies pnpm and bash for plugin installation, puts its data in the
 writable cache, and permits `chown` in the syscall filter. Runtime audit logs
 identified this single syscall as pnpm's requirement; the process retains no
 capabilities to change ownership to another user.
@@ -115,6 +115,26 @@ memory, and permits network traffic only to localhost. PeerTube itself retains
 outbound network access for federation, imports, OIDC and plugin downloads.
 There is no outbound proxy or LAN destination filtering; systemd's filesystem
 sandbox does not prevent requests to other machines on the LAN.
+
+## Livechat and livestreaming
+
+Livechat 14.0.4 is installed through PeerTube's administrator plugin screen.
+Its dependency lifecycle scripts require `sh` in the service PATH; bash is
+provided by Nix. The plugin's bundled Prosody 0.12.4 runs inside the PeerTube
+service sandbox. Keep **Use system Prosody** disabled. Its internal HTTP port
+52800 binds to loopback; browsers connect through the existing HTTPS proxy.
+Plugin installation and settings remain managed through the administrator UI.
+
+PeerTube RTMP ingest uses **TCP 1936**, since Frigate's nginx RTMP listener
+already owns 1935. Use the server URL and stream key shown by PeerTube when
+creating a livestream. Romeo's firewall allows 1936; internet ingest also needs
+the upstream router to forward that port to Romeo. An external router path has
+not been verified. A private local RTMP stream and the public HTTPS chat BOSH
+connection were tested successfully. The test stream was deleted afterward.
+
+The plugin's **Launch diagnostic** checks its backend, Prosody status, and both
+directions of the PeerTube/Prosody API connection. See the
+[upstream livechat settings documentation](https://livingston.frama.io/peertube-plugin-livechat/documentation/admin/settings/).
 
 ## Runtime verification (2026-09-07)
 
