@@ -5,6 +5,8 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import textwrap
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -16,9 +18,13 @@ provision = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(provision)
 
 
+OIDC_PATH = "/nix/store/test-oidc/peertube-plugin-auth-openid-connect"
+
+
 class ProvisionTests(unittest.TestCase):
-    def run_provision(self, missing=False, denied=False, plugin_state=None):
+    def run_provision(self, missing=False, denied=False, plugin_state=None, oidc_version=provision.OIDC_VERSION):
         calls = []
+        versions = {provision.PLUGIN: oidc_version}
         if plugin_state is None:
             plugin_state = {} if missing else {
                 provision.PLUGIN: {}, provision.TRANSCODING_PLUGIN: {},
@@ -46,11 +52,17 @@ class ProvisionTests(unittest.TestCase):
                     name = path.split("/")[2]
                     if name not in plugin_state:
                         raise HTTPError(req.full_url, 404, "Not found", {}, None)
-                    body = {"settings": plugin_state[name]}
+                    body = {"settings": plugin_state[name], "version": versions.get(name, "0.0.5")}
                 elif req.method == "PUT":
                     plugin_state[path.split("/")[2]] = json.loads(req.data)["settings"]
                 elif path == "/plugins/install":
-                    plugin_state[json.loads(req.data)["npmName"]] = {}
+                    payload = json.loads(req.data)
+                    name = provision.PLUGIN if "path" in payload else payload["npmName"]
+                    plugin_state[name] = {}
+                elif path == "/plugins/update":
+                    self.assertEqual(json.loads(req.data), {"path": OIDC_PATH})
+                    versions[provision.PLUGIN] = provision.OIDC_VERSION
+                    body = {"settings": plugin_state[provision.PLUGIN], "version": provision.OIDC_VERSION}
             return io.BytesIO(json.dumps(body).encode())
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -61,22 +73,23 @@ class ProvisionTests(unittest.TestCase):
             with patch.object(provision, "urlopen", side_effect=respond):
                 if denied:
                     with self.assertRaises(HTTPError) as caught:
-                        provision.configure("http://127.0.0.1:9001", password, secret)
+                        provision.configure("http://127.0.0.1:9001", password, secret, "tube.nel.family", OIDC_PATH)
                     caught.exception.close()
                 else:
-                    provision.configure("http://127.0.0.1:9001", password, secret)
+                    provision.configure("http://127.0.0.1:9001", password, secret, "tube.nel.family", OIDC_PATH)
         return calls
 
-    def test_first_install_pins_compatible_plugins_and_regular_user_role(self):
+    def test_first_install_uses_managed_oidc_plugin_and_role_claim(self):
         calls = self.run_provision(missing=True)
         installs = [json.loads(r.data) for r in calls if r.full_url.endswith("/install")]
         self.assertEqual(installs, [
-            {"npmName": provision.PLUGIN, "pluginVersion": "1.1.0"},
+            {"path": OIDC_PATH},
             {"npmName": provision.TRANSCODING_PLUGIN, "pluginVersion": "0.0.5"},
         ])
         settings = [json.loads(r.data)["settings"] for r in calls if r.method == "PUT"]
         self.assertEqual(settings[0]["client-secret"], "oidc-secret")
-        self.assertEqual(settings[0]["role-property"], "")
+        self.assertEqual(settings[0]["role-property"], "peertube_role")
+        self.assertIn("peertube", settings[0]["scope"].split())
         profile = json.loads(settings[1]["transcoding-profiles"])["vod"][0]
         self.assertEqual(profile["encoderName"], "h264_vaapi")
         self.assertIn("-hwaccel_device /dev/dri/by-driver/i915-render", profile["inputOptions"])
@@ -102,12 +115,41 @@ class ProvisionTests(unittest.TestCase):
         state[provision.PLUGIN]["logout-redirect-uri"] = "https://tube.nel.family/"
         calls = self.run_provision(plugin_state=state)
         self.assertEqual(sum(r.method == "PUT" for r in calls), 1)
-        self.assertEqual(state[provision.PLUGIN]["role-property"], "")
+        self.assertEqual(state[provision.PLUGIN]["role-property"], "peertube_role")
+        self.assertEqual(state[provision.PLUGIN]["logout-redirect-uri"], "https://tube.nel.family/")
+
+    def test_existing_official_plugin_is_upgraded_without_losing_settings(self):
+        state = {provision.PLUGIN: {"logout-redirect-uri": "https://tube.nel.family/"},
+                 provision.TRANSCODING_PLUGIN: {}}
+        calls = self.run_provision(plugin_state=state, oidc_version="1.1.0")
+        updates = [r for r in calls if r.full_url.endswith("/plugins/update")]
+        self.assertEqual(len(updates), 1)
         self.assertEqual(state[provision.PLUGIN]["logout-redirect-uri"], "https://tube.nel.family/")
 
     def test_failed_admin_login_does_not_install_or_change_settings(self):
         calls = self.run_provision(denied=True)
         self.assertEqual(len(calls), 2)
+
+
+class RoleMappingTests(unittest.TestCase):
+    def test_only_exact_service_admins_membership_grants_admin(self):
+        blueprint = source.parents[2] / "whiskey/services/authentik/blueprints/peertube.yaml"
+        expression = blueprint.read_text().split("      expression: |\n", 1)[1].split("\n  - model:", 1)[0]
+        namespace = {}
+        exec("def evaluate(request):\n" + textwrap.indent(textwrap.dedent(expression), "    "), namespace)
+        for groups, expected in [
+            ({"service_admins"}, 0),
+            ({"service_admins", "household"}, 0),
+            ({"household"}, 2),
+            ({"extended_family"}, 2),
+            ({"authentik Admins"}, 2),
+            ({"service_admin"}, 2),
+            (set(), 2),
+        ]:
+            with self.subTest(groups=groups):
+                manager = SimpleNamespace(filter=lambda name: SimpleNamespace(exists=lambda: name in groups))
+                request = SimpleNamespace(user=SimpleNamespace(ak_groups=manager))
+                self.assertEqual(namespace["evaluate"](request), {"peertube_role": expected})
 
 
 if __name__ == "__main__":

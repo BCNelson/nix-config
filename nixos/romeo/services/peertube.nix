@@ -3,6 +3,25 @@
   storageDir = "${config.data.dirs.level3}/peertube";
   backupDir = "${config.data.dirs.level2}/peertube";
   renderDevice = "/dev/dri/by-driver/i915-render";
+  # Upstream 1.1.0 only sets roles at account creation. Its supported userUpdater
+  # hook lets existing SSO accounts follow Authentik group changes on login.
+  oidcPlugin = pkgs.runCommand "peertube-oidc-1.1.0-nel.1" {
+    src = pkgs.fetchurl {
+      url = "https://registry.npmjs.org/peertube-plugin-auth-openid-connect/-/peertube-plugin-auth-openid-connect-1.1.0.tgz";
+      hash = "sha256-YlV/7g0fYJfwyyOabNSOOXGDfojK4YapO8eQVe62DU4=";
+    };
+    nativeBuildInputs = [pkgs.gnutar pkgs.gzip];
+  } ''
+    plugin="$out/peertube-plugin-auth-openid-connect"
+    mkdir -p "$plugin"
+    tar -xzf "$src" --strip-components=1 -C "$plugin"
+    substituteInPlace "$plugin/package.json" \
+      --replace-fail '"version": "1.1.0"' '"version": "1.1.0-nel.1"'
+    substituteInPlace "$plugin/dist/main.js" \
+      --replace-fail '            role,' \
+        "            role, userUpdater: require('./role-sync.cjs'),"
+    cp ${./peertube-oidc-role-sync.cjs} "$plugin/dist/role-sync.cjs"
+  '';
   # Upstream logs PT_INITIAL_ROOT_PASSWORD verbatim on first startup. Patch the
   # built bundle so a managed credential never reaches journald, Loki or backups.
   peertubePackage = pkgs.runCommand "peertube-${pkgs.peertube.version}-managed-password" {
@@ -132,7 +151,7 @@ in {
         + " http://127.0.0.1:${toString config.services.peertube.listenHttp}"
         + " ${config.age.secrets.peertube-admin-password.path}"
         + " ${config.age.secrets.peertube-oauth-client-secret.path}"
-        + " ${host}";
+        + " ${host} ${oidcPlugin}/peertube-plugin-auth-openid-connect";
       TimeoutStartSec = "10min";
       Restart = "on-failure";
       RestartSec = "60s";

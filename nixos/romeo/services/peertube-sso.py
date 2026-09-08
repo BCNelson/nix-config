@@ -9,10 +9,11 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 PLUGIN = "peertube-plugin-auth-openid-connect"
+OIDC_VERSION = "1.1.0-nel.1"
 TRANSCODING_PLUGIN = "peertube-plugin-transcoding-profile-debug"
 
 
-def configure(base_url, password_file, secret_file, public_host="tube.nel.family"):
+def configure(base_url, password_file, secret_file, public_host, oidc_plugin_path):
     token = None
 
     def request(method, path, data=None, form=False):
@@ -56,14 +57,17 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
     }, form=True)["access_token"]
 
     try:
-        def ensure_plugin(name, version):
+        def ensure_plugin(name, version, path=None):
             try:
-                return request("GET", f"/plugins/{name}").get("settings") or {}
+                plugin = request("GET", f"/plugins/{name}")
+                if path and plugin["version"] != version:
+                    plugin = request("POST", "/plugins/update", {"path": path})
+                return plugin.get("settings") or {}
             except HTTPError as error:
                 if error.code != 404:
                     raise
                 error.close()
-                request("POST", "/plugins/install", {
+                request("POST", "/plugins/install", {"path": path} if path else {
                     "npmName": name,
                     "pluginVersion": version,
                 })
@@ -79,21 +83,21 @@ def configure(base_url, password_file, secret_file, public_host="tube.nel.family
                 })
 
         # OIDC 2.x requires PeerTube >= 8.3; Romeo currently pins 8.2.4.
-        oidc_settings = ensure_plugin(PLUGIN, "1.1.0")
+        oidc_settings = ensure_plugin(PLUGIN, OIDC_VERSION, oidc_plugin_path)
 
         reconcile_settings(PLUGIN, oidc_settings, {
             "auth-display-name": "Authentik",
             "discover-url": "https://auth.nel.family/application/o/peertube/",
             "client-id": "peertube",
             "client-secret": Path(secret_file).read_text().strip(),
-            "scope": "openid email profile",
+            "scope": "openid email profile peertube",
             "username-property": "preferred_username",
             "mail-property": "email",
             "display-name-property": "name",
             "signature-algorithm": "RS256",
-            # Authentik application policies control access. No role claim means
-            # regular User, never automatic administrator privileges.
-            "role-property": "",
+            # Authentik maps service_admins to Administrator (0), everyone
+            # else to User (2). Role changes apply when the user signs in.
+            "role-property": "peertube_role",
             "group-property": "",
             "allowed-group": "",
         })

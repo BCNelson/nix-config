@@ -5,8 +5,9 @@ The app listens on `127.0.0.1:9001`; nginx provides TLS, uploads, streaming,
 and websocket routes. PostgreSQL and Redis use local Unix sockets.
 
 Public viewing and federation remain enabled. Public registration is disabled.
-The Authentik blueprint permits sign-in for `household` and `extended_family`; the official
-OIDC plugin creates regular User accounts on first login. SSO does not make
+The Authentik blueprint permits sign-in for `household`, `extended_family`, and
+`service_admins`. A dedicated `peertube` scope returns `peertube_role=0`
+(Administrator) for `service_admins` members and `2` (User) for everyone else. SSO does not make
 public videos private. SMTP is disabled, including email password resets.
 
 ## Deployment and sign-in
@@ -17,16 +18,27 @@ public videos private. SMTP is disabled, including email password resets.
    then deploy Romeo's configuration. Encrypted signing, root-password and OIDC
    secrets are included for the appropriate hosts using agenix-rekey naming.
 3. `peertube-sso.service` waits for PeerTube and installs the official
-   `peertube-plugin-auth-openid-connect` **1.1.0** if missing, then configures it
-   through the local admin API. It also installs the official
+   `peertube-plugin-auth-openid-connect` **1.1.0-nel.1**, then configures it
+   through the local admin API. This is upstream 1.1.0 with a small supported
+   `userUpdater` hook to synchronize roles on existing accounts. Nix fetches
+   the original archive by hash and builds the patched plugin; the helper
+   upgrades existing 1.1.0 installations without discarding their settings. It also installs the official
    `peertube-plugin-transcoding-profile-debug` 0.0.5 and creates the `a380-vaapi`
    profile selected by Nix for uploaded videos. OIDC 1.1.0 supports PeerTube 8.2.4;
    plugin 2.x requires PeerTube 8.3 or newer. Initial installation needs outbound
    access to npm. Existing plugin installations are not automatically upgraded.
-4. Use **Authentik** on the login page for normal access. For administration,
-   log in as `root`; retrieve its password on Romeo with
-   `sudo cat /run/agenix/peertube-admin-password`. Promote a family account from
-   the admin UI if desired. SSO never grants administrator privileges itself.
+4. Use **Authentik** on the login page. Members of `service_admins` receive
+   Administrator access on their next SSO login, including existing PeerTube
+   accounts. `bcnelson` is assigned this group by the repository's user blueprint.
+   The local `root` account is also available; retrieve its password on Romeo
+   with `sudo cat /run/agenix/peertube-admin-password`.
+
+Manage SSO administrator access through Authentik's `service_admins` group.
+Removing membership maps the account back to User on its next SSO login,
+provided it is still allowed to sign in through a family group. Existing
+sessions are not proactively revoked. The role hook preserves quotas, display
+names, and other account settings. Manual role changes on SSO accounts are
+replaced by the group-derived role at the next SSO login.
 
 The package suppresses upstream's first-start log of a managed root password.
 The admin secret generator produces 40 characters (PeerTube limits login

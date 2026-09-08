@@ -17,6 +17,7 @@ on:
       - "nixos/**/*.yaml"
       - "nixos/**/*.yml"
       - "nixos/**/*.py"
+      - "nixos/**/*.cjs"
       - ".github/workflows/check.yml"
       - "flake.lock"
   push:
@@ -33,6 +34,7 @@ on:
       - "nixos/**/*.yaml"
       - "nixos/**/*.yml"
       - "nixos/**/*.py"
+      - "nixos/**/*.cjs"
       - ".github/workflows/check.yml"
       - "flake.lock"
   workflow_dispatch:
@@ -41,10 +43,20 @@ jobs:
   check-hosts:
     uses: ./.github/workflows/check-nix-config.yml
 
+  check-peertube:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PeerTube provisioning and role mapping
+        run: |
+          python3 -m unittest discover -s test -p test_peertube_provision.py
+          node test/peertube_oidc_role_sync.test.cjs
+
   auto-update:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: check-hosts
+    needs: [check-hosts, check-peertube]
     if: github.ref == 'refs/heads/main'
 
     steps:
