@@ -60,7 +60,11 @@ def configure(base_url, password_file, secret_file, public_host, oidc_plugin_pat
         def ensure_plugin(name, version, path=None):
             try:
                 plugin = request("GET", f"/plugins/{name}")
-                if path and plugin["version"] != version:
+                if plugin.get("uninstalled"):
+                    plugin = request("POST", "/plugins/install", {"path": path} if path else {
+                        "npmName": name, "pluginVersion": version,
+                    })
+                elif path and plugin["version"] != version:
                     plugin = request("POST", "/plugins/update", {"path": path})
                 return plugin.get("settings") or {}
             except HTTPError as error:

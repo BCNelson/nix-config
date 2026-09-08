@@ -22,7 +22,7 @@ OIDC_PATH = "/nix/store/test-oidc/peertube-plugin-auth-openid-connect"
 
 
 class ProvisionTests(unittest.TestCase):
-    def run_provision(self, missing=False, denied=False, plugin_state=None, oidc_version=provision.OIDC_VERSION):
+    def run_provision(self, missing=False, denied=False, plugin_state=None, oidc_version=provision.OIDC_VERSION, oidc_uninstalled=False):
         calls = []
         versions = {provision.PLUGIN: oidc_version}
         if plugin_state is None:
@@ -52,13 +52,15 @@ class ProvisionTests(unittest.TestCase):
                     name = path.split("/")[2]
                     if name not in plugin_state:
                         raise HTTPError(req.full_url, 404, "Not found", {}, None)
-                    body = {"settings": plugin_state[name], "version": versions.get(name, "0.0.5")}
+                    body = {"settings": plugin_state[name], "version": versions.get(name, "0.0.5"),
+                            "uninstalled": oidc_uninstalled if name == provision.PLUGIN else False}
                 elif req.method == "PUT":
                     plugin_state[path.split("/")[2]] = json.loads(req.data)["settings"]
                 elif path == "/plugins/install":
                     payload = json.loads(req.data)
                     name = provision.PLUGIN if "path" in payload else payload["npmName"]
-                    plugin_state[name] = {}
+                    plugin_state.setdefault(name, {})
+                    body = {"settings": plugin_state[name]}
                 elif path == "/plugins/update":
                     self.assertEqual(json.loads(req.data), {"path": OIDC_PATH})
                     versions[provision.PLUGIN] = provision.OIDC_VERSION
@@ -124,6 +126,14 @@ class ProvisionTests(unittest.TestCase):
         calls = self.run_provision(plugin_state=state, oidc_version="1.1.0")
         updates = [r for r in calls if r.full_url.endswith("/plugins/update")]
         self.assertEqual(len(updates), 1)
+        self.assertEqual(state[provision.PLUGIN]["logout-redirect-uri"], "https://tube.nel.family/")
+
+    def test_failed_upgrade_is_reinstalled_and_settings_are_preserved(self):
+        state = {provision.PLUGIN: {"logout-redirect-uri": "https://tube.nel.family/"},
+                 provision.TRANSCODING_PLUGIN: {}}
+        calls = self.run_provision(plugin_state=state, oidc_version="1.1.0", oidc_uninstalled=True)
+        self.assertEqual(sum(r.full_url.endswith("/plugins/install") for r in calls), 1)
+        self.assertFalse(any(r.full_url.endswith("/plugins/update") for r in calls))
         self.assertEqual(state[provision.PLUGIN]["logout-redirect-uri"], "https://tube.nel.family/")
 
     def test_failed_admin_login_does_not_install_or_change_settings(self):
