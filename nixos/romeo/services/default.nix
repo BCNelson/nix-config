@@ -32,7 +32,6 @@ in {
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
-    ./tendant.nix
     ./forgejo-runner.nix
     ./opengym.nix
     ./peertube.nix

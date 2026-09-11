@@ -150,7 +150,7 @@
   # ../services/goose.nix needs 443 to fall through to nginx.
   #
   # Nothing was lost. Every on-host consumer talks to ollama over loopback
-  # (librechat.nix, tendant.nix, goose.nix all use http://127.0.0.1:11434), and
+  # (librechat.nix, goose.nix both use http://127.0.0.1:11434), and
   # the tailnet endpoint never worked anyway: ollama rejects any request whose
   # Host is not localhost, so it returned 403 to everything Serve forwarded.
   # The vhost below is the remote entry point that comment used to point at.

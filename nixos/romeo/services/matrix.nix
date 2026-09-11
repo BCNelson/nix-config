@@ -71,7 +71,7 @@
   secretName = account: "matrix-password-${account.name}";
 in {
   # One generated password per account, and deliberately `alnum` rather than
-  # the `passphrase` generator ./tendant.nix uses: this value is substituted
+  # agenix's `passphrase` generator: this value is substituted
   # into an admin command line that continuwuity splits on whitespace, so a
   # six-word xkcd passphrase would be parsed as six arguments and the account
   # would end up with the first word as its password.

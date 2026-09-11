@@ -81,11 +81,6 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
-    homefirst-modules = {
-      url = "git+https://codeberg.org/home-first/nixos-modules.git";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
-
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

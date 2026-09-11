@@ -234,7 +234,7 @@
     };
 
     # ../ollama.nix on this same host, reached over loopback exactly like every
-    # other consumer (librechat.nix, tendant.nix, goose.nix).
+    # other consumer (librechat.nix, goose.nix).
     #
     # The models are listed explicitly, which does switch openclaw off live
     # discovery for this provider -- and that is the point. Discovery only ever
