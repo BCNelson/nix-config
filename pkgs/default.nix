@@ -31,6 +31,10 @@ pkgs: rec {
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };
   grok-bot = pkgs.callPackage ./grok-bot.nix { };
+  # Deliberately not named `code-cursor`: that attribute must stay the nixpkgs
+  # one so ../overlays/default.nix can compare the two versions and pick the
+  # newer. See ./code-cursor/default.nix.
+  cursor = pkgs.callPackage ./code-cursor { };
   openclaw = pkgs.callPackage ./openclaw.nix { };
   inherit (pkgs.callPackage ./opengym { }) opengym-api opengym-web opengym-media;
   opengym-test = pkgs.callPackage ./opengym/nixos-test.nix {

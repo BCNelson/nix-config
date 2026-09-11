@@ -1,0 +1,14 @@
+{
+  "version": "3.20.10",
+  "vscodeVersion": "1.128.0",
+  "sources": {
+    "x86_64-linux": {
+      "url": "https://downloads.cursor.com/production/d6f462cdd0a6a6d1cff570daf980e671d0a63ded/linux/x64/Cursor-3.20.10-x86_64.AppImage",
+      "hash": "sha256-zCY0PNenWzX5U6nXF7okUFz+GzV3E7vKV69llfdWhFA="
+    },
+    "aarch64-linux": {
+      "url": "https://downloads.cursor.com/production/d6f462cdd0a6a6d1cff570daf980e671d0a63ded/linux/arm64/Cursor-3.20.10-aarch64.AppImage",
+      "hash": "sha256-nfd88U0y44nDd7gnHcfyIajV53Jn30pBB5MzeoU1FTk="
+    }
+  }
+}

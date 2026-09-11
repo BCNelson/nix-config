@@ -157,55 +157,23 @@
       '';
     });
 
-    # code-cursor pinned ahead of the channel. Cursor is closed source -- the
-    # nixpkgs package only repackages the vendor AppImage -- so a bump is just a
-    # newer `src` plus the version-derived `sourceRoot` that
-    # appimageTools.extract lands the tree in. To resolve a new release:
+    # Cursor's stable channel runs several releases ahead of nixpkgs, so we
+    # carry our own build of it in ../pkgs/code-cursor (see that file for what
+    # "our own build" means for a closed-source AppImage).
     #
-    #   curl -s https://api2.cursor.sh/updates/api/download/stable/linux-x64/cursor \
-    #     | jq -r .downloadUrl
-    #
-    # then `nix-prefetch-url --type sha256 <url>` per platform (the arm64 URL
-    # shares the same build hash). As with claude-code above, the pin applies
-    # only while it is newer than the channel, so it no-ops once nixpkgs
-    # catches up.
+    # Whichever tree is newer wins. When nixpkgs catches up or overtakes us --
+    # or on a system our package does not claim (darwin) -- `pkgs.code-cursor`
+    # is the channel's build again and ../pkgs/code-cursor stops being built at
+    # all. To get back ahead, run ../pkgs/code-cursor/update.sh.
     code-cursor =
       let
-        pinnedVersion = "3.20.10";
-        build = "d6f462cdd0a6a6d1cff570daf980e671d0a63ded";
-        sources = {
-          x86_64-linux = {
-            arch = "x64";
-            appimageArch = "x86_64";
-            hash = "sha256-zCY0PNenWzX5U6nXF7okUFz+GzV3E7vKV69llfdWhFA=";
-          };
-          aarch64-linux = {
-            arch = "arm64";
-            appimageArch = "aarch64";
-            hash = "sha256-nfd88U0y44nDd7gnHcfyIajV53Jn30pBB5MzeoU1FTk=";
-          };
-        };
-        system = final.stdenv.hostPlatform.system;
-        source = sources.${system};
-        usePin =
-          sources ? ${system}
-          && builtins.compareVersions prev.code-cursor.version pinnedVersion < 0;
+        ours = final.callPackage ../pkgs/code-cursor { };
+        supported = builtins.elem final.stdenv.hostPlatform.system ours.meta.platforms;
       in
-      if !usePin then
-        prev.code-cursor
+      if supported && builtins.compareVersions ours.version prev.code-cursor.version > 0 then
+        ours
       else
-        prev.code-cursor.overrideAttrs (_: {
-          version = pinnedVersion;
-          src = final.appimageTools.extract {
-            pname = "cursor";
-            version = pinnedVersion;
-            src = final.fetchurl {
-              url = "https://downloads.cursor.com/production/${build}/linux/${source.arch}/Cursor-${pinnedVersion}-${source.appimageArch}.AppImage";
-              inherit (source) hash;
-            };
-          };
-          sourceRoot = "cursor-${pinnedVersion}-extracted/usr/share/cursor";
-        });
+        prev.code-cursor;
 
     # happy-coder pinned to nixpkgs PR #492656 (monorepo migration) until it
     # lands in unstable. Brings 1.1.x without the bundled @anthropic-ai/claude-code
