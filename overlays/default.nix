@@ -157,6 +157,56 @@
       '';
     });
 
+    # code-cursor pinned ahead of the channel. Cursor is closed source -- the
+    # nixpkgs package only repackages the vendor AppImage -- so a bump is just a
+    # newer `src` plus the version-derived `sourceRoot` that
+    # appimageTools.extract lands the tree in. To resolve a new release:
+    #
+    #   curl -s https://api2.cursor.sh/updates/api/download/stable/linux-x64/cursor \
+    #     | jq -r .downloadUrl
+    #
+    # then `nix-prefetch-url --type sha256 <url>` per platform (the arm64 URL
+    # shares the same build hash). As with claude-code above, the pin applies
+    # only while it is newer than the channel, so it no-ops once nixpkgs
+    # catches up.
+    code-cursor =
+      let
+        pinnedVersion = "3.20.10";
+        build = "d6f462cdd0a6a6d1cff570daf980e671d0a63ded";
+        sources = {
+          x86_64-linux = {
+            arch = "x64";
+            appimageArch = "x86_64";
+            hash = "sha256-zCY0PNenWzX5U6nXF7okUFz+GzV3E7vKV69llfdWhFA=";
+          };
+          aarch64-linux = {
+            arch = "arm64";
+            appimageArch = "aarch64";
+            hash = "sha256-nfd88U0y44nDd7gnHcfyIajV53Jn30pBB5MzeoU1FTk=";
+          };
+        };
+        system = final.stdenv.hostPlatform.system;
+        source = sources.${system};
+        usePin =
+          sources ? ${system}
+          && builtins.compareVersions prev.code-cursor.version pinnedVersion < 0;
+      in
+      if !usePin then
+        prev.code-cursor
+      else
+        prev.code-cursor.overrideAttrs (_: {
+          version = pinnedVersion;
+          src = final.appimageTools.extract {
+            pname = "cursor";
+            version = pinnedVersion;
+            src = final.fetchurl {
+              url = "https://downloads.cursor.com/production/${build}/linux/${source.arch}/Cursor-${pinnedVersion}-${source.appimageArch}.AppImage";
+              inherit (source) hash;
+            };
+          };
+          sourceRoot = "cursor-${pinnedVersion}-extracted/usr/share/cursor";
+        });
+
     # happy-coder pinned to nixpkgs PR #492656 (monorepo migration) until it
     # lands in unstable. Brings 1.1.x without the bundled @anthropic-ai/claude-code
     # 2.0.14 that crashes with `Cannot read properties of null (reading
