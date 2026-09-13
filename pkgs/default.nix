@@ -11,6 +11,7 @@ pkgs: rec {
   openhuman = pkgs.callPackage ./openhuman.nix { };
   age-bitwarden-sync = pkgs.callPackage ./age-bitwarden-sync { };
   config-merge = pkgs.callPackage ./config-merge { };
+  mcpproxy = pkgs.callPackage ./mcpproxy { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
   devenv-mcp = pkgs.callPackage ./devenv-mcp { };
   gamestream-agent = pkgs.callPackage ./gamestream-agent { };
