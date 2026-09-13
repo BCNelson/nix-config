@@ -46,6 +46,10 @@
     pkgs.moonlight-qt # Moonlight client for streaming games from romeo (see nixos/romeo/gamestream.nix)
     pkgs.opendeck # Stream Deck controller (native; replaces the Flatpak, which rendered tofu)
     pkgs.qemu
+    # Multiboot USB creator. System-wide rather than in home-manager because
+    # every useful invocation (`sudo ventoy -i /dev/sdX`, `sudo ventoy-web`)
+    # runs as root, which does not see the user profile's PATH.
+    pkgs.ventoy-full
     (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''
       ${pkgs.qemu}/bin/qemu-system-x86_64 \
         -bios ${pkgs.OVMF.fd}/FV/OVMF.fd \
@@ -97,6 +101,13 @@
     extraPackages = with pkgs; [ claude-code codex ];
     ntfyTopicFile = config.age.secrets.happy_ntfy_topic.path;
   };
+
+  # ventoy-full ships vendor binary blobs, so nixpkgs marks it insecure
+  # (https://github.com/NixOS/nixpkgs/issues/404663). A predicate is used
+  # instead of permittedInsecurePackages = [ "ventoy-<version>" ] so a routine
+  # nixpkgs bump does not break this host's auto-update rebuild by hand-editing
+  # a version string.
+  nixpkgs.config.allowInsecurePredicate = pkg: lib.getName pkg == "ventoy";
 
   zramSwap.enable = true;
 }

@@ -14,7 +14,7 @@
   home.packages = [
     pkgs.android-tools
     pkgs.nixpkgs-review
-    # pkgs.ventoy-full
+    # ventoy-full now lives in nixos/sierra/default.nix (needs root)
     pkgs.libation
     pkgs.inkscape
     pkgs.spec-kit
