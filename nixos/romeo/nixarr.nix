@@ -5,11 +5,19 @@ let
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
-  # Drop these once the nixarr dev branch ships Jellyfin 10.11.9/10.11.11
-  # OpenAPI hashes and a pname matching its pyproject metadata. The nixpkgs
-  # bump in flake.lock moved Jellyfin forward first, and added
-  # pythonMetadataCheckHook, which rejects the upstream pname/metadata
-  # mismatch ("nixarr" vs "nixarr_py").
+  # nixarr pins Jellyfin's OpenAPI spec hash in an attrset with no fallback, so
+  # every nixpkgs Jellyfin bump that outruns nixarr is a hard eval error
+  # (`attribute '"12.0"' missing`) rather than a refetch. That error fails
+  # check-hosts, which gates the flake.lock bump, so one missing hash freezes
+  # every input for every host.
+  #
+  # The nixpkgs bump also added pythonMetadataCheckHook, which rejects the
+  # upstream pname/metadata mismatch ("nixarr" vs "nixarr_py").
+  #
+  # Drop these once the nixarr input tracks a branch that carries them itself.
+  # It still points at the dormant `dev` branch (last commit 2026-04-29);
+  # nixarr's `main` already has 10.11.9-10.11.11 and the pname fix, and
+  # upstream PR #181 adds the 12.0 hash.
   patchedNixarrSource = pkgs.runCommandLocal "nixarr-jellyfin-openapi-hash-fix" {} ''
     cp -r ${inputs.nixarr} $out
     chmod -R u+w $out
@@ -19,7 +27,8 @@ let
       '"10.11.8" = "sha256-Fqzv/r1ntNn9/wPSD1wRvH9rUyjjBV0lrxw3hdBgrtA=";
           "10.11.9" = "sha256-3+QrbX658CN46/qfAh3Yj7sRDn50fMlLQvckSHTVuFk=";
           "10.11.10" = "sha256-3FfqhqQfuQdM/02NyhAWDW7H6OaTynWtaUBoSIxk4AQ=";
-          "10.11.11" = "sha256-4p/DaeyuVGdsrrUMu8AGtcTulZkGwA8eAvb4PbnCJ/s=";'
+          "10.11.11" = "sha256-4p/DaeyuVGdsrrUMu8AGtcTulZkGwA8eAvb4PbnCJ/s=";
+          "12.0" = "sha256-hu9rbOp+R0tbsjT0Tl639uj0WM5tfYT6uZ6NH0p1zjk=";'
     substituteInPlace $out/nixarr/lib/nixarr-py/default.nix \
       --replace-fail 'pname = "nixarr";' 'pname = "nixarr_py";'
   '';
