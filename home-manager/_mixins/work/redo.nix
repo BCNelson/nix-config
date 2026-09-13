@@ -4,6 +4,7 @@
   home.packages = [
     pkgs.distrobox
     pkgs.awscli2
+    pkgs.glab # GitLab CLI: merge requests, issues, pipelines, and authentication
     (config.lib.nixGL.wrap pkgs.slack)
     # pkgs.distrobox-bazel # provides bazel/bazelisk wrappers that call into distrobox container
     (config.lib.nixGL.wrap pkgs.mongodb-compass)
