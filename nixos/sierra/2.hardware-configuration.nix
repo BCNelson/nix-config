@@ -18,6 +18,13 @@
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
 
+  boot.kernelParams = [
+    # Disable NVMe APST. The Samsung 980 (fw 3B4QFXO7) is suspected of dropping
+    # off the bus while idle: the journal stops, the GUI dies, the console fills
+    # with errors, and PID 1 segfaults when a shutdown is attempted.
+    "nvme_core.default_ps_max_latency_us=0"
+  ];
+
   fileSystems."/" =
     {
       device = "/dev/disk/by-uuid/d24db523-9501-4a17-85d2-702bac638367";
