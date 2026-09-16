@@ -14,7 +14,9 @@
 			"brennonschow@gmail.com",
 			"nelson.7.jeffery@gmail.com"
 		],
-		"group:familyVPN": ["Clements.Josiah10@gmail.com"]
+		"group:familyVPN": ["Clements.Josiah10@gmail.com"],
+		// bwnelson's sandbox container on romeo (nixos/romeo/containers/bwnelson.nix)
+		"group:brother": ["bnels65@gmail.com"]
 	},
 
 	// Declare convenient hostname aliases to use in place of IP addresses.
@@ -33,7 +35,8 @@
 	"tagOwners": {
 		"tag:server":  ["bradleynelson102@gmail.com"],
 		"tag:client":  ["bradleynelson102@gmail.com"],
-		"tag:iso":     ["bradleynelson102@gmail.com"]
+		"tag:iso":     ["bradleynelson102@gmail.com"],
+		"tag:guest":   ["bradleynelson102@gmail.com"]
 	},
 
 	// Access control lists.
@@ -51,7 +54,12 @@
 		// Prometheus node exporter
 		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]},
 		//Loki
-		{"action": "accept", "src": ["tag:server"], "dst": ["whiskey:3100", "whiskey6:3100"]}
+		{"action": "accept", "src": ["tag:server"], "dst": ["whiskey:3100", "whiskey6:3100"]},
+		// bwnelson reaches his own sandbox on every port -- it is his box, and
+		// this way a web service he builds is reachable without an ACL change.
+		// Nothing grants him anything else on the tailnet; default-deny covers
+		// the rest.
+		{"action": "accept", "src": ["group:brother"], "dst": ["tag:guest:*"]}
 	],
 	"grants": [
 		{
@@ -86,12 +94,27 @@
 			"dst":    ["tag:server"],
 			// "users":  ["syncoid"]
 			"users":  ["autogroup:nonroot", "root"]
+		},
+		{ // Tailscale SSH is how bwnelson gets in -- his tailnet identity is the
+			// credential, so he needs no key on file. "accept" rather than "check"
+			// so he is not re-authenticating in a browser every session. He is not
+			// granted root over SSH; he sudos inside his own container instead.
+			"action": "accept",
+			"src":    ["group:brother"],
+			"dst":    ["tag:guest"],
+			"users":  ["bwnelson"]
 		}
 	],
 	"tests": [
 		{
 			"src": "bradleynelson102@gmail.com",
 			"accept": ["tag:server:22"]
+		},
+		// bwnelson reaches his sandbox and nothing else.
+		{
+			"src": "group:brother",
+			"accept": ["tag:guest:22"],
+			"deny": ["romeo:22", "vor:22", "whiskey:22", "tag:server:22"]
 		},
 		{
 			"src": "group:nelsonFamily",

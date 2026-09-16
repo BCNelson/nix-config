@@ -36,6 +36,7 @@ in
       ./nixarr.nix
       ./gamestream.nix
       ./services
+      ./containers
       ./dataDirs.nix
     ];
 
