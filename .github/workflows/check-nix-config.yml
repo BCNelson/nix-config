@@ -63,7 +63,18 @@ jobs:
         with:
           name: flake.lock
       - name: Check host ${{ matrix.host }}
-        run: nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace
+        run: |
+          max_attempts=3
+          retry_delay=20
+          for attempt in $(seq 1 "$max_attempts"); do
+            nix build .#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel --dry-run --show-trace && exit 0
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Host check failed after ${max_attempts} attempts."
+              exit 1
+            fi
+            echo "Host check failed (attempt ${attempt}/${max_attempts}), retrying in ${retry_delay}s..."
+            sleep "$retry_delay"
+          done
 
   check-devshell:
     runs-on: ubuntu-latest
