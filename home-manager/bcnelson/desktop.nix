@@ -3,20 +3,16 @@
   pkgs,
   lib,
   desktop,
-  outputs,
   ...
 }:
 
-let
-  wrappedYakuake = config.lib.nixGL.wrap pkgs.kdePackages.yakuake;
-in
 {
   # Home Manager needs a bit of information about you and the paths it should
   # manage
 
   imports = [
-    outputs.homeModules.autostart
     ./_mixins/firefox.nix
+    ./_mixins/ghostty.nix
     ./_mixins/zen.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
@@ -28,8 +24,10 @@ in
   ) ./_mixins/${desktop}.nix;
 
   home.packages = [
-    wrappedYakuake
-    (config.lib.nixGL.wrap pkgs.kdePackages.konsole) # Required for yakuake's terminal KPart component
+    # Ghostty is the terminal (see ./_mixins/ghostty.nix); konsole stays
+    # installed as the fallback for when it misbehaves -- it is also the only
+    # one of the two that works in an X11 session.
+    (config.lib.nixGL.wrap pkgs.kdePackages.konsole)
 
     # pkgs.quickemu
     # pkgs.quickgui
@@ -53,16 +51,6 @@ in
   ];
 
   programs.bash.enable = true;
-
-  services.freedesktop.autostart = {
-    enable = true;
-    packageSourced = [
-      {
-        package = wrappedYakuake;
-        path = "share/applications/org.kde.yakuake.desktop";
-      }
-    ];
-  };
 
   services.kdeconnect = {
     enable = true;

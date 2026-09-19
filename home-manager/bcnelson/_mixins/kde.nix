@@ -12,9 +12,10 @@
         "kwin"."Window One Desktop to the Right" = "Meta+Ctrl+Shift+Right";
         "plasmashell"."show-on-mouse-pos" = "Meta+V";
         "kwin"."Edit Tiles" = [ ];
-        "services/org.kde.konsole.desktop"."_launch" = "Meta+T";
+        "services/com.mitchellh.ghostty.desktop"."_launch" = "Meta+T";
         "services/org.kde.krunner.desktop"."_launch" = "Meta+Space";
-        "yakuake"."toggle-window-state" = "F12";
+        # F12 is Ghostty's quick terminal now, bound inside Ghostty itself with
+        # a global: keybind rather than by kglobalaccel. See ./ghostty.nix.
       };
       workspace.theme = "breeze-dark";
       configFile = { };
@@ -37,11 +38,7 @@
             };
           }
           "org.kde.plasma.marginsseparator"
-          {
-            systemTray = {
-              items.hidden = [ "Yakuake" ];
-            };
-          }
+          "org.kde.plasma.systemtray"
           {
             name = "org.kde.plasma.digitalclock";
             config = {
