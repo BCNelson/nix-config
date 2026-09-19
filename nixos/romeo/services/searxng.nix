@@ -8,8 +8,14 @@
   # upstream default change would break the pair.
   port = 8888;
 in {
-  # SearXNG exists on this host for exactly one consumer: the `web_search` tool
-  # in ./openclaw.nix. It is a metasearch proxy -- it holds no index of its own,
+  # SearXNG exists on this host for two consumers, both on loopback: the
+  # `web_search` tool in ./openclaw.nix, and ./odysseus.nix, which points its
+  # SEARXNG_INSTANCE here rather than running the searxng sidecar from
+  # upstream's docker-compose.yml. Both want the same thing from it -- the JSON
+  # API enabled by search.formats below -- so the second consumer needed no
+  # change to this file beyond this paragraph.
+  #
+  # It is a metasearch proxy -- it holds no index of its own,
   # it fans a query out to Google/Bing/DuckDuckGo/etc. and merges the results.
   #
   # Chosen over the API-backed alternatives (Brave, Tavily, Exa, Perplexity) for
@@ -23,7 +29,7 @@ in {
   # Deliberately NOT reverse-proxied. Every other web service on this host gets
   # an nginx vhost; this one has no human user, so there is nothing to serve and
   # no allowlist to maintain. Adding a vhost later is the usual four lines plus
-  # `server.base_url`, but until something other than openclaw wants it, the
+  # `server.base_url`, but until something off this host wants it, the
   # smaller attack surface is the better default for a service whose whole job is
   # fetching attacker-influenced content off the public internet.
 

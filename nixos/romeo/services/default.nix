@@ -29,6 +29,7 @@ in {
     ./cli-proxy-api.nix
     ./goose.nix
     ./openclaw.nix
+    ./odysseus.nix
     ./immich.nix
     ./immichframe.nix
     ./journiv.nix
