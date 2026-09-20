@@ -16,6 +16,7 @@
     pkgs.nixpkgs-review
     # ventoy-full now lives in nixos/sierra/default.nix (needs root)
     pkgs.libation
+    pkgs.kobodl # Kobo ebook library downloader + DRM removal (libation, but for Kobo)
     pkgs.inkscape
     pkgs.spec-kit
     pkgs.pince

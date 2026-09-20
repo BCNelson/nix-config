@@ -5,6 +5,7 @@ pkgs: rec {
   fork-init = pkgs.callPackage ./fork-init { };
   mdns-reflector = pkgs.callPackage ./mdns-reflector.nix { };
   install-system = pkgs.callPackage ./install-system { };
+  kobodl = pkgs.callPackage ./kobodl.nix { };
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };
   mb4-extractor = pkgs.callPackage ./m4b-extractor { };
   opendeck = pkgs.callPackage ./opendeck.nix { };
