@@ -13,6 +13,7 @@ in {
     ./foundryvtt.nix
     ./homebox.nix
     ./jellyfin.nix
+    ./kobodl.nix
     ./libation.nix
     ./mealie.nix
     ./nixBinaryCacheProxy.nix
