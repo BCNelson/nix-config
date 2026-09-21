@@ -254,6 +254,19 @@ generate-secrets:
     @echo "🔐 Generating age secrets..."
     agenix generate -a
 
+# agenix has no single command for this: `generate` only ever encrypts to the
+# master pubkeys (apps/generate.nix pipes the generator straight into
+# ageMasterEncrypt and discards the plaintext), so writing the per-host copies
+# needs a second pass that decrypts the master again -- which is the step that
+# wants the hardware key. Chaining them keeps a new secret to one key touch.
+
+# Generate newly-declared age secrets and rekey them for every host
+new-secrets:
+    @echo "🔐 Generating age secrets..."
+    agenix generate -a
+    @echo "🔑 Rekeying for all hosts..."
+    agenix rekey -a
+
 # Sync age secrets to Bitwarden
 sync-secrets:
     @echo "🔐 Syncing age secrets to Bitwarden..."
