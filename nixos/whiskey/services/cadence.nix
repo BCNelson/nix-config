@@ -39,6 +39,11 @@ let
     { slug = "zfs-scrub-romeo"; period = "720h"; grace = "168h"; tags = [ "zfs" "scrub" "host:romeo" ]; }
     { slug = "zfs-scrub-vor";   period = "720h"; grace = "168h"; tags = [ "zfs" "scrub" "host:vor" ]; }
 
+    # ---- library sync ----
+    # kobodl.timer is 6h with up to 20min jitter, and a run that has a backfill
+    # to do takes a while, hence the 2h grace.
+    { slug = "kobodl-romeo"; period = "6h"; grace = "2h"; tags = [ "media" "kobodl" "host:romeo" ]; }
+
     # ---- container / service updates ----
     { slug = "auto-update-services-romeo"; period = "1h";  grace = "30m"; tags = [ "auto-update" "containers" "host:romeo" ]; }
     { slug = "podman-auto-update-romeo";   period = "24h"; grace = "6h";  tags = [ "auto-update" "containers" "host:romeo" ]; }

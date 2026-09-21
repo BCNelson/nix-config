@@ -2,6 +2,30 @@
 let
   dataDirs = config.data.dirs;
 
+  # The sync reports to cadence, not to a phone: it runs unattended every 6h and
+  # a push per run would be noise. Same helpers as romeo/default.nix uses for
+  # auto-update-services. ntfy is reserved for kobodl-auth, which is the one
+  # thing that genuinely needs a human.
+  cadenceSlug = "kobodl-romeo";
+  cadenceUuid = "$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] cadenceSlug})";
+  cadenceStart = pkgs.writeShellScript "cadence-ping-${cadenceSlug}-start" ''
+    ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+      "https://health.b.nel.family/ping/${cadenceUuid}/start" || true
+  '';
+  cadenceResult = pkgs.writeShellScript "cadence-ping-${cadenceSlug}-result" ''
+    url="https://health.b.nel.family/ping/${cadenceUuid}"
+    if [ "$SERVICE_RESULT" != "success" ]; then url="$url/fail"; fi
+    # Journal of this invocation as the body. Cadence caps at 10 KiB and
+    # truncates from the head, so send the tail, over stdin rather than as an
+    # argument.
+    ${pkgs.systemd}/bin/journalctl _SYSTEMD_INVOCATION_ID="$INVOCATION_ID" \
+        --no-pager --no-hostname -o short-iso 2>/dev/null \
+      | tail -n 200 | tail -c 9000 \
+      | ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
+          -H "Content-Type: text/plain; charset=utf-8" \
+          --data-binary @- "$url" || true
+  '';
+
   # Holds live Kobo refresh tokens, so level3 (borg'd offsite) and 0700. kobodl
   # rewrites this file whenever it refreshes a token (kobo.py
   # __RefreshAuthentication), which rules out an agenix secret or any other
@@ -57,7 +81,7 @@ let
     notify() {
       ${pkgs.curl}/bin/curl -fsS -m 15 \
         -H "X-Title: $1" \
-        -H "X-Priority: 4" \
+        -H "X-Priority: ''${3:-2}" \
         -H "X-Tags: books,key" \
         -H "X-Click: https://www.kobo.com/activate" \
         -d "$2" "https://ntfy.sh/$topic" >/dev/null || true
@@ -77,7 +101,7 @@ let
     rc=''${PIPESTATUS[0]}
 
     if [ "$rc" -ne 0 ]; then
-      notify "Kobo login failed" "kobodl user add exited $rc -- see journalctl -u kobodl-auth"
+      notify "Kobo login failed" "kobodl user add exited $rc -- see journalctl -u kobodl-auth" 3
       exit "$rc"
     fi
 
@@ -221,6 +245,13 @@ in
   };
   users.groups.kobodl = { };
 
+  # The UUID is generated and the check itself registered by the checkDefs list
+  # in nixos/whiskey/services/cadence.nix; this is the consuming end. Both sides
+  # must land together -- a rekeyFile pointing at a secret that does not exist
+  # yet breaks `agenix rekey -a`, which evaluates every host.
+  age.secrets.cadence_check_kobodl_romeo.rekeyFile =
+    ../../../secrets/store/cadence/checks/kobodl-romeo.age;
+
   systemd.tmpfiles.rules = [
     "d ${configDir} 0700 kobodl kobodl -"
     # Recursive, so a config restored from backup or dropped in as root before
@@ -246,7 +277,12 @@ in
     description = "kobodl: download new Kobo purchases, feed ebooks to Calibre-Web-Automated";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    onFailure = [ "kobodl-notify-failure.service" ];
+    # Until the account is linked kobodl can only exit 1 ("no users found"), and
+    # a failed unit makes switch-to-configuration return 4, which fails the whole
+    # auto-update run -- it did exactly that on the first deploy, because the
+    # timer below fired mid-switch a minute before kobodl-auth finished. A failed
+    # condition *skips* the unit instead, which is not a failure.
+    unitConfig.ConditionPathExists = configFile;
     serviceConfig = {
       Type = "oneshot";
       User = "kobodl";
@@ -259,7 +295,11 @@ in
       # 0077 would make every book invisible to the things meant to read them --
       # same trade as libation.nix.
       UMask = "0022";
+      ExecStartPre = cadenceStart;
       ExecStart = sync;
+      # SERVICE_RESULT and INVOCATION_ID are only set here, which is what lets
+      # one hook report both outcomes.
+      ExecStopPost = cadenceResult;
       # The first run has the entire back catalogue to fetch.
       TimeoutStartSec = "6h";
 
@@ -342,42 +382,22 @@ in
     };
   };
 
-  # Without this a dead refresh token is invisible: kobodl cannot re-run the
-  # interactive login by itself (the reauth hook only refreshes, kobo.py:142),
-  # so the timer would just fail every 6h in a journal nobody reads.
-  systemd.services.kobodl-notify-failure = {
-    description = "Report a failed kobodl run to ntfy";
-    serviceConfig = {
-      Type = "oneshot";
-      LoadCredential = "ntfy-topic:${config.age.secrets.ntfy_topic.path}";
-    };
-    script = ''
-      topic=$(cat "$CREDENTIALS_DIRECTORY/ntfy-topic")
-      # Cadence-style: keep the body small. romeo only keeps ~1 day of journal,
-      # so the interesting lines are the last ones.
-      # ntfy.sh rejects a message over 4KiB and these lines carry full library
-      # paths, so keep the tail well under it.
-      body=$(${pkgs.systemd}/bin/journalctl -u kobodl.service -n 15 --no-pager -o cat | tail -c 1500)
-      ${pkgs.curl}/bin/curl -fsS -m 15 \
-        -H "X-Title: kobodl sync failed on $HOSTNAME" \
-        -H "X-Priority: 4" \
-        -H "X-Tags: books,warning" \
-        -d "$body
-
-If this is an expired Kobo token, run: kobodl-auth" \
-        "https://ntfy.sh/$topic" >/dev/null || true
-    '';
-  };
-
   systemd.timers.kobodl = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # Offset from libation's 20min so the two library syncs do not start
-      # together on every boot.
-      OnBootSec = "35min";
+      # OnActiveSec, not OnBootSec. OnBootSec counts from boot, so installing
+      # this timer on a host that has been up for hours puts the deadline in the
+      # past and systemd fires it instantly -- during the very switch that
+      # installed it. RandomizedDelaySec does not save you either, because
+      # past+random is usually still past. That is what broke the first deploy.
+      # OnActiveSec counts from when the timer itself starts, so the first run is
+      # always 35min out: after boot, and after any switch that touches it.
+      #
+      # It also means a run missed while romeo was down is picked up 35min after
+      # it comes back, which is what Persistent= was meant to do here and could
+      # not -- Persistent only applies to OnCalendar= timers.
+      OnActiveSec = "35min";
       OnUnitActiveSec = "6h";
-      # Persistent so a run missed while romeo was down is caught up on boot.
-      Persistent = true;
       RandomizedDelaySec = "20min";
     };
   };
