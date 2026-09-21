@@ -64,7 +64,7 @@ in
       description = "Named server subsets at /mcp/p/<name>. These are convenience filters, not access controls.";
     };
     settings = lib.mkOption {
-      type = json.type;
+      inherit (json) type;
       default = { };
       description = "Additional JSON settings; listener, authentication, profiles and upstreams are module-owned.";
     };

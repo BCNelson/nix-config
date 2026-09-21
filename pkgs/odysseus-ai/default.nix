@@ -115,7 +115,7 @@ let
     file
   ];
 in
-stdenvNoCC.mkDerivation (finalAttrs: {
+stdenvNoCC.mkDerivation (_finalAttrs: {
   pname = "odysseus-ai";
   # APP_VERSION from src/constants.py at the pinned rev. Upstream publishes no
   # git tags, so the date suffix is what actually identifies this build.

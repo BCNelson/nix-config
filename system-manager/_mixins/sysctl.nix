@@ -13,7 +13,7 @@ let
 
   sysctlConf = pkgs.writeText "system-manager-sysctl.conf" (
     lib.concatMapStrings
-      (key: "${key} = ${renderValue (settings.${key})}\n")
+      (key: "${key} = ${renderValue settings.${key}}\n")
       (lib.attrNames settings)
   );
 in

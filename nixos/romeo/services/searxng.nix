@@ -1,6 +1,5 @@
 {
   config,
-  pkgs,
   ...
 }: let
   # SearXNG's own default, and free on romeo. Kept explicit because
