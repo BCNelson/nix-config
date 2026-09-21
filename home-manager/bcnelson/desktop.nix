@@ -18,6 +18,7 @@ in
     outputs.homeModules.autostart
     ./_mixins/firefox.nix
     ./_mixins/zen.nix
+    ./_mixins/programs/ghostty.nix
     ../_mixins/programs/chrome.nix
     ../_mixins/programs/vscode.nix
     ../_mixins/programs/zed.nix
@@ -28,8 +29,12 @@ in
   ) ./_mixins/${desktop}.nix;
 
   home.packages = [
+    # Ghostty is the terminal and the drop-down (see ./_mixins/programs/ghostty.nix).
+    # These two stay installed as the fallback while that is on trial: konsole on
+    # Meta+Shift+T, yakuake launchable by name but no longer autostarted or bound
+    # to F12. yakuake needs konsole for its terminal KPart component.
     wrappedYakuake
-    (config.lib.nixGL.wrap pkgs.kdePackages.konsole) # Required for yakuake's terminal KPart component
+    (config.lib.nixGL.wrap pkgs.kdePackages.konsole)
 
     # pkgs.quickemu
     # pkgs.quickgui
@@ -53,16 +58,6 @@ in
   ];
 
   programs.bash.enable = true;
-
-  services.freedesktop.autostart = {
-    enable = true;
-    packageSourced = [
-      {
-        package = wrappedYakuake;
-        path = "share/applications/org.kde.yakuake.desktop";
-      }
-    ];
-  };
 
   services.kdeconnect = {
     enable = true;

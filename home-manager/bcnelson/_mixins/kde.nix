@@ -12,12 +12,27 @@
         "kwin"."Window One Desktop to the Right" = "Meta+Ctrl+Shift+Right";
         "plasmashell"."show-on-mouse-pos" = "Meta+V";
         "kwin"."Edit Tiles" = [ ];
-        "services/org.kde.konsole.desktop"."_launch" = "Meta+T";
+        # Ghostty took over both terminals: Meta+T for a window, F12 for the
+        # drop-down. F12 is NOT set here -- ghostty registers it itself through
+        # the GlobalShortcuts portal (see ./programs/ghostty.nix), and a
+        # kglobalaccel binding on the same key would fight it. Clearing
+        # yakuake's is what actually frees the key on machines that already
+        # have it written into kglobalshortcutsrc.
+        "services/com.mitchellh.ghostty.desktop"."_launch" = "Meta+T";
+        "yakuake"."toggle-window-state" = [ ];
+        # konsole stays one chord away while ghostty is on trial.
+        "services/org.kde.konsole.desktop"."_launch" = "Meta+Shift+T";
         "services/org.kde.krunner.desktop"."_launch" = "Meta+Space";
-        "yakuake"."toggle-window-state" = "F12";
       };
       workspace.theme = "breeze-dark";
-      configFile = { };
+      configFile = {
+        # "Open Terminal" / "Open Terminal Here" in dolphin and friends. Plasma
+        # resolves the service via KTerminalLauncherJob, which reads the
+        # X-TerminalArg* keys out of ghostty's .desktop file; TerminalApplication
+        # is the older plain-command form some callers still fall back to.
+        kdeglobals."General"."TerminalApplication" = "ghostty";
+        kdeglobals."General"."TerminalService" = "com.mitchellh.ghostty.desktop";
+      };
       panels = [{
         floating = true;
         height = 42;
