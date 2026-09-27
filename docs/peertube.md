@@ -13,7 +13,7 @@ public videos private. SMTP is disabled, including email password resets.
 ## Deployment and sign-in
 
 1. Apply the `porkbun_dns_record.tube_nel_family-CNAME` DNS addition through the
-   normal Terraform workflow. LAN DNS is configured in Romeo's unbound module.
+   normal OpenTofu workflow. LAN DNS is configured in Romeo's unbound module.
 2. Deploy Whiskey's configuration to load the PeerTube Authentik blueprint,
    then deploy Romeo's configuration. Encrypted signing, root-password and OIDC
    secrets are included for the appropriate hosts using agenix-rekey naming.
