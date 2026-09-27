@@ -66,12 +66,26 @@
 		// the rest.
 		{"action": "accept", "src": ["group:brother"], "dst": ["tag:guest:*"]}
 	],
+	// Josiah's family VPN, routed out through vor. Committed 2026-01-21 and never
+	// once applied: every run of the ACL sync since has failed on a dead
+	// TS_API_KEY, so the live policy predates it. With the key fixed, the policy
+	// compiler rejects this grant for two reasons -- a grant needs `ip` (or
+	// `app`), which this has neither of, and `via` accepts only tags, not the
+	// host aliases used here -- and one bad grant fails the whole document,
+	// including everything below it.
+	//
+	// Parked rather than guessed at, because making it work is an access
+	// decision: either familyVPN may exit via any tag:server node (vor and the
+	// Home Assistant box both offer exit routing), or vor gets a tag of its own
+	// so `via` can name it. Removing it changes nothing operationally -- it has
+	// never been live.
 	"grants": [
-		{
-			"src": ["group:familyVPN"],
-			"dst": ["autogroup:internet"],
-			"via": ["vor", "vor6"]
-		}
+		// {
+		// 	"src": ["group:familyVPN"],
+		// 	"dst": ["autogroup:internet"],
+		// 	"via": ["vor", "vor6"],
+		// 	"ip":  ["*"]          // required, and `via` still needs to be a tag
+		// }
 	],
 	"ssh": [
 		{
