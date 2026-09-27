@@ -28,7 +28,8 @@ let
           "10.11.9" = "sha256-3+QrbX658CN46/qfAh3Yj7sRDn50fMlLQvckSHTVuFk=";
           "10.11.10" = "sha256-3FfqhqQfuQdM/02NyhAWDW7H6OaTynWtaUBoSIxk4AQ=";
           "10.11.11" = "sha256-4p/DaeyuVGdsrrUMu8AGtcTulZkGwA8eAvb4PbnCJ/s=";
-          "12.0" = "sha256-hu9rbOp+R0tbsjT0Tl639uj0WM5tfYT6uZ6NH0p1zjk=";'
+          "12.0" = "sha256-hu9rbOp+R0tbsjT0Tl639uj0WM5tfYT6uZ6NH0p1zjk=";
+          "12.1" = "sha256-bMc4br+KUqcmSWn6Y6eG3HRunjevVzur+LNbz6G1Ah0=";'
     substituteInPlace $out/nixarr/lib/nixarr-py/default.nix \
       --replace-fail 'pname = "nixarr";' 'pname = "nixarr_py";'
   '';
