@@ -36,7 +36,7 @@ jobs:
           # poll a few times before giving up.
           for attempt in 1 2 3 4 5 6; do
             # Only approve the Nix flake check, which references no secrets.
-            # Never blanket-approve every held run: terraform.yml / tailscale.yml
+            # Never blanket-approve every held run: tofu.yml / tailscale.yml
             # carry cloud/Tailscale secrets on pull_request and must stay gated
             # behind manual review even on Copilot's own PRs.
             run_ids="$(gh api \

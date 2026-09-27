@@ -38,7 +38,7 @@ in
       just
       qemu
       zstd
-      terraform
+      opentofu
       nixd
       alejandra
       agenix-rekey

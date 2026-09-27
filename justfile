@@ -273,8 +273,11 @@ sync-secrets:
     just unlock
     nix run .#age-bitwarden-sync -- --fido
 
-terraform *args:
+# Run OpenTofu with the B2 state-backend credentials in the environment
+tofu *args:
     #!/usr/bin/env bash
     export AWS_ACCESS_KEY_ID=$(nix eval --file ./nixos/sensitive.nix B2_TERRAFORM_STATE_KEY_ID | tail -c +2 | head -c -2)
     export AWS_SECRET_ACCESS_KEY=$(nix eval --file ./nixos/sensitive.nix B2_TERRAFORM_STATE_APPLICATION_KEY | tail -c +2 | head -c -2)
-    terraform {{ args }}
+    tofu {{ args }}
+
+alias terraform := tofu

@@ -1,4 +1,4 @@
-name: Apply Terraform
+name: Apply OpenTofu
 
 concurrency:
   group: ${{ github.workflow }}
@@ -9,12 +9,12 @@ on:
     branches: [ "main" ]
     paths:
       - "*.tf"
-      - ".github/workflows/terraform.yml"
+      - ".github/workflows/tofu.yml"
   pull_request:
     branches: [ "main" ]
     paths:
       - "*.tf"
-      - ".github/workflows/terraform.yml"
+      - ".github/workflows/tofu.yml"
 
 env:
   TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
@@ -31,17 +31,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: opentofu/setup-opentofu@v1
         with:
-          terraform_version: "1.10.5"
-      - name: Terraform fmt
-        run: terraform fmt -check
-      - name: Terraform Init
-        run: terraform init
-      - name: Terraform Validate
-        run: terraform validate
-      - name: Terraform Plan
-        run: terraform plan
+          tofu_version: "1.12.6"
+      - name: OpenTofu fmt
+        run: tofu fmt -check
+      - name: OpenTofu Init
+        run: tofu init
+      - name: OpenTofu Validate
+        run: tofu validate
+      - name: OpenTofu Plan
+        run: tofu plan
 
   apply:
     runs-on: ubuntu-latest
@@ -51,12 +51,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: opentofu/setup-opentofu@v1
         with:
-          terraform_version: "1.10.5"
-      - name: Terraform Init
-        run: terraform init
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-      - name: Terraform Apply
-        run: terraform apply tfplan
+          tofu_version: "1.12.6"
+      - name: OpenTofu Init
+        run: tofu init
+      - name: OpenTofu Plan
+        run: tofu plan -out=tfplan
+      - name: OpenTofu Apply
+        run: tofu apply tfplan
