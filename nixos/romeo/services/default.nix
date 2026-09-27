@@ -36,7 +36,6 @@ in {
     ./journiv.nix
     ./forgejo-runner.nix
     ./opengym.nix
-    ./conatus.nix
     ./peertube.nix
     ./factorio.nix
   ];
