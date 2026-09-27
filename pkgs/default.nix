@@ -39,6 +39,8 @@ pkgs: rec {
   cursor = pkgs.callPackage ./code-cursor { };
   openclaw = pkgs.callPackage ./openclaw.nix { };
   odysseus-ai = pkgs.callPackage ./odysseus-ai { };
+  inherit (pkgs.callPackage ./conatus { }) conatus conatus-ops;
+  conatus-test = pkgs.callPackage ./conatus/nixos-test.nix { inherit conatus conatus-ops; };
   inherit (pkgs.callPackage ./opengym { }) opengym-api opengym-web opengym-media;
   opengym-test = pkgs.callPackage ./opengym/nixos-test.nix {
     inherit opengym-api opengym-web opengym-media;

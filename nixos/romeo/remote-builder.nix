@@ -44,7 +44,15 @@ let
       done
 
       case "$cmd" in
-        # ssh-ng, which is what nixos/whiskey/remote-builds.nix asks for.
+        # ssh-ng, which is what nixos/whiskey/remote-builds.nix asks for. Both
+        # spellings: nix's default remote-program is the standalone `nix-daemon`
+        # binary, and `nix daemon` is what you get when remote-program is set
+        # explicitly or a newer nix changes its default. Measured from a real
+        # client, not assumed -- the first cut of this allowed only the second
+        # form and refused every build with "refused: nix-daemon --stdio".
+        "nix-daemon --stdio")
+          exec ${config.nix.package}/bin/nix-daemon --stdio
+          ;;
         "nix daemon --stdio")
           exec ${config.nix.package}/bin/nix daemon --stdio
           ;;

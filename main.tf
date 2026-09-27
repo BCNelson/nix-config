@@ -554,6 +554,16 @@ resource "porkbun_dns_record" "gym_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 
+# tasks    CNAME  h.b.nel.family.   (Conatus on romeo)
+# LAN clients do not use this record: romeo's unbound answers tasks.nel.family
+# with 192.168.3.7 (see nixos/romeo/unbound.nix).
+resource "porkbun_dns_record" "tasks_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "tasks"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 resource "porkbun_dns_record" "journal_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "journal"
@@ -722,7 +732,6 @@ resource "porkbun_dns_record" "homefirst_dev-CAA" {
   type    = "CAA"
   content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
-
 
 resource "porkbun_dns_record" "nel_family-github-verify" {
   domain  = "nel.family"

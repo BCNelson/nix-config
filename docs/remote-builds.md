@@ -36,11 +36,19 @@ knowing which is which.
    like: besides root outright, it admitted `bcnelson`, who is in `@wheel` with
    passwordless sudo on every server. Any tagged server could have taken a root
    shell on any other.
-2. **That account can only run `nix daemon --stdio`.** Tailscale SSH has no
+2. **That account can only speak the build protocol.** Tailscale SSH has no
    `authorized_keys`, so there is nowhere to hang a `command="..."`; the forced
    command lives in the login shell instead. It matches exactly and re-execs a
    fixed argv, so nothing rides along appended to a command that matched.
    Arbitrary commands and interactive shells are refused.
+
+   The accepted commands are `nix-daemon --stdio`, `nix daemon --stdio` and
+   `nix-store --serve --write`. Both daemon spellings are listed because nix's
+   default `remote-program` is the standalone `nix-daemon` binary, while
+   `nix daemon` is what arrives when `remote-program` is set explicitly. The
+   first version of this shell allowed only the second form and refused every
+   build with `refused: nix-daemon --stdio` — which is exactly what the refusal
+   message printing the requested command is for.
 3. **But `nixremote` is a trusted nix user, and that is a large grant.** Remote
    building requires it — an unsigned derivation can only be added to the store
    by a trusted user — and a trusted user can add arbitrary paths to romeo's
@@ -131,9 +139,12 @@ ssh nixremote@romeo.b.nel.family id
 
 should come back `refused: id`, not a uid.
 
-If that first command fails with `nix: command not found`, the login environment
-Tailscale SSH builds for `nixremote` is missing the system profile. Name the
-binary instead of relying on `PATH`, as the builder's `hostName`:
+If it fails with `refused: <something>`, the forced command in
+`nixos/romeo/remote-builder.nix` does not list what this client's nix actually
+sends; add that exact string. If it fails with `nix: command not found`, the
+login environment Tailscale SSH builds for `nixremote` is missing the system
+profile — name the binary instead of relying on `PATH`, as the builder's
+`hostName`:
 
 ```
 romeo.b.nel.family?remote-program=/run/current-system/sw/bin/nix%20daemon
