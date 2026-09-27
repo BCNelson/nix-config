@@ -51,6 +51,13 @@ in {
     generator.script = "alnum";
   };
 
+  # OAuth2 client secret for the Trilium provider — same rekeyFile as
+  # nixos/romeo/services/trilium.nix, so the two sides can never drift.
+  age.secrets.trilium-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/trilium_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -60,6 +67,7 @@ in {
       GOTOSOCIAL_SECRET = config.age.secrets.gotosocial-oauth-client-secret.path;
       OPENGYM_SECRET = config.age.secrets.opengym-oauth-client-secret.path;
       PEERTUBE_SECRET = config.age.secrets.peertube-oauth-client-secret.path;
+      TRILIUM_SECRET = config.age.secrets.trilium-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
@@ -68,6 +76,7 @@ in {
       GOTOSOCIAL_OAUTH_CLIENT_SECRET=$GOTOSOCIAL_SECRET
       OPENGYM_OAUTH_CLIENT_SECRET=$OPENGYM_SECRET
       PEERTUBE_OAUTH_CLIENT_SECRET=$PEERTUBE_SECRET
+      TRILIUM_OAUTH_CLIENT_SECRET=$TRILIUM_SECRET
     '';
   };
 

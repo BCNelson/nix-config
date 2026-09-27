@@ -637,6 +637,26 @@ resource "porkbun_dns_record" "auth_nel_family-CNAME" {
   content = "public.whiskey.b.nel.family"
 }
 
+# notes    CNAME  h.b.nel.family.   (Trilium Notes sync server on romeo)
+#
+# No LAN override is needed for this one, unlike the nel.family services above:
+# romeo's unbound RPZ only covers the nel.family zone, but the hairpin rides the
+# CNAME target instead. unbound has a "h.b.nel.family" redirect local-zone
+# answering 192.168.3.7, and it consults that while chasing this CNAME, so LAN
+# clients land on romeo directly and WAN clients go through the h.b ingress.
+#
+# Certificates for this name are issued on ROMEO over Cloudflare DNS-01 (see
+# nixos/romeo/services/trilium.nix), not on whiskey where the other bcnelson.dev
+# name lives. The zone CAA above pins dns-01, which is what that uses.
+resource "cloudflare_record" "notes_bcnelson_dev-CNAME" {
+  zone_id         = "2afab945023de6634b53f500f6a537fe"
+  name            = "notes"
+  type            = "CNAME"
+  content         = "h.b.nel.family"
+  proxied         = false
+  allow_overwrite = true
+}
+
 resource "cloudflare_record" "bcnelson_dev-github-verify" {
   zone_id = "2afab945023de6634b53f500f6a537fe"
   name    = "_github-pages-challenge-bcnelson"
@@ -722,7 +742,6 @@ resource "porkbun_dns_record" "homefirst_dev-CAA" {
   type    = "CAA"
   content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
 }
-
 
 resource "porkbun_dns_record" "nel_family-github-verify" {
   domain  = "nel.family"

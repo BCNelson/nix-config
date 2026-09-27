@@ -1,0 +1,68 @@
+version: 1
+metadata:
+  name: trilium
+entries:
+  # OAuth2 / OIDC provider
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider-trilium
+    identifiers:
+      name: trilium
+    attrs:
+      name: trilium
+      client_type: confidential
+      client_id: trilium
+      # Authentik 2026.x requires grant_types to be set explicitly; the model
+      # default is an empty list, which rejects the auth-code flow with
+      # "Invalid grant_type for provider" -> "request is otherwise malformed".
+      grant_types:
+        - authorization_code
+        - refresh_token
+      # Injected from the systemd EnvironmentFile (see authentik.nix).
+      client_secret: !Env TRILIUM_OAUTH_CLIENT_SECRET
+      authorization_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      # Trilium stores exactly one OIDC subject in its DB and compares every
+      # later login against it (isSubjectIdentifierSaved). If the subject ever
+      # changes, the linked account no longer matches and the only way back in
+      # is to disconnect from the UI -- which needs a login. user_uuid is the
+      # only sub_mode here that survives a rename, so it is the safe one.
+      sub_mode: user_uuid
+      # RSA self-signed cert => RS256 ID tokens, which Trilium expects by
+      # default (it also auto-detects from the discovery document on 0.104.2+).
+      signing_key:
+        !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      redirect_uris:
+        - matching_mode: strict
+          url: https://notes.bcnelson.dev/callback
+      # Trilium's default scope set is "openid profile email".
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+  # Application (dashboard tile + access policy target)
+  - model: authentik_core.application
+    id: app-trilium
+    identifiers:
+      slug: trilium
+    attrs:
+      name: Trilium Notes
+      slug: trilium
+      provider: !KeyOf provider-trilium
+      meta_launch_url: https://notes.bcnelson.dev/
+      policy_engine_mode: any
+
+  # Bound to one user, not a group. Trilium is single-user: the instance has one
+  # password, one document and one linked OIDC subject, so a second person
+  # reaching the callback could only ever be refused with "invalid user". Making
+  # authentik refuse them first keeps the failure legible and keeps the tile off
+  # everyone else's dashboard.
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf app-trilium
+      user: !Find [authentik_core.user, [username, bcnelson]]
+      order: 0
+    attrs:
+      enabled: true
