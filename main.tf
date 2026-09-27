@@ -657,11 +657,27 @@ resource "porkbun_dns_record" "bcnelson_page-CAA" {
 
 # Wildcards match exactly one label, so this covers <repo>.bcnelson.page and
 # deliberately nothing deeper.
-resource "porkbun_dns_record" "wildcard_bcnelson_page-CNAME" {
+#
+# Address records, NOT a CNAME. A wildcard CNAME would also synthesize an answer
+# for _acme-challenge.bcnelson.page, and both lego and Let's Encrypt follow
+# CNAMEs on the challenge name (that is how ACME delegation works) -- so the
+# DNS-01 challenge would be chased into the nel.family zone and the certificate
+# would never issue. With address records, a TXT query at that name returns
+# NODATA with no CNAME to follow, lego writes the real TXT, and per RFC 4592 an
+# explicit record there stops wildcard synthesis for that name entirely. The
+# same trap applies to any future underscore-prefixed record in this zone.
+resource "porkbun_dns_record" "wildcard_bcnelson_page-A" {
   domain  = "bcnelson.page"
   name    = "*"
-  type    = "CNAME"
-  content = "public.whiskey.b.nel.family"
+  type    = "A"
+  content = "15.204.59.201"
+}
+
+resource "porkbun_dns_record" "wildcard_bcnelson_page-AAAA" {
+  domain  = "bcnelson.page"
+  name    = "*"
+  type    = "AAAA"
+  content = "2604:2dc0:202:300::b6a"
 }
 
 # homefirst.dev moves off Codeberg Pages onto git-pages on whiskey. It is a
