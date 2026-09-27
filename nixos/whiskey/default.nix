@@ -7,7 +7,7 @@
       ./backup.nix
       ./services/cadence.nix
       ./services/forgejo.nix
-      ./services/homefirst-pages.nix
+      ./services/git-pages.nix
       ./services/healthchecks.nix
       ./services/vaultwarden.nix
       ./services/kanidm.nix

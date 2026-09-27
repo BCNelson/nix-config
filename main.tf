@@ -644,6 +644,70 @@ resource "cloudflare_record" "bcnelson_dev-github-verify" {
   content = "e8a64353bcac28974a44be20b4b899"
 }
 
+# bcnelson.page is the default git-pages domain: every *.bcnelson.page hostname
+# is served by git-pages on whiskey, where the hostname label names a repo under
+# git.bcnelson.dev/bcnelson (see nixos/whiskey/services/git-pages.nix).
+# Certificates are a wildcard + apex pair issued over DNS-01, so pin the
+# validation method the way the other zones do.
+resource "porkbun_dns_record" "bcnelson_page-CAA" {
+  domain  = "bcnelson.page"
+  type    = "CAA"
+  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
+}
+
+# Wildcards match exactly one label, so this covers <repo>.bcnelson.page and
+# deliberately nothing deeper.
+resource "porkbun_dns_record" "wildcard_bcnelson_page-CNAME" {
+  domain  = "bcnelson.page"
+  name    = "*"
+  type    = "CNAME"
+  content = "public.whiskey.b.nel.family"
+}
+
+# homefirst.dev moves off Codeberg Pages onto git-pages on whiskey. It is a
+# custom domain rather than part of the wildcard above, because the site lives
+# at the apex and a [[wildcard]] pattern never matches its own apex. This TXT
+# record is what authorizes publishing: git-pages reads it to learn which clone
+# URL may publish here, then still asks Forgejo whether the publishing token has
+# push permission on that repo. It authorizes the index site only, which is all
+# an apex site needs.
+resource "porkbun_dns_record" "homefirst_dev-forge-allowlist" {
+  domain  = "homefirst.dev"
+  name    = "_git-pages-forge-allowlist"
+  type    = "TXT"
+  content = "https://git.bcnelson.dev/home-first/homefirst.git"
+}
+
+# An apex cannot be a CNAME, so point it at whiskey's public addresses directly
+# — the same pair public.whiskey.b.nel.family carries.
+resource "porkbun_dns_record" "homefirst_dev-A" {
+  domain  = "homefirst.dev"
+  type    = "A"
+  content = "15.204.59.201"
+}
+
+resource "porkbun_dns_record" "homefirst_dev-AAAA" {
+  domain  = "homefirst.dev"
+  type    = "AAAA"
+  content = "2604:2dc0:202:300::b6a"
+}
+
+# git-pages keys sites on the Host header, so www is a separate site rather than
+# an alias for the apex; nginx on whiskey redirects it.
+resource "porkbun_dns_record" "www_homefirst_dev-CNAME" {
+  domain  = "homefirst.dev"
+  name    = "www"
+  type    = "CNAME"
+  content = "public.whiskey.b.nel.family"
+}
+
+resource "porkbun_dns_record" "homefirst_dev-CAA" {
+  domain  = "homefirst.dev"
+  type    = "CAA"
+  content = "0 issue \"letsencrypt.org;validationmethods=dns-01\""
+}
+
+
 resource "porkbun_dns_record" "nel_family-github-verify" {
   domain  = "nel.family"
   type    = "TXT"
