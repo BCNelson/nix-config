@@ -51,7 +51,7 @@ in
 
       # Local SSH MCP server, consumed by .mcp.json as a bare `ssh-mcp` command
       outputs.packages.${system}.ssh-mcp
-    ] ++ lib.optional (lib.hasInfix "linux" system) [
+    ] ++ lib.optionals (lib.hasInfix "linux" system) [
       pkgs.quickemu
       pkgs.qemu
       (pkgs.writeShellScriptBin "qemu-system-x86_64-uefi" ''
