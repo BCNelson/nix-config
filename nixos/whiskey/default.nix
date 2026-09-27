@@ -5,6 +5,7 @@
       ../_mixins/roles/server
       ../_mixins/roles/server/nginx.nix
       ./backup.nix
+      ./remote-builds.nix
       ./services/cadence.nix
       ./services/forgejo.nix
       ./services/git-pages.nix

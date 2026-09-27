@@ -31,6 +31,7 @@ in
       ../_mixins/roles/server/nginx.nix
       ../_mixins/roles/server/recovery.nix
       ./unbound.nix
+      ./remote-builder.nix
       ./backups.nix
       ./nfs.nix
       ./nixarr.nix

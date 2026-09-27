@@ -53,6 +53,11 @@
 		{"action": "accept", "src": ["group:gaming"], "dst": ["sierra:52450"]},
 		// Prometheus node exporter
 		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["tag:server:9100"]},
+		// whiskey offloads its nix builds to romeo (nixos/whiskey/remote-builds.nix).
+		// Port 22 on romeo's tailnet address is Tailscale SSH, so this is the
+		// network half of a grant the ssh section below already makes for
+		// tag:server -> tag:server. Only romeo: no other server builds for it.
+		{"action": "accept", "src": ["whiskey", "whiskey6"], "dst": ["romeo:22", "romeo6:22"]},
 		//Loki
 		{"action": "accept", "src": ["tag:server"], "dst": ["whiskey:3100", "whiskey6:3100"]},
 		// bwnelson reaches his own sandbox on every port -- it is his box, and
@@ -88,12 +93,21 @@
 			"dst": ["autogroup:self"],
 			"users": ["autogroup:nonroot"]
 		},
-		{
+		{ // Server-to-server SSH is two machine-to-machine jobs and nothing else:
+			// syncoid replicating romeo -> vor (nixos/romeo/backups.nix) and nix
+			// remote builds whiskey -> romeo (docs/remote-builds.md). Hence an
+			// explicit allowlist. "autogroup:nonroot" was not the lesser grant it
+			// reads as -- it admits bcnelson, who is in @wheel with passwordless
+			// sudo on every server, so non-root meant root by a second hop.
+			//
+			// A person SSHing between two tagged servers is attributed to
+			// tag:server, not to themselves, so this deliberately ends those hops.
+			// Reach each host directly instead; group:admin above still grants
+			// root and non-root on every one of them.
 			"action": "accept",
 			"src":    ["tag:server"],
 			"dst":    ["tag:server"],
-			// "users":  ["syncoid"]
-			"users":  ["autogroup:nonroot", "root"]
+			"users":  ["syncoid", "nixremote"]
 		},
 		{ // Tailscale SSH is how bwnelson gets in -- his tailnet identity is the
 			// credential, so he needs no key on file. "accept" rather than "check"
@@ -133,6 +147,12 @@
 			"accept": ["romeo:9100", "vor:9100", "tag:server:9100"],
 			"deny": ["xray:22", "porter-pc:22"]
 		},
+		// Whiskey builds on romeo over Tailscale SSH, and only on romeo.
+		{
+			"src": "whiskey",
+			"accept": ["romeo:22"],
+			"deny": ["vor:22"]
+		},
 		// Romeo should not be able to access node_exporter on whiskey
 		{
 			"src": "romeo",
@@ -148,6 +168,16 @@
 			"src": "bradleynelson102@gmail.com",
 			"dst": ["tag:server"],
 			"accept": ["autogroup:nonroot", "root"]
+		},
+		// The two machine accounts, and nothing that reaches a root shell:
+		// nixremote builds (nixos/romeo/remote-builder.nix), syncoid replicates
+		// (nixos/romeo/backups.nix), and bcnelson is denied because @wheel plus
+		// passwordless sudo would make landing as them equivalent to root.
+		{
+			"src": "tag:server",
+			"dst": ["tag:server"],
+			"accept": ["nixremote", "syncoid"],
+			"deny": ["root", "bcnelson"]
 		}
 	]
 }
