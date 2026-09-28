@@ -48,6 +48,15 @@ in
     LoadCredential = "forgejo-token:${config.age.secrets.forgejo_runner_token.path}";
   };
 
+  # romeo enables both Docker and Podman, and the module prefers Podman's
+  # socket. Podman 5.8.7 (buildah 1.43.4, CVE-2026-79705 hardening) rejects
+  # archive PUTs that cross absolute symlinks like /var/run, which breaks every
+  # job's file copy into the container: containers/podman#29805, fix pending in
+  # containers/buildah#7129. Docker shipped the same regression and fixed it in
+  # 29.5.2 (moby#53258), so run jobs on Docker. Revisit once a fixed Podman lands.
+  systemd.services.gitea-runner-romeo.environment.DOCKER_HOST =
+    lib.mkForce "unix:///run/docker.sock";
+
   # The recovery specialisation deliberately disables Docker. Remove the
   # Docker-backed runner instance there as well so the module's runtime
   # assertion remains valid.
