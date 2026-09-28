@@ -84,6 +84,10 @@
   # behind it. See nixos/_mixins/roles/thin-client/minimal.nix.
   environment.systemPackages = with pkgs; [
     nano
+    # ssh forwards TERM=xterm-ghostty from the workstations, and ncurses doesn't
+    # ship that entry, so without this clear/less/htop fail with "unknown
+    # terminal type" on the far end. Just the terminfo output, not ghostty.
+    ghostty.terminfo
   ] ++ lib.optionals (!config.services.bcnelson.thinClient.enable) [
     git
     git-crypt
