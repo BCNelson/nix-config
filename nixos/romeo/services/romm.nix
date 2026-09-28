@@ -1,6 +1,18 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   dataDirs = config.data.dirs;
+
+  # RomM 5.3 stopped auto-detecting the library layout and refuses to start
+  # ("Detected a '{platform}/roms' library layout, which is no longer
+  # auto-detected") until config.yml declares it. The on-disk config.yml had
+  # always been empty, so it is now owned here and mounted read-only; settings
+  # changed in RomM's UI will not persist -- add them to this file instead.
+  rommConfig = (pkgs.formats.yaml { }).generate "romm-config.yml" {
+    filesystem.structure = {
+      default = "{platform}/roms/{game}";
+      firmware = "{platform}/bios";
+    };
+  };
 in
 {
 
@@ -66,6 +78,7 @@ in
       "${dataDirs.level5}/romm/library:/romm/library"
       "${dataDirs.level3}/romm/assets:/romm/assets"
       "${dataDirs.level5}/romm/config:/romm/config"
+      "${rommConfig}:/romm/config/config.yml:ro"
       "romm-db-sock:/run/mysqld/"
     ];
     dependsOn = ["romm-db"];
