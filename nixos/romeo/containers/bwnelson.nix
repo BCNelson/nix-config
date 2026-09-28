@@ -11,28 +11,10 @@ _:
 let
   # romeo's LAN interface, used as the NAT external interface so the container
   # can reach the internet -- tailscale's coordination server, plus the
-  # conda-forge and nixpkgs traffic he will generate constantly.
-  #
-  # TODO: replace with the real name. `ip -br -4 addr | grep 192.168.3.7` on
-  # romeo prints it. It is not recorded anywhere in this repo because romeo
-  # uses NetworkManager with DHCP, so it has to be read off the host once.
-  #
-  # Traced rather than asserted on purpose: romeo auto-updates from git every
-  # hour, so an assertion here would break every future rebuild of the host
-  # until someone noticed. A wrong interface name only costs the container its
-  # outbound network, which is contained. This keeps the failure loud in the
-  # build log without holding romeo's updates hostage.
-  lanInterfaceRaw = "REPLACE_ME";
-  lanInterface =
-    if lanInterfaceRaw == "REPLACE_ME"
-    then
-      builtins.trace ''
-        WARNING: nixos/romeo/containers/bwnelson.nix -- lanInterface is still the
-        placeholder, so containers.bwnelson will come up with no outbound network.
-        Set it from `ip -br -4 addr | grep 192.168.3.7` on romeo.
-      ''
-        lanInterfaceRaw
-    else lanInterfaceRaw;
+  # conda-forge and nixpkgs traffic he will generate constantly. romeo uses
+  # NetworkManager with DHCP, so this was read off the host
+  # (`ip -br -4 addr | grep 192.168.3.7`) rather than set anywhere in the repo.
+  lanInterface = "enp12s0";
 
   # Deliberately inside 10.0.0.0/8: romeo's unbound already carries
   # "10.0.0.0/8 allow" in its access-control list (../unbound.nix), so the
@@ -76,9 +58,9 @@ in
         isNormalUser = true;
         description = "Brother";
         extraGroups = [ "wheel" ];
-        # Empty on purpose: Tailscale SSH authenticates him against his
-        # tailnet identity, so he can get in before ever sending a key. Add
-        # it here when he does.
+        # Empty on purpose: Tailscale SSH on his own tailnet authenticates
+        # him, so he can get in before ever sending a key. Add it here when
+        # he does.
         openssh.authorizedKeys.keys = [ ];
       };
 
@@ -95,6 +77,8 @@ in
         };
       };
 
+      # Joined to his own tailnet, not ours: `tailscale up --ssh` from a root
+      # login, with the login URL handed to him. Our ACLs never see this node.
       services.tailscale = {
         enable = true;
         useRoutingFeatures = "client";
@@ -132,8 +116,8 @@ in
         micromamba
 
         # Shell basics, and the tools worth having while learning Linux.
-        # tmux and mosh especially: romeo reboots hourly, so anything he runs
-        # in a bare SSH session gets cut.
+        # tmux and mosh especially: romeo reboots on kernel updates, so
+        # anything he runs in a bare SSH session gets cut.
         tmux
         mosh
         git
@@ -202,6 +186,20 @@ in
   # IOWeight for the same reason -- cyclus writes large sqlite/HDF5 output
   # and ZFS contention would show up as jellyfin stuttering. TasksMax is the
   # fork-bomb backstop.
+  # Keep him off the rest of the LAN. He is root in the container and it sits
+  # on his tailnet, not ours, so `tailscale up --advertise-routes=
+  # 192.168.3.0/24` (or an exit node) would hand our whole LAN to his tailnet
+  # and anyone he shares it with -- nothing on our side would ever see it.
+  # This lives on romeo because ve-bwnelson is a host interface. Traffic to
+  # romeo's own 192.168.3.7 goes through INPUT rather than FORWARD, so unbound
+  # and romeo's opened ports stay reachable.
+  networking.firewall.extraCommands = ''
+    iptables -I FORWARD -i ve-bwnelson -d 192.168.3.0/24 -j DROP
+  '';
+  networking.firewall.extraStopCommands = ''
+    iptables -D FORWARD -i ve-bwnelson -d 192.168.3.0/24 -j DROP || true
+  '';
+
   systemd.services."container@bwnelson".serviceConfig = {
     MemoryHigh = "20G";
     MemoryMax = "24G";

@@ -2,7 +2,8 @@
 
 A sandboxed NixOS box on romeo for bwnelson (brother) — coding, learning
 Linux, and running [cyclus](https://fuelcycle.org/) fuel-cycle simulations.
-Reached over Tailscale; no ports are exposed to the internet.
+Reached over Tailscale — on **his own tailnet**, not ours; no ports are exposed
+to the internet.
 
 Config lives in [`nixos/romeo/containers/bwnelson.nix`](../nixos/romeo/containers/bwnelson.nix).
 
@@ -40,63 +41,38 @@ No sanoid change is needed: the `common` template in `nixos/romeo/backups.nix`
 sets `recursive = true`, so a child of `vault/data/level4` is snapshotted
 automatically.
 
-### 2. Fill in the LAN interface
-
-`nixos/romeo/containers/bwnelson.nix` has `lanInterfaceRaw = "REPLACE_ME"` for
-the NAT external interface. romeo uses NetworkManager with DHCP, so the name
-isn't recorded anywhere in this repo. On romeo:
-
-```bash
-ip -br -4 addr | grep 192.168.3.7
-```
-
-Until it's replaced, the build prints a warning and the container comes up with
-no outbound network. It is a `builtins.trace` rather than an assertion on
-purpose — romeo auto-updates from git hourly, and an assertion would break
-every future rebuild of the host until someone noticed.
-
-### 3. Invite him to the tailnet
-
-The ACL rules key off `group:brother`, which requires `bnels65@gmail.com` to be
-a tailnet member. Invite him from the Tailscale admin console first, or the
-rules match nothing.
-
-### 4. Deploy
+### 2. Deploy
 
 ```bash
 just check-host romeo-2   # or: nix build .#nixosConfigurations.romeo-2....
 ```
 
 Push and let romeo's hourly auto-update pick it up, or `just update-os` on the
-host. Also push `tailscale-acl.hujson` — it carries `group:brother`,
-`tag:guest`, the ACL and SSH grants, and a test asserting he can reach
-`tag:guest:22` and nothing else.
+host. Nothing goes in `tailscale-acl.hujson` — the node is on his tailnet.
 
-### 5. Authenticate the container to Tailscale
+### 3. Join it to his tailnet
 
-Interactive, once. State persists in the container's `/var/lib/tailscale` on
-the level4 dataset, so it survives romeo's hourly reboots.
+Interactive, once. State persists in the container's `/var/lib/tailscale`, so
+it survives romeo's reboots.
 
 ```bash
 sudo nixos-container root-login bwnelson
-tailscale up --ssh --advertise-tags=tag:guest
+tailscale up --ssh
 ```
 
-Approve it as your admin account — `bradleynelson102@gmail.com` owns
-`tag:guest` in `tagOwners`, which is what permits advertising the tag. The node
-appears on the tailnet as `bwnelson`.
-
-He then reaches it with no key on file, authenticating with his tailnet
-identity:
+Send him the login URL it prints; he signs in with his own account and the
+node lands on his tailnet as `bwnelson`. His tailnet's default policy lets its
+owner SSH to his own nodes, so from there:
 
 ```bash
 ssh bwnelson@bwnelson
 ```
 
-Add a real key to `users.users.bwnelson.openssh.authorizedKeys.keys` whenever he
-sends one.
+Tailscale SSH defaults to `check` mode there, so he may be sent to a browser
+to re-auth occasionally — that is his policy to change. Add a real key to
+`users.users.bwnelson.openssh.authorizedKeys.keys` whenever he sends one.
 
-### 6. Install cyclus
+### 4. Install cyclus
 
 cyclus is not in nixpkgs. `micromamba` is preinstalled and `programs.nix-ld` is
 on, which is what lets conda-forge's prebuilt binaries find a dynamic loader.
@@ -137,29 +113,21 @@ zfs list -t snapshot vault/data/level4/bwnelson
 
 ## Things worth knowing
 
-**romeo reboots roughly hourly** under `services.bcnelson.autoUpdate`
-(`reboot = true`, `refreshInterval = "1h"`). `restartIfChanged = false` stops
-unrelated closure changes from bouncing the container, but a reboot still
-restarts it. Long cyclus runs will be cut — hence `tmux` and `mosh` in his
-default packages. Tell him. If his simulations routinely run for hours, that
-auto-update cadence is worth reconsidering, or the runs want a systemd service
-that resumes.
+**romeo reboots when an update needs it.** `services.bcnelson.autoUpdate`
+checks hourly (`refreshInterval = "1h"`) and, with `reboot = true`, reboots
+only when the new generation changes the kernel, initrd or kernel modules — in
+practice every few days with nixpkgs bumps. `restartIfChanged = false` stops
+other updates from bouncing the container, but a reboot still restarts it.
+Long cyclus runs can be cut — hence `tmux` and `mosh` in his default packages.
+Tell him. If his simulations routinely run for days, the runs want a systemd
+service that resumes.
 
-**He can reach your LAN.** NAT masquerade means from inside the container he can
-route to any host on `192.168.3.0/24`, not just romeo. That is fine under
-"trusted against malice", but if you'd rather not, add to the container config:
-
-```nix
-networking.firewall.extraCommands = ''
-  iptables -I FORWARD -i ve-bwnelson -d 192.168.3.0/24 -j DROP
-'';
-networking.firewall.extraStopCommands = ''
-  iptables -D FORWARD -i ve-bwnelson -d 192.168.3.0/24 -j DROP || true
-'';
-```
-
-Traffic to romeo's own `192.168.3.7` traverses `INPUT`, not `FORWARD`, so this
-blocks the rest of the LAN while leaving romeo's unbound and services reachable.
+**He can't reach the rest of your LAN.** The container is on his tailnet and
+he's root in it, so without a block he could advertise `192.168.3.0/24` as a
+subnet route (or run an exit node) and hand the whole LAN to his tailnet — and
+nothing in ours would show it. romeo's firewall drops `ve-bwnelson` →
+`192.168.3.0/24` in `FORWARD`. Traffic to romeo's own `192.168.3.7` goes through
+`INPUT`, so unbound and romeo's opened ports stay reachable.
 
 **Builds inside the container run on romeo's nix-daemon.** The module
 bind-mounts `/nix/store` read-only but also passes the daemon socket, so
