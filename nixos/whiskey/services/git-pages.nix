@@ -16,6 +16,12 @@ let
       # Stream it through to git-pages rather than spooling it onto whiskey's
       # small root disk first.
       proxy_request_buffering off;
+      # git-pages-cli refuses to publish unless the response `Server:` (or
+      # `X-Server:`) header matches /\bgit-pages\b/ — and for the PUT that
+      # publishes, that is a hard error, not a warning. nginx does not forward
+      # an upstream Server header by default, so without this the CLI sees
+      # "nginx" and exits 1.
+      proxy_pass_header Server;
     '';
   };
 in
