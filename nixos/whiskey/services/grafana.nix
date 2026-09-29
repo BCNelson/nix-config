@@ -29,6 +29,12 @@ in
       # service_admins through to this application (blueprints/grafana.yaml).
       users.allow_sign_up = false;
 
+      # Settings saved through Grafana's SSO UI live in its database and take
+      # precedence over this file - an old kanidm config there kept winning
+      # after this moved to authentik. With generic_oauth off the UI's list,
+      # Grafana reads it from here only.
+      sso_settings.configurable_providers = "github gitlab google azuread okta";
+
       "auth.generic_oauth" = {
         enabled = true;
         name = "authentik";
