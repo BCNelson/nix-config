@@ -29,10 +29,13 @@ entries:
         - matching_mode: strict
           url: https://grafana.b.nel.family/login/generic_oauth
       # The profile scope carries the `groups` claim Grafana maps roles from.
+      # offline_access is what makes authentik issue a refresh token; without
+      # it Grafana's session ends when the short-lived access token does.
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
 
   # Application (dashboard tile + access policy target)
   - model: authentik_core.application

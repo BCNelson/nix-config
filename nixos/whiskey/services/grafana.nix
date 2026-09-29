@@ -30,9 +30,9 @@ in
       users.allow_sign_up = false;
 
       # Settings saved through Grafana's SSO UI live in its database and take
-      # precedence over this file - an old kanidm config there kept winning
-      # after this moved to authentik. With generic_oauth off the UI's list,
-      # Grafana reads it from here only.
+      # precedence over this file. Keeping generic_oauth off the UI's list stops
+      # new ones being saved, but does NOT make Grafana ignore an existing row -
+      # a stale kanidm one kept winning until grafana.db was reset (2026-09-28).
       sso_settings.configurable_providers = "github gitlab google azuread okta";
 
       "auth.generic_oauth" = {
@@ -41,7 +41,8 @@ in
         client_id = "grafana";
         # Declared in authentik.nix (group-readable by grafana).
         client_secret = "$__file{${config.age.secrets.grafana-oauth-client-secret.path}}";
-        scopes = "openid profile email";
+        # offline_access gets a refresh token (see blueprints/grafana.yaml).
+        scopes = "openid profile email offline_access";
         auth_url = "${authentik}/authorize/";
         token_url = "${authentik}/token/";
         api_url = "${authentik}/userinfo/";
