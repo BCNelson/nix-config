@@ -24,6 +24,10 @@
         "--host",
         "vor=bcnelson@vor.ck.nel.family"
       ]
+    },
+    "grafana": {
+      "type": "http",
+      "url": "http://whiskey.b.nel.family:8765/mcp"
     }
   }
 }
