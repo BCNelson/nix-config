@@ -1,35 +1,4 @@
 { config, ... }: {
-  age.secrets.grafana-secret-key = {
-    rekeyFile = ./secrets/grafana_secret_key.age;
-    generator.script = "alnum";
-    owner = "grafana";
-  };
-
-  # grafana configuration
-  services.grafana = {
-    enable = true;
-    settings.security.secret_key = "$__file{${config.age.secrets.grafana-secret-key.path}}";
-    settings.server = {
-      root_url = "https://grafana.b.nel.family";
-      enable_gzip = true;
-      enforce_domain = true;
-      domain = "grafana.b.nel.family";
-      http_port = 2342;
-      http_addr = "127.0.0.1";
-    };
-  };
-
-  # nginx reverse proxy
-  services.nginx.virtualHosts.${config.services.grafana.settings.server.domain} = {
-    forceSSL = true;
-    enableACME = true;
-    acmeRoot = null;
-    locations."/" = {
-      proxyPass = "http://127.0.0.1:${toString config.services.grafana.settings.server.http_port}";
-      proxyWebsockets = true;
-    };
-  };
-
   services.prometheus = {
     enable = true;
     port = 9001;
@@ -82,11 +51,14 @@
       server.http_listen_port = 3100;
       auth_enabled = false;
 
+      # Under /var/lib (the module's StateDirectory). This used to be /tmp/loki,
+      # which systemd's PrivateTmp wiped on every restart - about a day of logs
+      # was all that ever survived a deploy.
       common = {
-        path_prefix = "/tmp/loki";
+        path_prefix = config.services.loki.dataDir;
         storage.filesystem = {
-          chunks_directory = "/tmp/loki/chunks";
-          rules_directory = "/tmp/loki/rules";
+          chunks_directory = "${config.services.loki.dataDir}/chunks";
+          rules_directory = "${config.services.loki.dataDir}/rules";
         };
         replication_factor = 1;
         ring = {
@@ -95,6 +67,16 @@
           };
           instance_addr = "127.0.0.1";
         };
+      };
+
+      # ~200 MB/day of journal across the hosts, so 30 days is ~6 GB on a root
+      # disk with ~48 GB free. Retention is enforced by the compactor.
+      limits_config.retention_period = "720h";
+
+      compactor = {
+        working_directory = "${config.services.loki.dataDir}/compactor";
+        retention_enabled = true;
+        delete_request_store = "filesystem";
       };
 
       schema_config = {
@@ -126,8 +108,11 @@
       }
     }
 
+    // Only a rule set for loki.source.journal below, which is where the
+    // __journal_* fields still exist. Routing entries through this component
+    // as well re-ran the rule without them and blanked `unit` again.
     loki.relabel "journal" {
-      forward_to = [loki.write.loki.receiver]
+      forward_to = []
 
       rule {
         source_labels = ["__journal__systemd_unit"]
@@ -142,7 +127,7 @@
         host = "${config.networking.hostName}",
       }
       relabel_rules = loki.relabel.journal.rules
-      forward_to    = [loki.relabel.journal.receiver]
+      forward_to    = [loki.write.loki.receiver]
     }
   '';
 }

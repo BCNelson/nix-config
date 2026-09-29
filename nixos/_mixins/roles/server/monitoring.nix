@@ -59,8 +59,11 @@ in
       }
     }
 
+    // Only a rule set for loki.source.journal below, which is where the
+    // __journal_* fields still exist. Routing entries through this component
+    // as well re-ran the rule without them and blanked `unit` again.
     loki.relabel "journal" {
-      forward_to = [loki.write.loki.receiver]
+      forward_to = []
 
       rule {
         source_labels = ["__journal__systemd_unit"]
@@ -75,7 +78,7 @@ in
         host = "${hostname}",
       }
       relabel_rules = loki.relabel.journal.rules
-      forward_to    = [loki.relabel.journal.receiver]
+      forward_to    = [loki.write.loki.receiver]
     }
     ${dockerConfig}
   '';

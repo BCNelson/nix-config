@@ -58,6 +58,16 @@ in {
     generator.script = "alnum";
   };
 
+  # OAuth2 client secret for the Grafana provider. Grafana (grafana.nix) runs
+  # as its static `grafana` user on this host and reads the file directly
+  # through its group; authentik gets it via the env file below.
+  age.secrets.grafana-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/grafana_auth_client_secret.age;
+    generator.script = "alnum";
+    group = "grafana";
+    mode = "0440";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -65,6 +75,7 @@ in {
       SECRET_KEY = config.age.secrets.authentik-secret-key.path;
       BOOTSTRAP_PASSWORD = config.age.secrets.authentik-bootstrap-password.path;
       GOTOSOCIAL_SECRET = config.age.secrets.gotosocial-oauth-client-secret.path;
+      GRAFANA_SECRET = config.age.secrets.grafana-oauth-client-secret.path;
       OPENGYM_SECRET = config.age.secrets.opengym-oauth-client-secret.path;
       PEERTUBE_SECRET = config.age.secrets.peertube-oauth-client-secret.path;
       TRILIUM_SECRET = config.age.secrets.trilium-oauth-client-secret.path;
@@ -74,6 +85,7 @@ in {
       AUTHENTIK_BOOTSTRAP_PASSWORD=$BOOTSTRAP_PASSWORD
       AUTHENTIK_BOOTSTRAP_EMAIL=bradley@nel.family
       GOTOSOCIAL_OAUTH_CLIENT_SECRET=$GOTOSOCIAL_SECRET
+      GRAFANA_OAUTH_CLIENT_SECRET=$GRAFANA_SECRET
       OPENGYM_OAUTH_CLIENT_SECRET=$OPENGYM_SECRET
       PEERTUBE_OAUTH_CLIENT_SECRET=$PEERTUBE_SECRET
       TRILIUM_OAUTH_CLIENT_SECRET=$TRILIUM_SECRET

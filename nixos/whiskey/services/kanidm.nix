@@ -96,13 +96,6 @@
     owner = "kanidm";
   };
 
-  age.secrets.grafana-oauth-client-secret = {
-    rekeyFile = ../../../secrets/store/shared/grafana_auth_client_secret.age;
-    generator.script = "alnum";
-    mode = "0400";
-    owner = "kanidm";
-  };
-
   age.secrets.actual-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/actual_auth_client_secret.age;
     generator.script = "alnum";
@@ -234,22 +227,6 @@
           scopeMaps = {
             "service_admins" = ["email" "groups" "openid" "profile"];
           };
-        };
-        "grafana" = {
-          displayName = "Grafana";
-          originUrl = "https://grafana.b.nel.family/login/generic_oauth";
-          originLanding = "https://grafana.b.nel.family/";
-          scopeMaps = {
-            "service_admins" = ["email" "groups" "openid" "profile"];
-          };
-          claimMaps = {
-            "grafana_role" = {
-              valuesByGroup = {
-                "service_admins" = ["GrafanaAdmin"];
-              };
-            };
-          };
-          basicSecretFile = config.age.secrets.grafana-oauth-client-secret.path;
         };
         "actual" = {
           displayName = "Actual Budget";

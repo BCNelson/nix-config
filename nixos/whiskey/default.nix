@@ -9,6 +9,7 @@
       ./services/cadence.nix
       ./services/forgejo.nix
       ./services/git-pages.nix
+      ./services/grafana.nix
       ./services/healthchecks.nix
       ./services/vaultwarden.nix
       ./services/kanidm.nix
