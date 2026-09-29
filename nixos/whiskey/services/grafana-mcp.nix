@@ -1,7 +1,8 @@
 { config, pkgs, ... }:
 let
   port = 8765;
-  host = "${config.networking.hostName}.b.nel.family";
+  # Not networking.hostName, which is "whiskey-1"; clients (.mcp.json) use this.
+  host = "whiskey.b.nel.family";
 
   # The public URL, not 127.0.0.1:2342 - enforce_domain 301s any request whose
   # Host is not grafana.b.nel.family.
