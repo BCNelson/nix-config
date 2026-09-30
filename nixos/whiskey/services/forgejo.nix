@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   dataDirs = {
     level3 = "/data/level3"; # High
@@ -37,6 +37,12 @@ in
 
   services.forgejo = {
     enable = true;
+    # The module defaults to pkgs.forgejo-lts, which tracks the LTS line (15.x)
+    # and is a whole major behind. Ride latest stable instead; note that means a
+    # major upgrade every quarter, and that Forgejo refuses to start against a
+    # database migrated by a newer binary -- a major bump cannot be rolled back
+    # with a NixOS generation, only restored from the dump below.
+    package = pkgs.forgejo;
     # Enable support for Git Large File Storage
     lfs.enable = true;
     settings = {
@@ -73,6 +79,27 @@ in
       actions = {
         ENABLED = true;
         DEFAULT_ACTIONS_URL = "github";
+        # Lifetime of the JWTs workflows fetch from $ACTIONS_ID_TOKEN_REQUEST_URL
+        # when they set `enable-openid-connect: true`. Jobs running longer than
+        # this must re-fetch; keep it short since the JWT grants API access.
+        ID_TOKEN_EXPIRATION_TIME = "1h";
+      };
+      # Authorized Integrations (16.0+): Forgejo validates externally-signed
+      # JWTs against per-user claim rules instead of long-lived access tokens.
+      # These are the instance-wide policy knobs for the HTTP client Forgejo
+      # uses to fetch an issuer's .well-known/openid-configuration and JWKS.
+      # The integration records themselves are per-user and have no API, so
+      # they are created out-of-band (web UI, or `forgejo admin user
+      # create-authorized-integration`) -- not declared here.
+      authorized_integration = {
+        # Only reachable issuers are external hosts. Our own runners use the
+        # internal issuer (urn:forgejo:authorized-integrations:actions), which
+        # skips key fetching entirely, so nothing here needs loopback/RFC1918
+        # access -- and denying it keeps a hostile integration from being
+        # pointed at whiskey's other services for SSRF.
+        ALLOW_LOCALNETWORKS = false;
+        REQUEST_TIMEOUT = "10s";
+        CACHE_TTL = "10m";
       };
     };
     dump = {
