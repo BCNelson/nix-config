@@ -52,6 +52,8 @@ in
     # box; small featureless derivations still build locally, so a builder
     # outage degrades rather than blocks.
     system-features = lib.mkForce [ ];
+    # common.nix appends uid-range for nixpkgs tests; keep those on romeo too.
+    extra-system-features = lib.mkForce [ ];
   };
 
   # Tailscale SSH presents tailscaled's own host key, which is in no repo and is

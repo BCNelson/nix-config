@@ -13,7 +13,16 @@
     };
     settings = {
       auto-optimise-store = true;
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = [ "nix-command" "flakes" "auto-allocate-uids" "cgroups" ];
+
+      # nixpkgs tests (e.g. systemd/container ones) declare
+      # requiredSystemFeatures = [ "uid-range" ], which needs a build sandbox
+      # with a full 65536-uid range: auto-allocated uids plus cgroups.
+      auto-allocate-uids = true;
+      use-cgroups = true;
+      # extra- so we keep NixOS's default list (nixos-test, benchmark,
+      # big-parallel, kvm, gccarch-*) instead of replacing it.
+      extra-system-features = [ "uid-range" ];
 
       # Allow bcnelson to add substituters / push to the store without sudo.
       trusted-users = [ "root" "@wheel" "bcnelson" ];
