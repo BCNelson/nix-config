@@ -110,4 +110,13 @@
   nixpkgs.config.allowInsecurePredicate = pkg: lib.getName pkg == "ventoy";
 
   zramSwap.enable = true;
+
+  # This kernel defaults NVMe to kyber, which ignores cgroup io.weight and
+  # ioprio entirely -- so the IOWeight=1 KDE ships on kde-baloo.service did
+  # nothing and the indexer saturated the disk (~200GB written in an hour,
+  # 70%+ "full" IO pressure). BFQ honors IOWeight and IOSchedulingClass=idle,
+  # including for buffered writeback (ext4 cgroup writeback).
+  services.udev.extraRules = ''
+    ACTION=="add|change", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/scheduler}="bfq"
+  '';
 }

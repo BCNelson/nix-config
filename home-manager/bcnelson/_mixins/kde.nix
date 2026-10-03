@@ -1,8 +1,23 @@
-{ inputs, lib, pkgs, ... }:
+{ config, inputs, lib, pkgs, ... }:
 {
   imports = [
     inputs.plasma-manager.homeModules.plasma-manager
   ];
+
+  # Drop-in on the upstream kde-baloo.service (a full unit here would shadow
+  # its ExecStart). Upstream already sets CPUWeight=1/IOWeight=1; these make
+  # the indexer yield to everything else rather than merely share fairly.
+  # IOWeight/IOSchedulingClass only take effect under BFQ or io.cost -- see
+  # the udev rule in nixos/sierra/default.nix.
+  xdg.configFile."systemd/user/kde-baloo.service.d/limits.conf".text = ''
+    [Service]
+    Nice=19
+    IOSchedulingClass=idle
+    # Upstream default is 25% of RAM (~16G here). Most of the extractor's RSS
+    # is the mmap'd LMDB index, which reclaims cheaply, so throttle well below.
+    MemoryHigh=3G
+    MemoryMax=6G
+  '';
 
   programs = {
     plasma = {
@@ -32,6 +47,20 @@
         # is the older plain-command form some callers still fall back to.
         kdeglobals."General"."TerminalApplication" = "ghostty";
         kdeglobals."General"."TerminalService" = "com.mitchellh.ghostty.desktop";
+        # Baloo defaults to all of $HOME, which on sierra meant ~3.4M files
+        # under ~/dev and ~/go and a 5.5G index it rewrote at 50-60MB/s, enough
+        # to thermally throttle the NVMe. Index only the user-content folders.
+        # Changing this list needs `balooctl6 purge` to drop already-indexed
+        # paths from the existing index.
+        baloofilerc."General"."folders" = lib.concatMapStringsSep "," (d: "${config.home.homeDirectory}/${d}") [
+          "Desktop"
+          "Documents"
+          "Downloads"
+          "Music"
+          "notes"
+          "Pictures"
+          "Videos"
+        ];
       };
       panels = [{
         floating = true;
