@@ -85,7 +85,14 @@ in
     ports = [
       "127.0.0.1:8158:8080"
     ];
+    # Startup (migrations + startup tasks) takes ~20s. Without a startup check
+    # the first health probe fails during it, and the failed transient unit
+    # makes switch-to-configuration return 4 and fail auto-update. Same fix as
+    # calibre-web-automated.nix; 45x2s = 90s fits inside the 120s timeout.
     extraOptions = [
+      "--health-startup-cmd=for i in $(seq 1 45); do wget -q --spider http://127.0.0.1:8080/ && exit 0; sleep 2; done; exit 1"
+      "--health-startup-timeout=120s"
+      "--health-startup-success=1"
       "--health-cmd=wget -q --spider http://127.0.0.1:8080/ || exit 1"
       "--health-interval=60s"
       "--health-retries=3"
