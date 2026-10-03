@@ -165,6 +165,9 @@ in
     EnvironmentFile = config.age-template.files.frigate-env.path;
     SupplementaryGroups = [ "render" "video" ]; # for access to dev/dri/*
     AmbientCapabilities = "CAP_PERFMON";
+    # The module runs under ProtectSystem=strict; the DB lives outside
+    # /var/lib/frigate, so it must be writable explicitly.
+    ReadWritePaths = [ "${dataDirs.level5}/frigate/db" ];
   };
 
   # Force OpenVINO/Level Zero to only use the A380 (first GPU)
