@@ -1,4 +1,4 @@
-{ config, inputs, pkgs, ... }:
+{ config, inputs, lib, pkgs, ... }:
 let
   jsonFormat = pkgs.formats.json { };
 
@@ -91,6 +91,57 @@ let
 
   # Mirrors herdr's hook_command(): `bash '<path>' session`
   hookCommand = path: "bash '${path}' session";
+
+  # A bare `herdr` starts the server if none is running -- as a child of the
+  # client, so it lands in whichever Ghostty window's scope ran it first, along
+  # with every pane and agent after it. That scope is one systemd-oomd watches,
+  # so a single runaway build in any pane could take the whole server down.
+  #
+  # Start it ourselves first, in a scope of its own: weighted above ordinary
+  # apps (agents stay responsive while their commands sit in lowprio.slice)
+  # and outside oomd's reach. A scope launched from here rather than a user
+  # service, so panes still inherit the terminal's environment -- PATH,
+  # SSH_AUTH_SOCK and friends -- exactly as before.
+  #
+  # Only the plain local attach (optionally --session NAME) is intercepted;
+  # every other subcommand, and anything that fails here, falls through to the
+  # client, which then starts the server the old way.
+  herdrLauncher = pkgs.writeShellApplication {
+    name = "herdr";
+    # Absolute paths, not runtimeInputs: the server inherits this script's
+    # environment, and a PATH with extra store paths prepended would leak into
+    # every pane.
+    text = ''
+      real=${lib.getExe pkgs.herdr}
+      session=()
+      unit=herdr-server
+
+      if [ $# -eq 2 ] && [ "$1" = --session ]; then
+        session=(--session "$2")
+        unit="herdr-server-$(${pkgs.systemd}/bin/systemd-escape "$2")"
+      elif [ $# -ne 0 ]; then
+        exec "$real" "$@"
+      fi
+
+      running() {
+        "$real" "''${session[@]}" status server 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q 'status: running'
+      }
+
+      if [ -z "''${HERDR_ENV:-}" ] && ! running \
+        && ${pkgs.systemd}/bin/busctl --user --quiet --timeout=2 call org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+          org.freedesktop.DBus.Peer Ping >/dev/null 2>&1; then
+        ${pkgs.util-linux}/bin/setsid -f ${pkgs.systemd}/bin/systemd-run --user --scope --quiet --collect --unit="$unit" --slice=app.slice \
+          -p CPUWeight=200 -p IOWeight=200 -p MemoryLow=4G \
+          -- "$real" "''${session[@]}" server </dev/null >/dev/null 2>&1
+        for _ in $(${pkgs.coreutils}/bin/seq 50); do
+          running && break
+          ${pkgs.coreutils}/bin/sleep 0.1
+        done
+      fi
+
+      exec "$real" "$@"
+    '';
+  };
 in
 {
   # The binary and config.toml come from ./core.nix, which every non-thin host
@@ -101,6 +152,8 @@ in
   # The hook silently exits 0 without python3 on PATH, taking session
   # resume-after-restart with it.
   home.packages = [
+    # Shadows the plain herdr that core.nix and the system profile provide.
+    (lib.hiPrio herdrLauncher)
     pkgs.python3
     pkgs.pi-coding-agent
     # Project-local .mcp.json launches these outside `nix develop` as well.
@@ -171,4 +224,15 @@ in
   # Pi auto-loads extensions from its agent directory. This extension reports
   # lifecycle state and session identity while Pi runs in a Herdr pane.
   home.file.".pi/agent/extensions/herdr-agent-state.ts".source = asset "pi" "herdr-agent-state.ts";
+
+  # Pi writes its own state (last model, changelog version) back into
+  # settings.json, so it cannot be a read-only symlink. shellPath is the
+  # lowprio-routing bash from pkgs/lowprio; pi runs tool calls as
+  # `<shellPath> -c <command>`. Its shellCommandPrefix would not do: that is
+  # text prepended to the script, not a wrapper around the process.
+  services.config-merge.pi = {
+    settings.shellPath = "${pkgs.lowprio.agentShell}/bin/bash";
+    live = "${config.home.homeDirectory}/.pi/agent/settings.json";
+    preserveUnknown = true;
+  };
 }

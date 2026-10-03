@@ -1,5 +1,6 @@
 { config, desktop, lib, pkgs, ... }: {
-  imports = lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
+  imports = [ ./responsiveness.nix ]
+    ++ lib.optional (builtins.pathExists ./${desktop}.nix) ./${desktop}.nix;
 
   services = {
     pipewire = {

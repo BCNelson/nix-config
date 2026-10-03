@@ -32,6 +32,11 @@ let
       approvals_reviewer = "auto_review";
       default_permissions = ":workspace";
 
+      # Every command's bash sources this first and drops its own priority (or
+      # moves into a lowprio.slice scope, when outside the sandbox), so builds
+      # cannot starve the agent. See pkgs/lowprio for why this and not a hook.
+      shell_environment_policy.set.BASH_ENV = "${pkgs.lowprio.bashEnv}";
+
       experimental_use_rmcp_client = true;
 
       features = {

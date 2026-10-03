@@ -18,7 +18,10 @@
       # `shell` backs both the interactive terminal and agent tool calls. Left
       # unset, opencode probes for an OS default like /bin/bash or /bin/zsh -
       # neither of which exists on NixOS. Point at the store path instead.
-      shell = "${pkgs.bash}/bin/bash";
+      #
+      # A bash that sends `-c` (tool calls) through lowprio and leaves the
+      # interactive terminal alone. See pkgs/lowprio.
+      shell = "${pkgs.lowprio.agentShell}/bin/bash";
     };
 
     # programs.opencode.tui is deliberately unset: opencode persists the theme

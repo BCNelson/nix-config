@@ -20,6 +20,7 @@
     ./happy
     ./programs/trillium.nix
     ./build-cache.nix
+    ./lowprio.nix
   ];
 
   home.packages = [

@@ -74,6 +74,14 @@
 
   nix.settings.substituters = lib.mkBefore [ "https://nixcache.nel.family/" ];
 
+  # The defaults (max-jobs = auto, cores = 0) mean 20 jobs that may each use
+  # all 20 threads. CPU stays saturated either way; what that buys is peak
+  # memory, which is what actually freezes a desktop.
+  nix.settings = {
+    max-jobs = 6;
+    cores = 8;
+  };
+
   age.secrets.ntfy_refresh_topic.rekeyFile = ../../secrets/store/ntfy_autoUpdate_topic.age;
   age.secrets.cadence_check_auto_update_sierra.rekeyFile =
     ../../secrets/store/cadence/checks/auto-update-sierra.age;
