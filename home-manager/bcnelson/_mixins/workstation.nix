@@ -19,6 +19,7 @@
     ./herdr
     ./happy
     ./programs/trillium.nix
+    ./build-cache.nix
   ];
 
   home.packages = [
