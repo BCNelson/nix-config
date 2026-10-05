@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 {
   config = {
     system-manager.allowAnyDistro = true;
@@ -70,6 +70,23 @@ _:
     # the next caddy update or store GC, and system-manager has no way to
     # reapply it.
     system.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
+
+    # Upstream system-manager writes this file with systemd's syntax --
+    #   PATH=/etc/profiles/per-user/${USER}/bin:/run/system-manager/sw/bin:${PATH}
+    # -- which systemd expands, but under sudo root ends up with that literal,
+    # unexpanded string as its PATH (most likely via pam_env, which Fedora 43
+    # builds against libeconf). Shell scriptlets in rpm get their own PATH, so
+    # the only visible symptom was glibc-common's Lua file trigger failing to
+    # find `ldconfig` and every `sudo dnf` transaction ending in
+    #   Transaction failed: Rpm transaction failed.
+    #
+    # Values with no variable references read the same in both parsers. This
+    # drops the /etc/profiles/per-user entries (that directory does not exist
+    # here) and NIX_PROFILES / NIX_USER_PROFILE_DIR.
+    environment.etc."environment.d/10-system-manager.conf".text = lib.mkForce ''
+      PATH=/run/system-manager/sw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+      XDG_DATA_DIRS=/run/system-manager/sw/share:/usr/local/share:/usr/share
+    '';
 
     # Disable USB autosuspend on the Goodix 27c6:609c fingerprint reader so
     # it stays responsive while the lock screen is up.
