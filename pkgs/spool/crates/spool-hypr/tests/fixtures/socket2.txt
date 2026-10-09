@@ -1,0 +1,10 @@
+openwindow>>5581f00ba2a0,1,foot,foot
+activewindow>>foot,~/src/project
+activewindowv2>>5581f00ba2a0
+workspace>>1
+workspacev2>>1,1
+activewindow>>org.kde.kate,notes.txt, draft
+activewindowv2>>5581f00c1e40
+closewindow>>5581f00c1e40
+activewindow>>,
+activewindowv2>>

@@ -1,0 +1,24 @@
+[package]
+name = "spool-proto"
+description = "Spool IPC message types and length-prefixed postcard framing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# Async framing helpers over tokio::io::{AsyncRead, AsyncWrite}.
+tokio = ["dep:tokio"]
+
+[dependencies]
+serde = { workspace = true }
+postcard = { workspace = true }
+thiserror = { workspace = true }
+# picker Unlock secrets (UnlockSecret)
+zeroize = { workspace = true }
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

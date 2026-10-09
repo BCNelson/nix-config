@@ -1,0 +1,401 @@
+// Spool picker UI. All strings arrive pre-sanitized from Rust and are shown as
+// plain text only (no styled/markdown text anywhere).
+import "../fonts/SpoolSans-Regular.ttf";
+
+export global Theme {
+    in property <color> bg: #232629;
+    in property <color> fg: #fcfcfc;
+    in property <color> dim: #a1a9b1;
+    in property <color> sel-bg: #3daee9;
+    in property <color> sel-fg: #fcfcfc;
+    in property <color> accent: #3daee9;
+    in property <color> surface: #2c3034;
+    in property <color> border: #3b4045;
+    in property <color> negative: #da4453;
+    in property <string> font-family: "Spool Sans";
+    in property <length> font-size: 13.33px;
+}
+
+export struct Row {
+    preview: string,
+    badge: string,
+    time: string,
+    pinned: bool,
+    is-image: bool,
+    thumb: image,
+    has-thumb: bool,
+    thumb-failed: bool,
+}
+
+export component PickerWindow inherits Window {
+    // Logical size; the backend sets the physical size and scale factor.
+    preferred-width: 640px;
+    preferred-height: 480px;
+    background: transparent;
+    default-font-family: Theme.font-family;
+    default-font-size: Theme.font-size;
+
+    in property <[Row]> rows;
+    in-out property <int> current: 0;
+    in property <string> status;
+    in property <string> placeholder: "Search clipboard history";
+    out property <length> row-height: 46px;
+    // Non-intrusive error line (replaces the status text while set).
+    in property <string> notice;
+    // Mapped (drives the spinner animation only while visible, so the frame
+    // pre-rendered while hidden never animates).
+    in property <bool> shown;
+
+    // ---- unlock panel (shown while the encrypted history is locked)
+    in property <bool> locked;
+    in property <string> lock-title: "History is locked · showing this session's items";
+    // 0 = no field, 1 = passphrase, 2 = security-key PIN.
+    in property <int> secret-kind;
+    in property <bool> secret-busy;
+    // Two-way bound to the field. Rust copies it into a Zeroizing buffer and
+    // sets it back to "" right after reading; Slint's own copies of the
+    // string (property values, the TextInput's buffers) cannot be wiped.
+    in-out property <string> secret;
+    // Bumped by Rust to focus the field.
+    in property <int> secret-focus-req;
+    in-out property <bool> secret-focused;
+    // 0 = none, 1 = waiting for a touch (spinner), 2 = failed (Retry).
+    in property <int> touch-state;
+    in property <string> touch-text;
+    in property <string> unlock-error;
+
+    callback edited(string);
+    callback clicked(int);
+    callback scrolled(int, int);
+    callback unlock-retry();
+
+    public function focus-search() {
+        search.focus();
+    }
+    // While hidden: no focused TextInput, so no cursor-blink redraws.
+    public function blur-search() {
+        search.clear-focus();
+    }
+    public function clear-search() {
+        search.text = "";
+    }
+    public function scroll-top() {
+        list.content-y = 0;
+    }
+    public function ensure-visible() {
+        if (root.current * root.row-height < -list.content-y) {
+            list.content-y = -(root.current * root.row-height);
+        } else if ((root.current + 1) * root.row-height > -list.content-y + list.height) {
+            list.content-y = -((root.current + 1) * root.row-height - list.height);
+        }
+        root.report-range();
+    }
+    function report-range() {
+        root.scrolled(floor(-list.content-y / root.row-height), ceil((-list.content-y + list.height) / root.row-height));
+    }
+
+    Rectangle {
+        background: Theme.bg;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        VerticalLayout {
+            padding: 10px;
+            spacing: 8px;
+
+            Rectangle {
+                height: 36px;
+                background: Theme.surface;
+                border-radius: 6px;
+                // Constant (not tied to has-focus) so the frame pre-rendered
+                // while hidden (unfocused) looks like the focused one.
+                border-width: 1px;
+                border-color: Theme.accent;
+
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    text: root.placeholder;
+                    color: Theme.dim;
+                    visible: search.text == "";
+                }
+
+                search := TextInput {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    single-line: true;
+                    color: Theme.fg;
+                    selection-background-color: Theme.sel-bg;
+                    selection-foreground-color: Theme.sel-fg;
+                    edited => {
+                        root.edited(self.text);
+                    }
+                }
+            }
+
+            if root.locked: Rectangle {
+                vertical-stretch: 0;
+                background: Theme.surface;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 6px;
+
+                    Text {
+                        text: root.lock-title;
+                        color: Theme.dim;
+                        font-size: Theme.font-size * 0.9;
+                        overflow: elide;
+                    }
+
+                    if root.secret-kind != 0: Rectangle {
+                        height: 30px;
+                        background: Theme.bg;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: root.secret-focused ? Theme.accent : Theme.border;
+
+                        Text {
+                            x: 10px;
+                            width: parent.width - 120px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: root.secret-kind == 2 ? "Security key PIN" : "Passphrase";
+                            color: Theme.dim;
+                            visible: root.secret == "";
+                        }
+
+                        secret-input := TextInput {
+                            property <int> req: root.secret-focus-req;
+                            x: 10px;
+                            width: parent.width - 120px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            single-line: true;
+                            input-type: password;
+                            enabled: !root.secret-busy;
+                            color: Theme.fg;
+                            text <=> root.secret;
+                            changed req => {
+                                self.focus();
+                            }
+                            changed has-focus => {
+                                root.secret-focused = self.has-focus;
+                            }
+                            init => {
+                                if (root.shown) {
+                                    self.focus();
+                                }
+                                root.secret-focused = self.has-focus;
+                            }
+                        }
+
+                        Text {
+                            x: parent.width - 110px;
+                            width: 100px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            text: root.secret-busy ? "Unlocking…" : "Enter ↵";
+                            color: Theme.dim;
+                            font-size: Theme.font-size * 0.85;
+                        }
+                    }
+
+                    if root.touch-state != 0: HorizontalLayout {
+                        height: 22px;
+                        spacing: 8px;
+
+                        if root.touch-state == 1: HorizontalLayout {
+                            width: 30px;
+                            spacing: 4px;
+                            alignment: center;
+                            for d[i] in [0, 1, 2]: Rectangle {
+                                width: 6px;
+                                height: 6px;
+                                y: (22px - 6px) / 2;
+                                border-radius: 3px;
+                                background: Theme.accent;
+                                // Animated only while mapped; static dots in a
+                                // pre-rendered frame.
+                                opacity: !root.shown ? 0.6 : mod(animation-tick() / 1ms + (3 - i) * 200, 600) < 200 ? 1.0 : 0.3;
+                            }
+                        }
+
+                        Text {
+                            horizontal-stretch: 1;
+                            vertical-alignment: center;
+                            text: root.touch-text;
+                            color: Theme.fg;
+                            overflow: elide;
+                        }
+
+                        if root.touch-state == 2: Rectangle {
+                            width: retry-text.preferred-width + 20px;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            background: retry-ta.has-hover ? Theme.bg : transparent;
+                            retry-text := Text {
+                                text: "Retry (Ctrl+R)";
+                                color: Theme.accent;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                            }
+                            retry-ta := TouchArea {
+                                clicked => {
+                                    root.unlock-retry();
+                                }
+                            }
+                        }
+                    }
+
+                    if root.unlock-error != "": Text {
+                        text: root.unlock-error;
+                        color: Theme.negative;
+                        overflow: elide;
+                    }
+                }
+            }
+
+            Rectangle {
+              vertical-stretch: 1;
+              list := Flickable {
+                width: parent.width;
+                height: parent.height;
+                content-height: root.rows.length * root.row-height;
+                interactive: true;
+                mouse-drag-pan-enabled: false;
+                changed content-y => {
+                    root.report-range();
+                }
+                changed height => {
+                    root.report-range();
+                }
+                for row[i] in root.rows: Rectangle {
+                    x: 0;
+                    y: i * root.row-height;
+                    width: list.width - 6px;
+                    height: root.row-height;
+                    background: i == root.current ? Theme.sel-bg : ta.has-hover ? Theme.surface : transparent;
+                    border-radius: 6px;
+
+                    ta := TouchArea {
+                        clicked => {
+                            root.current = i;
+                            root.clicked(i);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 10px;
+
+                        if row.is-image: Rectangle {
+                            width: 60px;
+                            height: 38px;
+                            y: 4px;
+                            border-radius: 4px;
+                            background: Theme.surface;
+                            clip: true;
+                            Image {
+                                width: parent.width;
+                                height: parent.height;
+                                source: row.thumb;
+                                image-fit: contain;
+                                visible: row.has-thumb;
+                            }
+                            Text {
+                                visible: !row.has-thumb;
+                                text: row.thumb-failed ? "✕" : "…";
+                                color: Theme.dim;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Text {
+                            horizontal-stretch: 1;
+                            vertical-alignment: center;
+                            text: row.preview;
+                            overflow: elide;
+                            wrap: no-wrap;
+                            color: i == root.current ? Theme.sel-fg : Theme.fg;
+                        }
+
+                        if row.pinned: Text {
+                            vertical-alignment: center;
+                            text: "★";
+                            color: i == root.current ? Theme.sel-fg : Theme.accent;
+                        }
+
+                        Rectangle {
+                            width: badge-text.preferred-width + 10px;
+                            height: 18px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: i == root.current ? Theme.sel-fg : Theme.dim;
+                            badge-text := Text {
+                                text: row.badge;
+                                font-size: Theme.font-size * 0.72;
+                                color: i == root.current ? Theme.sel-fg : Theme.dim;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        Text {
+                            width: 34px;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            text: row.time;
+                            font-size: Theme.font-size * 0.85;
+                            color: i == root.current ? Theme.sel-fg : Theme.dim;
+                        }
+                    }
+                }
+            }
+
+              // Scroll position indicator (no std-widgets: their icons need
+              // image decoders).
+              if list.content-height > list.height: Rectangle {
+                x: parent.width - 4px;
+                width: 3px;
+                height: max(24px, parent.height * parent.height / list.content-height);
+                y: (parent.height - self.height) * (-list.content-y / max(1px, list.content-height - list.height));
+                border-radius: 1.5px;
+                background: Theme.dim;
+                opacity: 0.6;
+              }
+            }
+
+            HorizontalLayout {
+                height: 16px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.notice != "" ? root.notice : root.status;
+                    color: root.notice != "" ? Theme.negative : Theme.dim;
+                    font-size: Theme.font-size * 0.8;
+                    overflow: elide;
+                }
+                Text {
+                    horizontal-alignment: right;
+                    text: root.secret-focused ? "Enter unlock · Tab search · Esc close" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Del delete";
+                    color: Theme.dim;
+                    font-size: Theme.font-size * 0.8;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Spool daemon
+Comment=Clipboard history daemon (app id for the GlobalShortcuts portal)
+Exec=@spoold@
+NoDisplay=true

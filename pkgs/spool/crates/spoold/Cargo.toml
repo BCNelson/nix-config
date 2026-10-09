@@ -1,0 +1,48 @@
+[package]
+name = "spoold"
+description = "Spool clipboard history daemon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+spool-proto = { workspace = true, features = ["tokio"] }
+spool-core = { workspace = true }
+spool-wayland = { workspace = true }
+spool-keys = { workspace = true }
+spool-crypto = { workspace = true }
+spool-search = { path = "../spool-search" }
+spool-kwin = { workspace = true }
+spool-paste = { path = "../spool-paste" }
+spool-compositor = { workspace = true }
+spool-portal = { path = "../spool-portal" }
+spool-hypr = { path = "../spool-hypr" }
+zbus = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+crossbeam-channel = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-journald = { workspace = true }
+libc = { workspace = true }
+rustix = { workspace = true }
+clap = { workspace = true }
+
+[features]
+# Test-only hooks (a private debug socket that answers search queries, for
+# the E2E suite). Never enabled in the package build.
+test-hooks = []
+
+[dev-dependencies]
+tempfile = { workspace = true }
+serde_json = { workspace = true }
+# nested_kwin.rs presses keys in the picker through KWin's fake input.
+wayland-client = { workspace = true }
+wayland-protocols-plasma = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

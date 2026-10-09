@@ -1,0 +1,17 @@
+[package]
+name = "spool-compositor"
+description = "Spool compositor-neutral capability layer: shared event type, sink, compositor detection"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+spool-kwin = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

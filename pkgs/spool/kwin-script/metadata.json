@@ -1,0 +1,18 @@
+{
+    "KPlugin": {
+        "Id": "spool",
+        "Name": "Spool",
+        "Description": "Spool clipboard history: Meta+V shortcut and active-window reports for attribution and auto-paste",
+        "Authors": [
+            {
+                "Name": "Bradley Nelson"
+            }
+        ],
+        "License": "MIT",
+        "Version": "0.1",
+        "EnabledByDefault": false
+    },
+    "KPackageStructure": "KWin/Script",
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}

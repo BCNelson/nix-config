@@ -1,0 +1,3 @@
+# Cargo build output (CARGO_TARGET_DIR=pkgs/spool/target and variants)
+target*/
+result*

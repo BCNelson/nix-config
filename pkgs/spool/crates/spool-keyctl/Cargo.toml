@@ -1,0 +1,28 @@
+[package]
+name = "spool-keyctl"
+description = "Offline, interactive management of Spool's encryption key slots"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "spool-keyctl"
+path = "src/main.rs"
+
+[dependencies]
+spool-keys = { workspace = true }
+spool-core = { workspace = true }
+spool-crypto = { workspace = true }
+spool-proto = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+rustix = { workspace = true, features = ["termios"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

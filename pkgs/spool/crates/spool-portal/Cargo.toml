@@ -1,0 +1,25 @@
+[package]
+name = "spool-portal"
+description = "Spool hotkey through the XDG GlobalShortcuts portal (non-KWin compositors)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+spool-compositor = { workspace = true }
+ashpd = { workspace = true }
+zbus = { workspace = true }
+tokio = { workspace = true }
+futures-util = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+async-trait = { workspace = true }
+tempfile = { workspace = true }
+# kde_portal test: confirm xdp-kde's dialog through the nested KWin's fake input
+wayland-client = { workspace = true }
+wayland-protocols-plasma = { workspace = true }

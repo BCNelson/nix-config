@@ -1,0 +1,130 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/spool-proto",
+  "crates/spool-picker",
+  "crates/spool-core",
+  "crates/spool-wayland",
+  "crates/spoold",
+  "crates/spoolctl",
+  "crates/spool-keys",
+  "crates/spool-crypto",
+  "crates/spool-search",
+  "crates/spool-kwin",
+  "crates/spool-paste",
+  "crates/spool-compositor",
+  "crates/spool-portal",
+  "crates/spool-hypr",
+  "crates/spool-keyctl",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+# Every dependency any M1 crate needs is pinned here so parallel work rarely
+# touches Cargo.lock. Crates opt in with `foo = { workspace = true }`.
+[workspace.dependencies]
+# internal
+spool-proto = { path = "crates/spool-proto" }
+spool-core = { path = "crates/spool-core" }
+spool-wayland = { path = "crates/spool-wayland" }
+spool-crypto = { path = "crates/spool-crypto" }
+spool-keys = { path = "crates/spool-keys" }
+
+# async / threading
+tokio = { version = "1", features = ["full"] }
+crossbeam-channel = "0.5"
+
+# wayland
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+rustix = { version = "1", features = ["pipe", "fs", "process", "event", "net"] }
+nix = { version = "0.31", features = ["fs", "poll", "process", "socket", "user", "signal", "event"] }
+libc = "0.2"
+
+# storage / policy
+# `sqlcipher` links the system SQLCipher through pkg-config (not bundled).
+rusqlite = { version = "0.40", features = ["sqlcipher"] }
+rusqlite_migration = "2.6"
+blake3 = { version = "1", features = ["std"] }
+regex = "1"
+bitflags = { version = "2", features = ["serde"] }
+bytes = { version = "1", features = ["serde"] }
+
+# serialization
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", default-features = false, features = ["use-std"] }
+toml = "1"
+
+# errors / logging
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-journald = "0.3"
+
+# cli
+clap = { version = "4", features = ["derive", "env"] }
+
+# misc
+rand = "0.9"
+
+# keys (spool-keys)
+chacha20poly1305 = { version = "0.11", features = ["zeroize"] }
+zeroize = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+base64 = "0.22"
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+oo7 = { version = "0.6", default-features = false, features = ["tokio", "native_crypto"] }
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
+unicode-normalization = "0.1"
+# libfido2 bindings (links the system libfido2 via pkg-config; bindgen needs libclang)
+fido2-rs = "0.6"
+hmac = "0.13"
+
+# KWin integration (spool-kwin, spool-paste)
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+wayland-protocols-plasma = { version = "0.3", features = ["client"] }
+xkbcommon = { version = "0.9", default-features = false }
+
+# non-KWin compositor backends (M7: spool-compositor, spool-portal, spool-hypr, spool-paste)
+spool-kwin = { path = "crates/spool-kwin" }
+spool-compositor = { path = "crates/spool-compositor" }
+ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }
+wayland-protocols-misc = { version = "0.3", features = ["client"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+
+# crypto (spool-crypto)
+hkdf = "0.13"
+sha2 = "0.11"
+
+# search (spool-search)
+tantivy = { version = "0.26", default-features = false, features = ["lz4-compression"] }
+
+# picker UI (spool-picker only; the daemon must not pull these)
+slint = { version = "1.18", default-features = false }
+smithay-client-toolkit = { version = "0.21", default-features = false }
+image = { version = "0.25", default-features = false }
+bytemuck = { version = "1", features = ["derive"] }
+slint-build = "1.18"
+# picker GPU renderer (spool-picker feature `gpu`): EGL loaded at runtime
+# (missing libEGL = software fallback), wl_egl_window, libwayland-client
+khronos-egl = { version = "6", default-features = false, features = ["1_5", "dynamic"] }
+wayland-egl = "0.32"
+wayland-backend = { version = "0.3", features = ["client_system"] }
+
+# dev
+tempfile = "3"
+proptest = { version = "1", default-features = false, features = ["std"] }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "debuginfo"

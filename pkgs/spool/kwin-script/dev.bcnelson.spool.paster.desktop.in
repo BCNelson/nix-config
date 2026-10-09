@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Spool paste helper
+Comment=Presses the paste shortcut for Spool's auto-paste (lets KWin grant it the fake-input protocol; spoold itself is non-dumpable, so KWin cannot match it)
+Exec=@paster@
+NoDisplay=true
+X-KDE-Wayland-Interfaces=org_kde_kwin_fake_input

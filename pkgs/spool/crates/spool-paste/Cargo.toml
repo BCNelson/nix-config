@@ -1,0 +1,26 @@
+[package]
+name = "spool-paste"
+description = "Spool auto-paste: sends the paste chord through KWin's org_kde_kwin_fake_input or zwp_virtual_keyboard_v1; wlr foreign-toplevel focus tracking"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+wayland-client = { workspace = true }
+wayland-protocols-plasma = { workspace = true }
+wayland-protocols-misc = { workspace = true }
+wayland-protocols-wlr = { workspace = true }
+rustix = { workspace = true }
+xkbcommon = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+spool-kwin = { path = "../spool-kwin" }
+spool-compositor = { workspace = true }
+zbus = { workspace = true }
+libc = { workspace = true }
+tempfile = { workspace = true }

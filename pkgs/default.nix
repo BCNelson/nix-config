@@ -15,6 +15,11 @@ pkgs: rec {
   mcpproxy = pkgs.callPackage ./mcpproxy { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
   devenv-mcp = pkgs.callPackage ./devenv-mcp { };
+  spool = pkgs.callPackage ./spool { };
+  spool-picker = pkgs.callPackage ./spool/picker.nix { };
+  spool-test = pkgs.callPackage ./spool/nixos-test.nix {
+    inherit spool;
+  };
   gamestream-agent = pkgs.callPackage ./gamestream-agent { };
   gamestream-agent-test = pkgs.callPackage ./gamestream-agent/nixos-test.nix {
     inherit gamestream-agent;

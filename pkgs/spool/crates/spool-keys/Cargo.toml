@@ -1,0 +1,37 @@
+[package]
+name = "spool-keys"
+description = "Spool encryption key slots (LUKS-style) and unlock providers (Secret Service, session, passphrase, FIDO2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["fido2"]
+# FIDO2 hmac-secret backend through libfido2. Without it `Fido2Provider`
+# still parses/validates slots but every device operation is `Unavailable`.
+fido2 = ["dep:fido2-rs"]
+
+[dependencies]
+argon2 = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+chacha20poly1305 = { workspace = true }
+fido2-rs = { workspace = true, optional = true }
+futures-util = { workspace = true }
+oo7 = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+unicode-normalization = { workspace = true }
+uuid = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+hmac = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }

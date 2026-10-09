@@ -1,0 +1,50 @@
+[package]
+name = "spool-picker"
+description = "Spool picker UI: Slint on a wlr-layer-shell surface, driven by spoold over a socketpair"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "spool-picker"
+path = "src/main.rs"
+
+[features]
+default = []
+# Debug instrumentation: wp_presentation feedback timings printed to stderr
+# as `SPOOL_TIMING ...` lines (read by the mock daemon's `bench`).
+timing = []
+# Development harness (`examples/mock_daemon.rs`); never shipped.
+dev = ["timing", "image/png"]
+# FemtoVG-over-EGL renderer, chosen at runtime with SPOOL_PICKER_RENDERER=gpu
+# (software stays the default and the fallback). Switches wayland-client to
+# libwayland-client (needed for wl_egl_window).
+gpu = ["slint/renderer-femtovg", "dep:khronos-egl", "dep:wayland-egl", "dep:wayland-backend"]
+
+[dependencies]
+spool-proto = { workspace = true }
+slint = { workspace = true, features = ["std", "compat-1-2", "renderer-software", "software-renderer-systemfonts"] }
+smithay-client-toolkit = { workspace = true, features = ["xkbcommon", "calloop"] }
+image = { workspace = true, features = ["png", "jpeg", "webp"] }
+bytemuck = { workspace = true }
+rustix = { workspace = true, features = ["time", "fs", "process"] }
+anyhow = { workspace = true }
+zeroize = { workspace = true }
+khronos-egl = { workspace = true, optional = true }
+wayland-egl = { workspace = true, optional = true }
+wayland-backend = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+libc = { workspace = true }
+
+[[example]]
+name = "mock_daemon"
+required-features = ["dev"]
+
+[build-dependencies]
+slint-build = { workspace = true }
