@@ -46,6 +46,18 @@ in
         key_provider = "session";
       };
 
+      # "External editor" for `spoolctl new`: records whether it runs inside
+      # spoold's seccomp sandbox (it must not: spoold starts it as a
+      # transient user unit), saves once and exits.
+      fakeEditor = pkgs.writeShellScript "spool-fake-editor" ''
+        ${pkgs.gnugrep}/bin/grep -E '^(NoNewPrivs|Seccomp):' /proc/self/status >${runtime}/spool-editor-status
+        printf 'vm-edited-text' >"$1"
+        ${pkgs.coreutils}/bin/sleep 2
+      '';
+      editorConfig = (pkgs.formats.toml {}).generate "spool-editor.toml" {
+        editor.mime."text/*" = ["${fakeEditor}" "{file}"];
+      };
+
       # Runs with spoold's sandbox PLUS the namespace directives that were
       # left out of it (unitDef.namespaced), to keep that decision verified:
       # D-Bus and Wayland would still work, but /proc/<peer>/root (spoold's
@@ -168,6 +180,7 @@ in
       };
 
       environment.etc."spool-test/session.toml".source = sessionConfig;
+      environment.etc."spool-test/editor.toml".source = editorConfig;
     };
 
     testScript = ''
@@ -330,6 +343,39 @@ in
           as_user("systemctl --user daemon-reload && systemctl --user restart spool.service")
           wait_key_state("ready")
           machine.fail("grep -rqa session-only-item ${state}/")
+
+      with subtest("external editor runs as a transient user unit outside the sandbox"):
+          as_user(
+              "printf '[Service]\\nEnvironment=SPOOL_CONFIG=/etc/spool-test/editor.toml\\n' "
+              "> ~/.config/systemd/user/spool.service.d/editor.conf"
+          )
+          as_user("systemctl --user daemon-reload && systemctl --user restart spool.service")
+          machine.wait_until_succeeds("test -S ${runtime}/spool/sock", timeout=30)
+          wait_key_state("ready")
+          before = status()["item_count"]
+          as_user("spoolctl new")
+          try:
+              wait_current("vm-edited-text")
+          except Exception:
+              print(machine.execute("journalctl _UID=${toString uid} --no-pager -n 100")[1])
+              raise
+          assert status()["item_count"] == before + 1
+          out = machine.succeed("cat ${runtime}/spool-editor-status")
+          print(out)
+          # Not spoold's child: no NoNewPrivileges, no seccomp filter.
+          assert "NoNewPrivs:\t0" in out, out
+          assert "Seccomp:\t0" in out, out
+          # Temp dir deleted, unit collected, nothing in plaintext at rest.
+          machine.wait_until_succeeds('test -z "$(ls -A ${runtime}/spool/edit)"', timeout=30)
+          machine.wait_until_fails(
+              wrap("systemctl --user list-units --all --no-legend 'spool-edit-*' | grep -q ."),
+              timeout=30,
+          )
+          machine.fail("grep -rqa vm-edited-text ${state}/")
+          as_user("rm ~/.config/systemd/user/spool.service.d/editor.conf")
+          as_user("systemctl --user daemon-reload && systemctl --user restart spool.service")
+          machine.wait_until_succeeds("test -S ${runtime}/spool/sock", timeout=30)
+          wait_key_state("ready")
 
       with subtest("a user-writable PATH entry makes spoold refuse to start"):
           as_user("mkdir -p ~/bin")
