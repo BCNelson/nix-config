@@ -50,6 +50,7 @@ use zeroize::Zeroizing;
 use crate::ipc::{Channel, Correlator, Event};
 use crate::model;
 use crate::render::{Backend, FrameRenderer, Rect};
+use crate::tags::{Step, TagEditor, TagKey};
 use crate::theme::{EMBEDDED_FAMILY, Theme};
 use crate::ui::{PickerWindow, Row, Theme as UiTheme};
 
@@ -258,6 +259,15 @@ pub struct App {
   /// Focus the secret field after the next render (a field that just
   /// appeared only exists once Slint has laid it out).
   focus_secret_after_render: bool,
+  /// The open tag editor (Ctrl+T), if any. While open it gets every key.
+  tags: Option<TagEditor>,
+  /// The tag editor's chips (sanitized tags of the edited item).
+  chips: Rc<VecModel<SharedString>>,
+  /// Same as `focus_secret_after_render`, for the tag field.
+  focus_tag_after_render: bool,
+  /// Where to put the selection and scroll position when the next first
+  /// page lands (a reload after a failed edit, not a new search).
+  reselect: Option<Reselect>,
   /// GPU: one offscreen frame was drawn (shaders, glyph atlas and text
   /// layout warmed up) before `Ready`.
   #[cfg(feature = "gpu")]
@@ -307,6 +317,8 @@ impl App {
     let renderer_is_gpu = renderer.is_gpu();
     let rows = Rc::new(VecModel::<Row>::default());
     ui.set_rows(ModelRc::from(rows.clone()));
+    let chips = Rc::new(VecModel::<SharedString>::default());
+    ui.set_tag_chips(ModelRc::from(chips.clone()));
     let actions: Rc<RefCell<Vec<UiAction>>> = Rc::default();
     {
       let a = actions.clone();
@@ -371,6 +383,10 @@ impl App {
       first_answer: false,
       ready_sent: false,
       focus_secret_after_render: false,
+      tags: None,
+      chips,
+      focus_tag_after_render: false,
+      reselect: None,
       #[cfg(feature = "gpu")]
       gpu_warmed: false,
       query_text: String::new(),
@@ -471,6 +487,12 @@ impl App {
       Event::Notice { code, message } => {
         tracing::debug!(?code, "daemon notice");
         self.set_notice(&crate::sanitize::sanitize_line(&message, 160));
+      }
+      Event::EditFailed { id, code, message } => {
+        tracing::debug!(id, ?code, "edit failed");
+        self.set_notice(&crate::sanitize::sanitize_line(&message, 160));
+        // Undo the optimistic pin / tag / delete: reload from the daemon.
+        self.resync();
       }
       Event::NewItem(p) => self.on_new_item(p),
       Event::Locked(prompts) => self.on_locked(prompts),
@@ -691,8 +713,14 @@ impl App {
         }
         UiAction::Clicked(i) => {
           if i >= 0 {
+            let paste = click_pastes(self.tags.is_some());
+            // While tagging, a click only moves the selection there (and
+            // closes the editor): it never pastes.
+            self.close_tags();
             self.set_current(i as usize);
-            self.select(SelectMode::Paste);
+            if paste {
+              self.select(SelectMode::Paste);
+            }
           }
         }
         UiAction::Scrolled(first, last) => {
@@ -732,6 +760,8 @@ impl App {
       && Instant::now() >= t
     {
       self.search_deadline = None;
+      // A new search, not a resync: its first page starts at the top.
+      self.reselect = None;
       let req = self.adapter.new_query(&self.query_text.clone());
       self.query_mark = self.key_mark.take();
       self.chan.send(req);
@@ -863,6 +893,7 @@ impl App {
     if !was_visible {
       return;
     }
+    self.close_tags();
     self.chan.send(PickerReq::Hidden { reason });
     self.ui.set_shown(false);
     self.ui.set_notice("".into());
@@ -875,6 +906,8 @@ impl App {
     self.ui.invoke_blur_search();
     self.ui.set_secret_focused(false);
     self.search_deadline = None;
+    // The next use starts at the top, whatever a pending reload wanted.
+    self.reselect = None;
     if !self.query_text.is_empty() {
       self.query_text.clear();
       self.ui.invoke_clear_search();
@@ -916,13 +949,38 @@ impl App {
     self.has_more = more;
     self.first_answer = true;
     if offset == 0 {
-      self.set_notice("");
+      // A reload keeps its notice (the error that caused it), the scroll
+      // position and the selection; an open tag editor keeps its item.
+      let keep = self.reselect.take();
+      if keep.is_none() {
+        self.set_notice("");
+      }
       self.entries = items;
       let rows: Vec<Row> = (0..self.entries.len()).map(|i| self.make_row(i)).collect();
       self.rows.set_vec(rows);
       self.ui.set_current(0);
       self.ui.invoke_scroll_top();
       self.visible = (0, KEEP_THUMB_ROWS);
+      let editing = self.tags.as_ref().map(|t| t.id);
+      let ids: Vec<WireItemId> = self.entries.iter().map(|e| e.id).collect();
+      if let Some(r) = keep {
+        if let Some(top) = r.top_row(&ids) {
+          self.ui.invoke_scroll_to_row(top as i32);
+        }
+        if let Some(i) = r.current_row(&ids) {
+          self.set_current(i);
+        }
+      }
+      if let Some(i) = editing.and_then(|id| ids.iter().position(|&e| e == id)) {
+        self.set_current(i);
+      }
+      if let Some(t) = &self.tags
+        && !self.entries.iter().any(|e| e.id == t.id)
+      {
+        self.close_tags();
+        self.set_notice("That item is gone");
+      }
+      self.sync_tag_ui();
     } else if offset as usize == self.entries.len() {
       let start = self.entries.len();
       self.entries.extend(items);
@@ -960,6 +1018,7 @@ impl App {
     } else {
       self.ui.set_current(0);
     }
+    self.sync_tag_ui();
     self.request_visible_thumbs();
     self.update_status();
   }
@@ -978,6 +1037,7 @@ impl App {
       time: model::relative_time(model::now_ms(), p.last_used_unix_ms.max(p.created_unix_ms))
         .into(),
       pinned: p.pinned,
+      tags: model::tags_label(&p.tags).into(),
       is_image,
       thumb,
       has_thumb,
@@ -1111,7 +1171,8 @@ impl App {
       let (id, on) = (e.id, !e.pinned);
       self.entries[i].pinned = on;
       self.refresh_row(i);
-      self.chan.send(PickerReq::Pin { id, on });
+      let req = self.adapter.pin(id, on);
+      self.chan.send(req);
     }
   }
 
@@ -1121,7 +1182,8 @@ impl App {
       self.entries.remove(i);
       self.rows.remove(i);
       self.thumbs.remove(&id);
-      self.chan.send(PickerReq::Delete { id });
+      let req = self.adapter.delete(id);
+      self.chan.send(req);
       if !self.entries.is_empty() {
         self.set_current(i.min(self.entries.len() - 1));
       }
@@ -1195,6 +1257,108 @@ impl App {
     self.chan.send(PickerReq::Edit { id, mime });
   }
 
+  /// Reload the first page of the current search, keeping the selected
+  /// item selected (and the notice shown).
+  fn resync(&mut self) {
+    let ids: Vec<WireItemId> = self.entries.iter().map(|e| e.id).collect();
+    let current = self.current_entry().map(|(i, _)| i);
+    let r = Reselect::new(&ids, current, self.visible);
+    let req = self.adapter.reload(r.limit());
+    self.reselect = Some(r);
+    self.chan.send(req);
+  }
+
+  // ------------------------------------------------------------- tags
+
+  /// Ctrl+T: open the tag editor for the selected item.
+  fn open_tags(&mut self) {
+    let Some((_, e)) = self.current_entry() else { return };
+    let (id, item) = (e.id, crate::sanitize::sanitize_line(&model::preview_text(e), 80));
+    // An Enter held on the list must not select once the editor is open.
+    self.enter_down = None;
+    self.tags = Some(TagEditor::new(id));
+    let ui = &self.ui;
+    ui.set_tag_item(item.into());
+    ui.set_tag_text("".into());
+    ui.set_tag_error("".into());
+    ui.set_tag_editing(true);
+    ui.set_tag_focus_req(ui.get_tag_focus_req().wrapping_add(1));
+    self.focus_tag_after_render = true;
+    self.sync_tag_ui();
+  }
+
+  /// Back to the list (Esc / Ctrl+T in the editor, hide, item gone).
+  fn close_tags(&mut self) {
+    if self.tags.take().is_none() {
+      return;
+    }
+    self.focus_tag_after_render = false;
+    let ui = &self.ui;
+    ui.set_tag_editing(false);
+    ui.set_tag_text("".into());
+    ui.set_tag_error("".into());
+    ui.set_tag_chip(-1);
+    self.chips.set_vec(Vec::new());
+    if self.vis != Vis::Hidden {
+      self.focus_input();
+    }
+  }
+
+  /// Mirror the edited item's tags and the chip selection into the UI.
+  fn sync_tag_ui(&mut self) {
+    let Some(ed) = &self.tags else { return };
+    let tags =
+      self.entries.iter().find(|e| e.id == ed.id).map(|e| e.tags.as_slice()).unwrap_or(&[]);
+    let chips: Vec<SharedString> = tags.iter().map(|t| model::chip_text(t).into()).collect();
+    let chip = ed.chip.filter(|&c| c < chips.len()).map_or(-1, |c| c as i32);
+    if !self.chips.iter().eq(chips.iter().cloned()) {
+      self.chips.set_vec(chips);
+    }
+    self.ui.set_tag_chip(chip);
+  }
+
+  /// A key the editor interprets. `false`: it belongs to the text field.
+  fn tag_key(&mut self, key: TagKey, repeat: bool) -> bool {
+    let Some(ed) = &mut self.tags else { return true };
+    let id = ed.id;
+    let field = self.ui.get_tag_text();
+    let tags = self.entries.iter().find(|e| e.id == id).map(|e| e.tags.clone()).unwrap_or_default();
+    let step = ed.key(key, repeat, &field, &tags);
+    drop(field);
+    match step {
+      Step::Field => {
+        self.ui.set_tag_error("".into());
+        self.sync_tag_ui();
+        return false;
+      }
+      Step::Handled => {}
+      Step::Add(tag) => {
+        self.ui.set_tag_text("".into());
+        self.ui.set_tag_error("".into());
+        self.edit_tag(id, tag, true);
+      }
+      Step::Remove(tag) => {
+        self.ui.set_tag_error("".into());
+        self.edit_tag(id, tag, false);
+      }
+      Step::Invalid(msg) => self.ui.set_tag_error(msg.into()),
+    }
+    self.sync_tag_ui();
+    true
+  }
+
+  /// Apply a tag edit to the row right away and tell the daemon; a failure
+  /// comes back as `EditFailed`, which reloads the list.
+  fn edit_tag(&mut self, id: WireItemId, tag: String, on: bool) {
+    let Some(i) = self.entries.iter().position(|e| e.id == id) else { return };
+    if !crate::tags::apply(&mut self.entries[i], &tag, on) {
+      return;
+    }
+    self.refresh_row(i);
+    let req = self.adapter.tag(id, tag, on);
+    self.chan.send(req);
+  }
+
   // ------------------------------------------------------------- keys
 
   fn on_key(&mut self, ev: KeyEvent, repeat: bool) {
@@ -1204,40 +1368,64 @@ impl App {
     if self.chooser.is_some() {
       return self.on_chooser_key(&ev, repeat);
     }
+    // Not while the tag editor owns the keyboard (it takes every key).
     if let Some(k) = crate::edit::edit_key(ev.keysym, &self.mods, repeat)
       && !self.ui.get_secret_focused()
+      && self.tags.is_none()
     {
       return self.on_edit_key(k);
     }
     let page = ((self.logical.1 as f32 - 90.0) / 46.0).floor().max(1.0) as i64;
     let cur = self.ui.get_current() as i64;
     let len = self.entries.len() as i64;
+    let cx = KeyCtx {
+      tags_open: self.tags.is_some(),
+      secret_field: self.ui.get_secret_focused() && self.ui.get_secret_kind() != 0,
+      locked: self.lock.locked,
+    };
+    let route = route_key(ev.keysym, &self.mods, repeat, cx);
     let mut nav = |delta: i64| {
       if len > 0 {
         self.set_current((cur + delta).clamp(0, len - 1) as usize);
       }
     };
-    match ev.keysym {
-      Keysym::Escape => return self.hide(HideReason::Esc),
-      Keysym::Return | Keysym::KP_Enter if !repeat => {
-        if self.ui.get_secret_focused() && self.ui.get_secret_kind() != 0 {
-          // Stays visible: the release is ours anyway.
-          return self.submit_secret();
-        }
+    match route {
+      Route::Hide => return self.hide(HideReason::Esc),
+      // Stays visible: the release is ours anyway.
+      Route::SubmitSecret => return self.submit_secret(),
+      Route::ArmSelect(mode) => {
         // Select on release (see `enter_down`); modifiers count as pressed.
-        self.enter_down = Some((ev.raw_code, select_mode(&self.mods)));
+        self.enter_down = Some((ev.raw_code, mode));
         return;
       }
-      Keysym::Up | Keysym::KP_Up => return nav(-1),
-      Keysym::Down | Keysym::KP_Down => return nav(1),
-      Keysym::Page_Up | Keysym::KP_Page_Up => return nav(-page),
-      Keysym::Page_Down | Keysym::KP_Page_Down => return nav(page),
-      Keysym::Delete | Keysym::KP_Delete if !repeat => return self.delete_current(),
-      Keysym::p | Keysym::P if self.mods.ctrl && !repeat => return self.toggle_pin(),
-      Keysym::r | Keysym::R if self.mods.ctrl && !repeat && self.lock.locked => {
-        return self.retry_touch();
+      Route::Move(m) => {
+        return nav(match m {
+          Move::Up => -1,
+          Move::Down => 1,
+          Move::PageUp => -page,
+          Move::PageDown => page,
+        });
       }
-      _ => {}
+      Route::DeleteItem => return self.delete_current(),
+      Route::TogglePin => return self.toggle_pin(),
+      Route::RetryTouch => return self.retry_touch(),
+      Route::OpenTags => return self.open_tags(),
+      Route::CloseTags => return self.close_tags(),
+      Route::Tag(k) => {
+        if self.tag_key(k, repeat) {
+          return;
+        }
+      }
+      Route::Ignore => return,
+      Route::Text => {
+        if !is_modifier(ev.keysym)
+          && let Some(ed) = &mut self.tags
+        {
+          ed.typed();
+          self.ui.set_tag_error("".into());
+          self.sync_tag_ui();
+        }
+      }
     }
     if let Some(text) = slint_text(ev.keysym, ev.utf8.as_deref(), &self.mods) {
       let is_edit = !is_modifier(ev.keysym);
@@ -1272,7 +1460,9 @@ impl App {
       && code == ev.raw_code
     {
       self.enter_down = None;
-      if self.vis == Vis::Shown || self.vis == Vis::AwaitConfigure {
+      // `open_tags` clears `enter_down`; checked again so a release can
+      // never select while the tag editor is open.
+      if (self.vis == Vis::Shown || self.vis == Vis::AwaitConfigure) && self.tags.is_none() {
         self.select(mode);
       }
       return;
@@ -1424,6 +1614,9 @@ impl App {
           self.present(idx, Some(dmg));
           if std::mem::take(&mut self.focus_secret_after_render) {
             self.bump_secret_focus();
+          }
+          if std::mem::take(&mut self.focus_tag_after_render) {
+            self.ui.set_tag_focus_req(self.ui.get_tag_focus_req().wrapping_add(1));
           }
         }
         Render::Busy => self.retry_soon = true,
@@ -1616,6 +1809,159 @@ pub fn place(cursor: Option<(i32, i32)>, output: (i32, i32), size: (i32, i32)) -
   (axis(cursor.map(|c| c.0), output.0, size.0), axis(cursor.map(|c| c.1), output.1, size.1))
 }
 
+/// Selection and scroll position to restore when a reload's first page
+/// lands (by item id, falling back to the same row index).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Reselect {
+  /// The selected item and its row.
+  current: Option<(WireItemId, usize)>,
+  /// The first visible item and its row.
+  top: Option<(WireItemId, usize)>,
+  /// Rows needed to cover the selection and everything visible.
+  rows: usize,
+}
+
+impl Reselect {
+  fn new(ids: &[WireItemId], current: Option<usize>, visible: (usize, usize)) -> Self {
+    let at = |i: usize| ids.get(i).map(|&id| (id, i));
+    let current = current.and_then(at);
+    let rows = current.map_or(0, |(_, i)| i + 1).max(visible.1.min(ids.len()));
+    Self { current, top: at(visible.0), rows }
+  }
+
+  /// `limit` for the reload: covers the selection and the visible rows
+  /// (plus a margin, and at least a normal page), up to the daemon's cap.
+  fn limit(&self) -> u32 {
+    let want = self.rows + KEEP_THUMB_ROWS;
+    (want as u32).clamp(crate::ipc::PAGE_SIZE, crate::ipc::MAX_PAGE)
+  }
+
+  fn find(ids: &[WireItemId], at: Option<(WireItemId, usize)>) -> Option<usize> {
+    let (id, row) = at?;
+    if ids.is_empty() {
+      return None;
+    }
+    Some(ids.iter().position(|&e| e == id).unwrap_or(row.min(ids.len() - 1)))
+  }
+
+  /// Row to select in the reloaded list: the same item, else the same row.
+  fn current_row(&self, ids: &[WireItemId]) -> Option<usize> {
+    Self::find(ids, self.current)
+  }
+
+  /// Row to scroll to the top: the same first visible item, else the same row.
+  fn top_row(&self, ids: &[WireItemId]) -> Option<usize> {
+    Self::find(ids, self.top)
+  }
+}
+
+/// A click on a row pastes it, except while the tag editor is open (then it
+/// only selects the row).
+fn click_pastes(tags_open: bool) -> bool {
+  !tags_open
+}
+
+/// What a key press does, decided before any state changes (pure, so the
+/// key map is testable without a compositor).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Route {
+  /// Esc on the list: close the picker.
+  Hide,
+  /// Enter on the list: select with this mode on the key's release.
+  ArmSelect(SelectMode),
+  /// Enter in the unlock panel's secret field.
+  SubmitSecret,
+  Move(Move),
+  DeleteItem,
+  TogglePin,
+  RetryTouch,
+  /// Ctrl+T on the list.
+  OpenTags,
+  /// Esc or Ctrl+T in the tag editor: back to the list, picker stays open.
+  CloseTags,
+  /// A key the tag editor interprets (see `tags.rs`).
+  Tag(TagKey),
+  /// Swallowed.
+  Ignore,
+  /// To Slint (the focused text field).
+  Text,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Move {
+  Up,
+  Down,
+  PageUp,
+  PageDown,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct KeyCtx {
+  tags_open: bool,
+  /// The unlock panel's secret field has focus.
+  secret_field: bool,
+  locked: bool,
+}
+
+fn route_key(k: Keysym, mods: &Modifiers, repeat: bool, cx: KeyCtx) -> Route {
+  let enter = matches!(k, Keysym::Return | Keysym::KP_Enter);
+  let ctrl_key = |a: Keysym, b: Keysym| mods.ctrl && (k == a || k == b);
+  if cx.tags_open {
+    // The editor owns the keyboard: Enter and Del never reach the list.
+    return match k {
+      Keysym::Escape if repeat => Route::Ignore,
+      Keysym::Escape => Route::CloseTags,
+      _ if enter => Route::Tag(TagKey::Enter),
+      _ if ctrl_key(Keysym::t, Keysym::T) => {
+        if repeat {
+          Route::Ignore
+        } else {
+          Route::CloseTags
+        }
+      }
+      _ if ctrl_key(Keysym::p, Keysym::P) && !repeat => Route::TogglePin,
+      Keysym::BackSpace => Route::Tag(TagKey::Backspace),
+      Keysym::Delete | Keysym::KP_Delete => Route::Tag(TagKey::Delete),
+      Keysym::Left | Keysym::KP_Left => Route::Tag(TagKey::Left),
+      Keysym::Right | Keysym::KP_Right => Route::Tag(TagKey::Right),
+      Keysym::Up
+      | Keysym::KP_Up
+      | Keysym::Down
+      | Keysym::KP_Down
+      | Keysym::Page_Up
+      | Keysym::KP_Page_Up
+      | Keysym::Page_Down
+      | Keysym::KP_Page_Down
+      | Keysym::Tab
+      | Keysym::ISO_Left_Tab => Route::Ignore,
+      _ => Route::Text,
+    };
+  }
+  match k {
+    // A held Esc that just closed the tag editor must not close the picker.
+    Keysym::Escape if repeat => Route::Ignore,
+    Keysym::Escape => Route::Hide,
+    _ if enter && !repeat => {
+      if cx.secret_field {
+        Route::SubmitSecret
+      } else {
+        Route::ArmSelect(select_mode(mods))
+      }
+    }
+    Keysym::Up | Keysym::KP_Up => Route::Move(Move::Up),
+    Keysym::Down | Keysym::KP_Down => Route::Move(Move::Down),
+    Keysym::Page_Up | Keysym::KP_Page_Up => Route::Move(Move::PageUp),
+    Keysym::Page_Down | Keysym::KP_Page_Down => Route::Move(Move::PageDown),
+    // Held: one item only (and nothing for the search field).
+    Keysym::Delete | Keysym::KP_Delete if repeat => Route::Ignore,
+    Keysym::Delete | Keysym::KP_Delete => Route::DeleteItem,
+    _ if ctrl_key(Keysym::p, Keysym::P) && !repeat => Route::TogglePin,
+    _ if ctrl_key(Keysym::t, Keysym::T) && !repeat => Route::OpenTags,
+    _ if ctrl_key(Keysym::r, Keysym::R) && !repeat && cx.locked => Route::RetryTouch,
+    _ => Route::Text,
+  }
+}
+
 /// Enter = paste, Shift+Enter = copy only, Ctrl+Enter = paste as plain text.
 fn select_mode(m: &Modifiers) -> SelectMode {
   if m.shift {
@@ -1655,6 +2001,7 @@ fn slint_text(k: Keysym, utf8: Option<&str>, mods: &Modifiers) -> Option<SharedS
     Keysym::Home | Keysym::KP_Home => Some(Key::Home),
     Keysym::End | Keysym::KP_End => Some(Key::End),
     Keysym::Insert => Some(Key::Insert),
+    Keysym::Delete | Keysym::KP_Delete => Some(Key::Delete),
     Keysym::Shift_L => Some(Key::Shift),
     Keysym::Shift_R => Some(Key::ShiftR),
     Keysym::Control_L => Some(Key::Control),
@@ -2081,6 +2428,107 @@ mod tests {
     assert_eq!(select_mode(&m(true, true)), SelectMode::Copy);
   }
 
+  fn route(k: Keysym, mods: Modifiers, repeat: bool, cx: KeyCtx) -> Route {
+    route_key(k, &mods, repeat, cx)
+  }
+
+  #[test]
+  fn list_keys() {
+    let none = Modifiers::default();
+    let ctrl = Modifiers { ctrl: true, ..Default::default() };
+    let shift = Modifiers { shift: true, ..Default::default() };
+    let list = KeyCtx::default();
+    assert_eq!(route(Keysym::Return, none, false, list), Route::ArmSelect(SelectMode::Paste));
+    assert_eq!(route(Keysym::KP_Enter, shift, false, list), Route::ArmSelect(SelectMode::Copy));
+    assert_eq!(route(Keysym::Return, none, true, list), Route::Text, "held Enter: nothing");
+    let secret = KeyCtx { secret_field: true, locked: true, ..Default::default() };
+    assert_eq!(route(Keysym::Return, none, false, secret), Route::SubmitSecret);
+    assert_eq!(route(Keysym::Escape, none, false, list), Route::Hide);
+    assert_eq!(route(Keysym::Escape, none, true, list), Route::Ignore);
+    assert_eq!(route(Keysym::Delete, none, false, list), Route::DeleteItem);
+    assert_eq!(route(Keysym::Delete, none, true, list), Route::Ignore);
+    assert_eq!(route(Keysym::p, ctrl, false, list), Route::TogglePin);
+    assert_eq!(route(Keysym::t, ctrl, false, list), Route::OpenTags);
+    assert_eq!(route(Keysym::T, ctrl, false, list), Route::OpenTags);
+    assert_eq!(route(Keysym::t, ctrl, true, list), Route::Text);
+    assert_eq!(route(Keysym::t, none, false, list), Route::Text, "plain t is typed");
+    assert_eq!(route(Keysym::r, ctrl, false, list), Route::Text, "retry only while locked");
+    assert_eq!(route(Keysym::r, ctrl, false, secret), Route::RetryTouch);
+    assert_eq!(route(Keysym::Page_Down, none, false, list), Route::Move(Move::PageDown));
+  }
+
+  #[test]
+  fn tag_editor_owns_enter_del_and_esc() {
+    let none = Modifiers::default();
+    let ctrl = Modifiers { ctrl: true, ..Default::default() };
+    let shift = Modifiers { shift: true, ..Default::default() };
+    let ed = KeyCtx { tags_open: true, ..Default::default() };
+    // Enter in the tag field never arms a select (so never pastes), with
+    // any modifier, pressed or held; also not while the unlock panel shows.
+    let ed_locked = KeyCtx { tags_open: true, secret_field: true, locked: true };
+    for cx in [ed, ed_locked] {
+      for m in [none, ctrl, shift] {
+        for k in [Keysym::Return, Keysym::KP_Enter] {
+          for repeat in [false, true] {
+            assert_eq!(route(k, m, repeat, cx), Route::Tag(TagKey::Enter));
+          }
+        }
+      }
+    }
+    // Del / Backspace edit tags, never the item.
+    assert_eq!(route(Keysym::Delete, none, false, ed), Route::Tag(TagKey::Delete));
+    assert_eq!(route(Keysym::KP_Delete, none, true, ed), Route::Tag(TagKey::Delete));
+    assert_eq!(route(Keysym::BackSpace, none, false, ed), Route::Tag(TagKey::Backspace));
+    assert_eq!(route(Keysym::Left, none, false, ed), Route::Tag(TagKey::Left));
+    assert_eq!(route(Keysym::KP_Right, none, false, ed), Route::Tag(TagKey::Right));
+    // Esc / Ctrl+T go back to the list; the picker stays open.
+    assert_eq!(route(Keysym::Escape, none, false, ed), Route::CloseTags);
+    assert_eq!(route(Keysym::Escape, none, true, ed), Route::Ignore);
+    assert_eq!(route(Keysym::t, ctrl, false, ed), Route::CloseTags);
+    assert_eq!(route(Keysym::t, ctrl, true, ed), Route::Ignore);
+    // The list doesn't move under the editor; Tab doesn't leave the field.
+    for k in [Keysym::Up, Keysym::Down, Keysym::Page_Up, Keysym::Page_Down, Keysym::Tab] {
+      assert_eq!(route(k, none, false, ed), Route::Ignore);
+    }
+    assert_eq!(route(Keysym::p, ctrl, false, ed), Route::TogglePin);
+    assert_eq!(route(Keysym::w, none, false, ed), Route::Text);
+  }
+
+  #[test]
+  fn reload_keeps_selection_beyond_the_first_page() {
+    let ids: Vec<WireItemId> = (100..400).collect();
+    // Selected row 180, rows 172..183 visible: the reload covers them all.
+    let r = Reselect::new(&ids, Some(180), (172, 183));
+    assert_eq!(r.limit(), 183 + KEEP_THUMB_ROWS as u32);
+    assert!(r.limit() as usize > 180);
+    assert_eq!(r.current_row(&ids), Some(180));
+    assert_eq!(r.top_row(&ids), Some(172));
+    // The selected item moved (one above it was deleted): follow it.
+    let mut moved = ids.clone();
+    moved.remove(10);
+    assert_eq!(r.current_row(&moved), Some(179));
+    assert_eq!(r.top_row(&moved), Some(171));
+    // The selected item is gone: stay on the same row.
+    let mut gone = ids.clone();
+    gone.retain(|&id| id != 280);
+    assert_eq!(r.current_row(&gone), Some(180));
+    // Near the top: a normal page; far down: the daemon's cap.
+    assert_eq!(Reselect::new(&ids, Some(2), (0, 11)).limit(), crate::ipc::PAGE_SIZE);
+    let many: Vec<WireItemId> = (0..2000).collect();
+    assert_eq!(Reselect::new(&many, Some(1500), (1490, 1501)).limit(), crate::ipc::MAX_PAGE);
+    // Nothing selected / empty list.
+    let none = Reselect::new(&[], None, (0, 12));
+    assert_eq!(none.current_row(&ids), None);
+    assert_eq!(none.limit(), crate::ipc::PAGE_SIZE);
+    assert_eq!(r.current_row(&[]), None);
+  }
+
+  #[test]
+  fn clicks_paste_only_outside_the_tag_editor() {
+    assert!(click_pastes(false));
+    assert!(!click_pastes(true));
+  }
+
   #[test]
   fn unlock_messages_cover_every_reason() {
     use UnlockFailReason as R;
@@ -2105,6 +2553,7 @@ mod tests {
     assert_eq!(slint_text(Keysym::BackSpace, Some("\u{8}"), &none), Some(Key::Backspace.into()));
     assert_eq!(slint_text(Keysym::Shift_L, None, &none), Some(Key::Shift.into()));
     assert_eq!(slint_text(Keysym::Caps_Lock, None, &none), None);
+    assert_eq!(slint_text(Keysym::Delete, Some("\u{7f}"), &none), Some(Key::Delete.into()));
     // Composed text wins over the keysym.
     assert_eq!(slint_text(Keysym::dead_acute, Some("é"), &none).as_deref(), Some("é"));
   }

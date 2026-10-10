@@ -2,7 +2,7 @@
 //! `dev`, never shipped).
 //!
 //! Creates the socketpair, execs `spool-picker` with the picker end on fd 3
-//! (`SPOOL_PICKER_FD=3`), speaks picker protocol v2, answers `Query`/`Thumb`
+//! (`SPOOL_PICKER_FD=3`), speaks picker protocol v3, answers `Query`/`Thumb`
 //! from fake data and prints what the picker sends (never secrets).
 //!
 //! Answers are deliberately **out of order**: requests arriving within
@@ -20,6 +20,7 @@
 //! new TEXT              PickerEvt::NewItem
 //! progress DONE TOTAL   PickerEvt::IndexProgress
 //! notice TEXT           PickerEvt::Error{seq: None}
+//! failedits on|off      pin / delete / tag fail (Error with their seq) instead of applying
 //! lock pass|fido|fidopin|both|none   PickerEvt::Locked with those prompts
 //! unlock                PickerEvt::Unlocked
 //! touch                 the pending FIDO2 touch succeeds (fidopin: asks for the PIN)
@@ -89,6 +90,18 @@ struct LockState {
   /// fidopin: the touch asked for the PIN.
   pin_asked: bool,
   bad_pins: u32,
+}
+
+/// `failedits on`: edits are refused (answered with an `Error` carrying
+/// their `seq`) and not applied.
+static FAIL_EDITS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn edit_failed(seq: u32) -> Option<PickerEvt> {
+  Some(PickerEvt::Error {
+    seq: Some(seq),
+    code: PickerErrorCode::Internal,
+    message: "Could not change the item".into(),
+  })
 }
 
 fn is_session_item(id: i64) -> bool {
@@ -418,6 +431,9 @@ fn main() {
         code: PickerErrorCode::Unavailable,
         message: line.trim_start().strip_prefix("notice").unwrap_or("").trim().to_string(),
       }),
+      ["failedits", on] => {
+        FAIL_EDITS.store(*on == "on", std::sync::atomic::Ordering::SeqCst);
+      }
       ["lock", m] => {
         let mode = match *m {
           "pass" => LockMode::Pass,
@@ -624,20 +640,40 @@ fn answer(req: PickerReq, items: &Mutex<Vec<Item>>, lock: &Mutex<LockState>) -> 
       println!("SELECT id={id} mode={mode:?}");
       None
     }
-    PickerReq::Pin { id, on } => {
+    PickerReq::Pin { id, on, seq } => {
+      println!("PIN id={id} on={on}");
+      if FAIL_EDITS.load(std::sync::atomic::Ordering::SeqCst) {
+        return edit_failed(seq);
+      }
       if let Some(i) = items.iter_mut().find(|i| i.preview.id == id) {
         i.preview.pinned = on;
       }
-      println!("PIN id={id} on={on}");
       None
     }
-    PickerReq::Delete { id } => {
-      items.retain(|i| i.preview.id != id);
+    PickerReq::Delete { id, seq } => {
       println!("DELETE id={id}");
+      if FAIL_EDITS.load(std::sync::atomic::Ordering::SeqCst) {
+        return edit_failed(seq);
+      }
+      items.retain(|i| i.preview.id != id);
       None
     }
-    PickerReq::Tag { id, on, .. } => {
+    PickerReq::Tag { id, tag, on, seq } => {
+      // The tag itself is never printed (user content).
       println!("TAG id={id} on={on}");
+      if FAIL_EDITS.load(std::sync::atomic::Ordering::SeqCst) {
+        return edit_failed(seq);
+      }
+      let Ok(tag) = spool_proto::check_tag(&tag).map(str::to_string) else {
+        return edit_failed(seq);
+      };
+      if let Some(i) = items.iter_mut().find(|i| i.preview.id == id) {
+        let tags = &mut i.preview.tags;
+        tags.retain(|t| *t != tag);
+        if on {
+          tags.push(tag);
+        }
+      }
       None
     }
     PickerReq::Unlock { provider, secret } => {

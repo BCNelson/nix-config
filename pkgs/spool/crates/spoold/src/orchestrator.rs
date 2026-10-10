@@ -130,9 +130,6 @@ pub type PickerReply<T> = oneshot::Sender<Result<T, (PickerErrorCode, &'static s
 /// text of an item, only previews and images).
 pub const THUMB_MIMES: &[&str] = &["image/png", "image/jpeg", "image/webp"];
 
-/// Longest tag accepted from the picker.
-pub const MAX_TAG_LEN: usize = 64;
-
 /// Item edits from the picker.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditOp {
@@ -1471,13 +1468,15 @@ impl<W: WaylandSide> Orchestrator<W> {
     id: ItemId,
     op: EditOp,
   ) -> Result<(), (PickerErrorCode, &'static str)> {
-    if let EditOp::Tag { tag, .. } = &op
-      && (tag.trim().is_empty()
-        || tag.chars().count() > MAX_TAG_LEN
-        || tag.chars().any(|c| c.is_control() || c == '/'))
-    {
-      return Err((PickerErrorCode::BadQuery, "invalid tag"));
-    }
+    // Same rule the picker checks before sending; the normalized (trimmed)
+    // tag is what gets stored and removed.
+    let op = match op {
+      EditOp::Tag { tag, on } => match spool_proto::check_tag(&tag) {
+        Ok(t) => EditOp::Tag { tag: t.to_string(), on },
+        Err(_) => return Err((PickerErrorCode::BadQuery, "invalid tag")),
+      },
+      other => other,
+    };
     let what = match &op {
       EditOp::Pin(true) => "pinned",
       EditOp::Pin(false) => "unpinned",

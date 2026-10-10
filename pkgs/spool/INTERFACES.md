@@ -204,23 +204,30 @@ with `spoold::unlock` for the unlock panel.
   zeroize-on-drop buffers (they may carry a passphrase).
 - `PickerReq`: `Ready` (once; first page pre-rendered), `Query{seq, q,
   filters: QueryFilters, offset, limit}`, `Thumb{seq, id, mime}`,
-  `Select{id, mode}`, `Pin{id, on}`, `Delete{id}`, `Tag{id, tag, on}`,
-  `Unlock{provider, secret: Option<UnlockSecret>}`, `Hidden{reason}`,
-  `Edit{id, mime}` (v3).
+  `Select{id, mode}`, `Pin{id, on, seq}`, `Delete{id, seq}`, `Tag{id, tag,
+  on, seq}`, `Unlock{provider, secret: Option<UnlockSecret>}`,
+  `Hidden{reason}`, `Edit{id, mime}`. v3 appended `Edit`, and `seq` to the
+  three edits (v2 had none, so their errors could not be told apart from
+  others).
 - `PickerEvt`: `Show{cursor, output, target_window, scale_hint: Option<f64>}`,
   `Hide`, `Page{seq, offset, items, more}`, `Thumb{seq, id, bytes}`,
   `Error{seq: Option<u32>, code: PickerErrorCode, message}`,
   `Locked{providers: Vec<UnlockPrompt>}`, `Unlocked`, `UnlockFailed{provider,
   reason}`, `IndexProgress{done, total}`, `NewItem{preview}`. `PartialEq`,
   not `Eq`.
-- `seq`: one picker counter for `Query` and `Thumb`; every request gets
-  exactly one answer with its `seq` (page/thumb or `Error`), in any order;
-  the picker keeps only the latest query's page. `WireItemId = i64`.
+- `seq`: one picker counter for `Query`, `Thumb` and the edits. Every
+  `Query`/`Thumb` gets exactly one answer with its `seq` (page/thumb or
+  `Error`), in any order; the picker keeps only the latest query's page.
+  An edit is answered only when it fails (`Error` with its `seq`). An
+  `Error{seq: None}` is a channel-level notice (e.g. a failed `Select`).
+  `WireItemId = i64`.
 - `HideReason { Esc, FocusLost, Selected, Requested, Closed }`: every shown
   -> hidden transition is reported (also after `Hide`); `Selected` precedes
   its `Select`.
 - `SelectMode { Copy, Paste, PastePlain }`: Enter = `Paste`, Shift+Enter =
-  `Copy`, Ctrl+Enter = `PastePlain`, click = `Paste`. The picker acts on the
+  `Copy`, Ctrl+Enter = `PastePlain`, click = `Paste` (except while the tag
+  editor is open: a click then closes the editor and only selects the
+  row). The picker acts on the
   Enter key's **release** (mode taken from the modifiers at press), so the
   window that gets focus back never receives a stray Return; a pending Enter
   is dropped on focus loss or hide.
@@ -231,7 +238,16 @@ with `spoold::unlock` for the unlock panel.
   WrongSecret, PinInvalid, PinBlocked, Dismissed, Unavailable, Other }`,
   `UnlockSecret` (zeroized on drop, redacted `Debug`, wire-identical to a
   postcard `String`; `expose()`, `into_inner()`). Also `QueryFilters`,
-  `CursorPos`, `PreviewKind`, `ItemPreview`.
+  `CursorPos`, `PreviewKind`, `ItemPreview` (`tags` carries the item's tags
+  in pages and `NewItem`).
+- Tag rule (shared, not on the wire): `check_tag(&str) -> Result<&str,
+  TagError>` with `MAX_TAG_CHARS = 64` normalizes then checks: surrounding
+  whitespace is trimmed, and the result must be non-empty, at most 64
+  characters, without control characters or `/` (tags are search facets).
+  It returns the trimmed tag. `TagError { Empty, TooLong, BadChar }`,
+  `message()` is user-facing and never echoes the tag. The picker checks
+  it before sending; spoold checks it again and stores / removes the
+  trimmed tag, so both agree. Tags are case-sensitive.
 
 What spoold does:
 
@@ -241,14 +257,17 @@ What spoold does:
   order; answers come from their own tasks.
 - `Thumb` -> `Request::Thumb` (png/jpeg/webp only, <= 8 MiB; `NotFound` if
   gone). The picker never receives an item's full text.
-- `Pin`/`Delete`/`Tag` -> `Request::Edit` (tags 1..=64 chars, no control
-  chars or `/`).
+- `Pin`/`Delete`/`Tag` -> `Request::Edit` (tags must pass `check_tag`,
+  else `Error{BadQuery, "invalid tag"}`; the normalized tag is used).
+  Edits are applied in order and answered **only on failure**, with
+  `Error{seq: Some(edit's seq)}` (`NotFound` for a gone item); adding a tag
+  the item has, or removing one it lacks, is not an error.
 - `Edit{id, mime}` (Ctrl+E: the preferred format, text first; Ctrl+Shift+E:
   a chooser of the item's formats from its summary's `mimes`, text variants
   shown once) -> `Request::EditItem`. The picker hides first
   (`Hidden{Selected}`) and never receives the content. A failure (no editor
   configured for the type, too many sessions, item gone, editor not
-  startable) -> `Error{seq: None}` plus a desktop notification (the picker
+  startable) -> `Error{seq: None}` (a notice: no reload) plus a desktop notification (the picker
   is hidden). A waiting `spoolctl edit` gets the outcome; a waiting
   `spoolctl pick` is cancelled.
 - `Locked{prompts}` right after the handshake whenever history is locked and
@@ -281,7 +300,17 @@ What spoold does:
   (public socket) is the same, except that the `Select` (or a picker
   `Edit`) starts an editing session and answers `Ok`.
 
-`spool-picker` itself: wlr-layer-shell overlay surface (keyboard
+`spool-picker` itself: pin, tag and delete are optimistic (the row changes
+at once, the request follows). An `Error` matching one of its recent edits
+(`ipc::Correlator`, last 256 edits) shows the message and reloads the
+current search with `limit` covering the selected and visible rows (at
+least `PAGE_SIZE`, at most 499), restoring the scroll position and the
+selection by item id (else by row), so a failed edit is undone from the
+daemon's state; other errors without a live `seq` only show the notice.
+The tag editor (Ctrl+T, `tags.rs`) owns the keyboard while open: Enter
+there adds a tag and can never arm a `Select`, Del/Backspace edit tags,
+never the item; its chip strip scrolls to keep the selected chip (or the
+end next to the field) visible. wlr-layer-shell overlay surface (keyboard
 interactivity exclusive while shown), software renderer by default (next
 frame pre-rendered while hidden), FemtoVG/EGL with `SPOOL_PICKER_RENDERER=gpu`
 in `gpu` builds (falls back to software when EGL fails or the GL is

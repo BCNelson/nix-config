@@ -735,9 +735,9 @@ impl Host {
           }
         });
       }
-      PickerReq::Pin { id, on } => self.edit(id, EditOp::Pin(on), out).await,
-      PickerReq::Delete { id } => self.edit(id, EditOp::Delete, out).await,
-      PickerReq::Tag { id, tag, on } => self.edit(id, EditOp::Tag { tag, on }, out).await,
+      PickerReq::Pin { id, on, seq } => self.edit(id, EditOp::Pin(on), seq, out).await,
+      PickerReq::Delete { id, seq } => self.edit(id, EditOp::Delete, seq, out).await,
+      PickerReq::Tag { id, tag, on, seq } => self.edit(id, EditOp::Tag { tag, on }, seq, out).await,
       PickerReq::Unlock { provider, secret } => self.on_unlock(provider, secret, out),
       PickerReq::Hidden { reason } => {
         tracing::debug!(?reason, "picker hidden");
@@ -765,7 +765,8 @@ impl Host {
     }
   }
 
-  async fn edit(&self, id: i64, op: EditOp, out: &Out) {
+  /// Edits are answered only on failure, with the request's `seq`.
+  async fn edit(&self, id: i64, op: EditOp, seq: u32, out: &Out) {
     let (reply, rx) = oneshot::channel();
     if !self.forward(Request::Edit { id: ItemId(id), op, reply }).await {
       return;
@@ -773,7 +774,7 @@ impl Host {
     let out = out.clone();
     tokio::spawn(async move {
       if let Ok(Err((code, m))) = rx.await {
-        let _ = out.send(err(None, code, m));
+        let _ = out.send(err(Some(seq), code, m));
       }
     });
   }

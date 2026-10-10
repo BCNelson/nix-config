@@ -422,8 +422,8 @@ async fn pin_tag_delete() {
   p.query(1, "", 0, 10).await;
   let (items, _) = p.page(1).await;
   let older = items[1].id;
-  p.send(PickerReq::Pin { id: older, on: true }).await;
-  p.send(PickerReq::Tag { id: older, tag: "work".into(), on: true }).await;
+  p.send(PickerReq::Pin { id: older, on: true, seq: 101 }).await;
+  p.send(PickerReq::Tag { id: older, tag: "work".into(), on: true, seq: 102 }).await;
   p.query(2, "", 0, 10).await;
   let (items, _) = p.page(2).await;
   assert_eq!(items[0].id, older, "pinned first");
@@ -434,21 +434,154 @@ async fn pin_tag_delete() {
   p.send(PickerReq::Query { seq: 3, q: String::new(), filters, offset: 0, limit: 10 }).await;
   let (items, _) = p.page(3).await;
   assert_eq!(items.len(), 1);
-  // Invalid tag and deleting twice: errors without a seq.
-  p.send(PickerReq::Tag { id: older, tag: "a/b".into(), on: true }).await;
-  p.expect("tag error", |e| matches!(e, PickerEvt::Error { seq: None, .. }).then_some(())).await;
-  p.send(PickerReq::Delete { id: older }).await;
-  p.query(4, "", 0, 10).await;
-  let (items, _) = p.page(4).await;
-  assert_eq!(items.iter().map(text).collect::<Vec<_>>(), ["newer"]);
-  p.send(PickerReq::Delete { id: older }).await;
+  // Invalid tag and deleting twice: errors carrying the edit's seq.
+  p.send(PickerReq::Tag { id: older, tag: "a/b".into(), on: true, seq: 103 }).await;
   let code = p
-    .expect("not found", |e| match e {
-      PickerEvt::Error { seq: None, code, .. } => Some(*code),
+    .expect("tag error", |e| match e {
+      PickerEvt::Error { seq: Some(103), code, .. } => Some(*code),
+      PickerEvt::Error { seq, .. } => panic!("error for seq {seq:?}"),
       _ => None,
     })
     .await;
-  assert_eq!(code, PickerErrorCode::NotFound);
+  assert_eq!(code, PickerErrorCode::BadQuery);
+  p.send(PickerReq::Delete { id: older, seq: 104 }).await;
+  p.query(4, "", 0, 10).await;
+  let (items, _) = p.page(4).await;
+  assert_eq!(items.iter().map(text).collect::<Vec<_>>(), ["newer"]);
+  p.send(PickerReq::Delete { id: older, seq: 105 }).await;
+  p.send(PickerReq::Pin { id: older, on: false, seq: 106 }).await;
+  p.send(PickerReq::Tag { id: older, tag: "x".into(), on: true, seq: 107 }).await;
+  let mut failed = std::collections::BTreeMap::new();
+  while failed.len() < 3 {
+    match p.recv().await {
+      PickerEvt::Error { seq: Some(seq), code, .. } => {
+        assert!(failed.insert(seq, code).is_none(), "one answer per failed edit");
+      }
+      PickerEvt::Error { seq: None, .. } => panic!("an edit error without its seq"),
+      _ => {}
+    }
+  }
+  assert_eq!(
+    failed.into_iter().collect::<Vec<_>>(),
+    [
+      (105, PickerErrorCode::NotFound),
+      (106, PickerErrorCode::NotFound),
+      (107, PickerErrorCode::NotFound)
+    ]
+  );
+  p.quiet("successful edits are not answered").await;
+}
+
+#[tokio::test]
+async fn tags_show_in_pages_and_pushed_items() {
+  let mut h = PH::start(Setup::default());
+  let mut p = h.picker().await;
+  for text in ["tagged", "other"] {
+    h.copy(UTF8, text.as_bytes()).await;
+    p.expect("NewItem", |e| {
+      matches!(e, PickerEvt::NewItem { preview } if preview.preview == text).then_some(())
+    })
+    .await;
+  }
+  p.query(1, "", 0, 10).await;
+  let (items, _) = p.page(1).await;
+  let id = items.iter().find(|i| i.preview == "tagged").unwrap().id;
+  assert!(items.iter().all(|i| i.tags.is_empty()));
+  // What the picker's editor sends: add two (one twice), remove one.
+  for (seq, (tag, on)) in
+    [("work", true), ("two words", true), ("work", true), ("todo", true)].into_iter().enumerate()
+  {
+    p.send(PickerReq::Tag { id, tag: tag.into(), on, seq: 10 + seq as u32 }).await;
+  }
+  // Removal goes by the normalized tag too.
+  p.send(PickerReq::Tag { id, tag: " todo ".into(), on: false, seq: 20 }).await;
+  // Removing a tag the item doesn't have is not an error either.
+  p.send(PickerReq::Tag { id, tag: "never".into(), on: false, seq: 21 }).await;
+  p.query(2, "", 0, 10).await;
+  let (items, _) = p.page(2).await;
+  let it = items.iter().find(|i| i.id == id).unwrap();
+  let mut tags = it.tags.clone();
+  tags.sort();
+  assert_eq!(tags, ["two words", "work"]);
+  assert!(items.iter().filter(|i| i.id != id).all(|i| i.tags.is_empty()));
+  // `tag:` search (index) and the tag filter carry the tags too.
+  let start = std::time::Instant::now();
+  let found = loop {
+    p.query(3, "tag:work", 0, 10).await;
+    let (items, _) = p.page(3).await;
+    if !items.is_empty() || start.elapsed() > T {
+      break items;
+    }
+    tokio::time::sleep(Duration::from_millis(50)).await;
+  };
+  assert_eq!(found.iter().map(|i| i.id).collect::<Vec<_>>(), [id]);
+  assert!(found[0].tags.contains(&"work".to_string()));
+  p.query(4, "tag:\"two words\"", 0, 10).await;
+  let (items, _) = p.page(4).await;
+  assert_eq!(items.iter().map(|i| i.id).collect::<Vec<_>>(), [id], "quoted tag search");
+  // A bump of the tagged item pushes a preview with its tags.
+  h.copy(UTF8, b"tagged").await;
+  let pushed = p
+    .expect("NewItem for the bump", |e| match e {
+      PickerEvt::NewItem { preview } if preview.id == id => Some(preview.clone()),
+      _ => None,
+    })
+    .await;
+  assert!(pushed.tags.contains(&"work".to_string()), "{:?}", pushed.tags);
+  p.quiet("after the tag edits").await;
+}
+
+#[tokio::test]
+async fn daemon_and_picker_agree_on_tag_rules() {
+  let mut h = PH::start(Setup::default());
+  let mut p = h.picker().await;
+  h.copy(UTF8, b"x").await;
+  p.expect("NewItem", |e| matches!(e, PickerEvt::NewItem { .. }).then_some(())).await;
+  p.query(1, "", 0, 10).await;
+  let (items, _) = p.page(1).await;
+  let id = items[0].id;
+  let long = "y".repeat(spool_proto::MAX_TAG_CHARS + 1);
+  let max = "z".repeat(spool_proto::MAX_TAG_CHARS);
+  let padded = format!("  {max}\t");
+  let tags = [
+    "",
+    "  ",
+    "a/b",
+    "a\nb",
+    "a\u{85}b",
+    long.as_str(),
+    "ok",
+    max.as_str(),
+    " pad ",
+    &padded,
+    "Ok",
+  ];
+  for (seq, tag) in tags.into_iter().enumerate() {
+    let seq = seq as u32;
+    let accepted = spool_proto::check_tag(tag).is_ok();
+    p.send(PickerReq::Tag { id, tag: tag.into(), on: true, seq }).await;
+    if accepted {
+      p.quiet("valid tag").await;
+    } else {
+      let (code, message) = p
+        .expect("invalid tag", |e| match e {
+          PickerEvt::Error { seq: Some(s), code, message } if *s == seq => {
+            Some((*code, message.clone()))
+          }
+          _ => None,
+        })
+        .await;
+      assert_eq!(code, PickerErrorCode::BadQuery);
+      assert!(!message.contains("a/b") && !message.contains("yyy"), "{message}");
+    }
+  }
+  // Exactly the accepted ones were stored, trimmed (the padded max-length
+  // tag is the same tag as `max`), case kept.
+  p.query(100, "", 0, 10).await;
+  let (items, _) = p.page(100).await;
+  let mut stored = items[0].tags.clone();
+  stored.sort();
+  assert_eq!(stored, ["Ok", "ok", "pad", max.as_str()]);
 }
 
 // ---- tests: select / paste / pick ------------------------------------------------

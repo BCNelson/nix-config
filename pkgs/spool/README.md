@@ -136,7 +136,7 @@ v2, `zwp_primary_selection_device_manager_v1` v1 and `wl_seat` v9.
 Picker development harness (headless sway as above, plus `grim` and
 `wtype`): `cargo build -p spool-picker --features dev --examples --bins`,
 then `$CARGO_TARGET_DIR/debug/examples/mock_daemon --show` (stdin commands:
-`show`, `hide`, `new`, `lock pass|fido|fidopin|both`, `touch`, `timeout`,
+`show`, `hide`, `new`, `notice`, `failedits on|off`, `lock pass|fido|fidopin|both`, `touch`, `timeout`,
 `nokey`, `bench N`, `stats`). It answers out of order (`MOCK_REORDER_MS`,
 default 40) to exercise `seq` matching; fake passphrase `open sesame`, fake
 PIN `1234`.
@@ -307,8 +307,28 @@ section 6).
 - Keys: type to search, Up/Down/PgUp/PgDn, Enter = paste, Shift+Enter =
   copy only, Ctrl+Enter = paste as plain text (all act when Enter is
   **released**, so the target window never sees a stray Return), Ctrl+P
-  pin, Del delete, Ctrl+E edit in the external editor, Ctrl+Shift+E choose
-  which format to edit first (see "Editing items"), Esc close.
+  pin, Ctrl+T tags, Del delete, Ctrl+E edit in the external editor,
+  Ctrl+Shift+E choose which format to edit first (see "Editing items"),
+  Esc close.
+- Tags: list rows show up to three tags (`#work #todo +2`) after the
+  preview. Ctrl+T opens an inline editor for the selected item (its tags as
+  chips plus a text field); it takes every key until closed:
+  - Enter adds the typed tag (surrounding spaces trimmed, by spoold too;
+    1-64 characters, no `/` or control characters, case-sensitive; a
+    rejected tag shows why in red). Enter here never pastes.
+  - Backspace on an empty field selects the last chip, a second Backspace
+    removes it; Left/Right (empty field) move the chip selection, Del
+    removes the selected chip. Holding a key never removes more than one.
+  - Esc or Ctrl+T goes back to the list (the picker stays open); Up/Down
+    and Tab do nothing while editing, Ctrl+P still pins. Clicking a row
+    closes the editor and only selects that row (it never pastes).
+  - Many chips: the strip scrolls to keep the selected chip, or the newest
+    ones next to the field, in view.
+
+  Changes (tags, pin, delete) show at once; if spoold rejects one (item
+  gone, store error) the list is reloaded, keeping the scroll position and
+  selection, and the red status line says why. Search by tag with
+  `tag:work` (`tag:"two words"`).
 - Unlock panel (history locked; the list shows this session's items):
   passphrase or security-key PIN field (Enter unlocks, Tab moves to the
   search box), "Touch your security key" with a spinner and Retry (Ctrl+R),

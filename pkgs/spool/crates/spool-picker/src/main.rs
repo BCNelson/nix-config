@@ -37,6 +37,7 @@ mod ipc;
 mod model;
 mod render;
 mod sanitize;
+mod tags;
 mod theme;
 mod thumb;
 

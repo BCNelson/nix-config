@@ -3,11 +3,13 @@
 //! * `Channel::connect` does the `Hello` handshake (the picker speaks first),
 //!   then starts a reader thread (frames -> calloop channel) and a writer
 //!   thread (so a slow daemon never blocks the UI thread).
-//! * `Correlator` numbers `Query`/`Thumb` requests (`seq`, picker protocol
-//!   v3) and matches the daemon's answers by `seq`, in any order: a page
-//!   whose `seq` is not the latest query is stale and dropped.
+//! * `Correlator` numbers `Query`/`Thumb`/edit requests (`seq`, picker
+//!   protocol v3) and matches the daemon's answers by `seq`, in any order: a
+//!   page whose `seq` is not the latest query is stale and dropped; an error
+//!   for an edit (`Pin`/`Delete`/`Tag`, answered only on failure) names the
+//!   item it was for.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufReader, BufWriter, Write};
 use std::os::fd::OwnedFd;
 use std::os::unix::net::UnixStream;
@@ -22,6 +24,10 @@ use spool_proto::{
 
 /// Rows requested per `Query`.
 pub const PAGE_SIZE: u32 = 50;
+/// Largest `limit` spoold serves in one page (it caps longer requests).
+pub const MAX_PAGE: u32 = 499;
+/// Edits remembered for matching their (failure-only) answers.
+const EDITS_REMEMBERED: usize = 256;
 
 /// What the UI thread receives.
 #[derive(Debug)]
@@ -119,6 +125,12 @@ pub enum Event {
   ThumbFailed {
     id: WireItemId,
   },
+  /// A `Pin`/`Delete`/`Tag` for item `id` failed.
+  EditFailed {
+    id: WireItemId,
+    code: PickerErrorCode,
+    message: String,
+  },
   /// The current query failed (bad syntax, ...).
   QueryFailed {
     code: PickerErrorCode,
@@ -158,6 +170,9 @@ pub struct Correlator {
   /// The latest query, while unanswered. Anything else is stale.
   latest: Option<PendingQuery>,
   thumbs: HashMap<u32, WireItemId>,
+  /// Recent edits (`seq`, item). Successes are never answered, so this is
+  /// a bounded window rather than a set of pending requests.
+  edits: VecDeque<(u32, WireItemId)>,
 }
 
 impl Correlator {
@@ -175,6 +190,43 @@ impl Correlator {
   /// Next page of the current search (only after the previous page landed).
   pub fn more(&mut self, offset: u32) -> PickerReq {
     self.page_req(offset)
+  }
+
+  /// The current search again from the top, `limit` rows (capped at
+  /// [`MAX_PAGE`]): a reload after a failed edit. Pages in flight become
+  /// stale.
+  pub fn reload(&mut self, limit: u32) -> PickerReq {
+    let mut req = self.page_req(0);
+    if let PickerReq::Query { limit: l, .. } = &mut req {
+      *l = limit.clamp(1, MAX_PAGE);
+    }
+    req
+  }
+
+  fn edit_seq(&mut self, id: WireItemId) -> u32 {
+    let seq = self.seq();
+    if self.edits.len() == EDITS_REMEMBERED {
+      self.edits.pop_front();
+    }
+    self.edits.push_back((seq, id));
+    seq
+  }
+
+  pub fn pin(&mut self, id: WireItemId, on: bool) -> PickerReq {
+    PickerReq::Pin { id, on, seq: self.edit_seq(id) }
+  }
+
+  pub fn delete(&mut self, id: WireItemId) -> PickerReq {
+    PickerReq::Delete { id, seq: self.edit_seq(id) }
+  }
+
+  pub fn tag(&mut self, id: WireItemId, tag: String, on: bool) -> PickerReq {
+    PickerReq::Tag { id, tag, on, seq: self.edit_seq(id) }
+  }
+
+  fn take_edit(&mut self, seq: u32) -> Option<WireItemId> {
+    let i = self.edits.iter().position(|(s, _)| *s == seq)?;
+    self.edits.remove(i).map(|(_, id)| id)
   }
 
   /// Whether the latest query is still unanswered.
@@ -232,6 +284,8 @@ impl Correlator {
           Event::QueryFailed { code, message }
         } else if let Some(id) = self.thumbs.remove(&seq) {
           Event::ThumbFailed { id }
+        } else if let Some(id) = self.take_edit(seq) {
+          Event::EditFailed { id, code, message }
         } else {
           Event::Stale
         }
@@ -377,6 +431,67 @@ mod tests {
   }
 
   #[test]
+  fn edit_errors_name_their_item_and_others_are_notices() {
+    let mut a = Correlator::default();
+    let pin = a.pin(1, true);
+    let del = a.delete(2);
+    let tag = a.tag(3, "work".into(), false);
+    let q = a.new_query("");
+    let seq = |r: &PickerReq| match r {
+      PickerReq::Pin { seq, .. } | PickerReq::Delete { seq, .. } | PickerReq::Tag { seq, .. } => {
+        *seq
+      }
+      other => seq_of(other),
+    };
+    assert!(matches!(tag, PickerReq::Tag { id: 3, ref tag, on: false, .. } if tag == "work"));
+    // One counter for everything.
+    let all = [seq(&pin), seq(&del), seq(&tag), seq(&q)];
+    assert!(all.windows(2).all(|w| w[0] < w[1]), "{all:?}");
+    let err = |seq| PickerEvt::Error {
+      seq: Some(seq),
+      code: PickerErrorCode::NotFound,
+      message: "gone".into(),
+    };
+    assert_eq!(
+      a.on_event(err(seq(&del))),
+      Event::EditFailed { id: 2, code: PickerErrorCode::NotFound, message: "gone".into() }
+    );
+    assert_eq!(a.on_event(err(seq(&del))), Event::Stale, "answered once");
+    assert!(matches!(a.on_event(err(seq(&tag))), Event::EditFailed { id: 3, .. }));
+    assert!(matches!(a.on_event(err(seq(&pin))), Event::EditFailed { id: 1, .. }));
+    // The query is still the live one; an error without seq (e.g. a failed
+    // select) is a plain notice, never an edit failure.
+    assert!(a.query_in_flight());
+    assert!(matches!(
+      a.on_event(PickerEvt::Error {
+        seq: None,
+        code: PickerErrorCode::Unavailable,
+        message: "m".into()
+      }),
+      Event::Notice { .. }
+    ));
+    // The window of remembered edits is bounded.
+    let first = a.pin(9, true);
+    for _ in 0..EDITS_REMEMBERED {
+      a.pin(10, true);
+    }
+    assert_eq!(a.edits.len(), EDITS_REMEMBERED);
+    assert_eq!(a.on_event(err(seq(&first))), Event::Stale);
+  }
+
+  #[test]
+  fn reload_keeps_the_query_and_caps_the_limit() {
+    let mut a = Correlator::default();
+    let q = a.new_query("abc");
+    let r = a.reload(120);
+    assert!(matches!(r, PickerReq::Query { ref q, offset: 0, limit: 120, .. } if q == "abc"));
+    // The reload supersedes the earlier query.
+    assert_eq!(a.on_event(page(seq_of(&q), 0, vec![item(1)], false)), Event::Stale);
+    assert!(matches!(a.on_event(page(seq_of(&r), 0, vec![item(1)], true)), Event::Page { .. }));
+    assert!(matches!(a.reload(10_000), PickerReq::Query { limit: MAX_PAGE, .. }));
+  }
+
+  #[test]
   fn passthrough_events() {
     let mut a = Correlator::default();
     assert_eq!(a.on_event(PickerEvt::Hide), Event::Hide);
@@ -421,12 +536,12 @@ mod tests {
       assert!(h.is_picker_compatible());
       write_frame(&mut s, &Hello::picker()).unwrap();
       let req: PickerReq = read_frame(&mut s).unwrap();
-      assert_eq!(req, PickerReq::Delete { id: 5 });
+      assert_eq!(req, PickerReq::Delete { id: 5, seq: 1 });
       write_frame(&mut s, &PickerEvt::Hide).unwrap();
       // Close -> picker sees Closed.
     });
     let (chan, rx) = Channel::connect(OwnedFd::from(ours)).unwrap();
-    chan.send(PickerReq::Delete { id: 5 });
+    chan.send(PickerReq::Delete { id: 5, seq: 1 });
     daemon.join().unwrap();
     let mut got = Vec::new();
     // calloop channels implement a blocking-free try_recv via the inner mpsc.

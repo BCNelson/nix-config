@@ -53,6 +53,27 @@ pub fn preview_text(p: &ItemPreview) -> String {
   }
 }
 
+/// Tags shown on a list row (more are summarized as `+N`).
+pub const ROW_TAGS: usize = 3;
+/// Characters per tag on a list row.
+pub const ROW_TAG_CHARS: usize = 16;
+
+/// Compact, sanitized tag label for a list row: `#work #todo +2`; empty
+/// without tags.
+pub fn tags_label(tags: &[String]) -> String {
+  let mut out: Vec<String> =
+    tags.iter().take(ROW_TAGS).map(|t| format!("#{}", sanitize_line(t, ROW_TAG_CHARS))).collect();
+  if tags.len() > ROW_TAGS {
+    out.push(format!("+{}", tags.len() - ROW_TAGS));
+  }
+  out.join(" ")
+}
+
+/// Sanitized text of one tag chip in the tag editor.
+pub fn chip_text(tag: &str) -> String {
+  sanitize_line(tag, spool_proto::MAX_TAG_CHARS)
+}
+
 pub fn human_size(n: u64) -> String {
   match n {
     0..=1023 => format!("{n} B"),
@@ -107,6 +128,19 @@ mod tests {
     assert_eq!(image_mime(&p(PreviewKind::Image, &["image/jpeg"], "")), Some("image/jpeg"));
     assert_eq!(image_mime(&p(PreviewKind::Image, &["image/gif"], "")), None);
     assert_eq!(badge(&p(PreviewKind::Image, &["image/gif"], "")), "IMAGE");
+  }
+
+  #[test]
+  fn row_tag_labels() {
+    let t = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(tags_label(&[]), "");
+    assert_eq!(tags_label(&t(&["work"])), "#work");
+    assert_eq!(tags_label(&t(&["a", "b", "c"])), "#a #b #c");
+    assert_eq!(tags_label(&t(&["a", "b", "c", "d", "e"])), "#a #b #c +2");
+    // Long tags are cut, invisible/bidi characters made visible.
+    assert_eq!(tags_label(&t(&["abcdefghijklmnopqrstuvwxyz"])), "#abcdefghijklmnop…");
+    assert_eq!(tags_label(&t(&["a\u{202E}b"])), "#a⟪RLO⟫b");
+    assert_eq!(chip_text("x\ty"), "x␉y");
   }
 
   #[test]

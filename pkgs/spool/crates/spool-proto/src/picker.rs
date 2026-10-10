@@ -10,13 +10,15 @@
 //!
 //! # Request ids
 //!
-//! [`PickerReq::Query`] and [`PickerReq::Thumb`] carry a picker-chosen `seq`
-//! (one counter for both, strictly increasing, wraps never in practice) that
-//! the daemon echoes in the answer ([`PickerEvt::Page`], [`PickerEvt::Thumb`])
-//! or in a [`PickerEvt::Error`]. Answers may arrive in any order; the picker
-//! drops pages whose `seq` is not its latest query (typing outran the
-//! search). Every `Query`/`Thumb` gets exactly one answer: the page/thumb, or
-//! an `Error` with that `seq`.
+//! [`PickerReq::Query`], [`PickerReq::Thumb`] and the edits
+//! ([`PickerReq::Pin`], [`PickerReq::Delete`], [`PickerReq::Tag`]) carry a
+//! picker-chosen `seq` (one counter for all, strictly increasing, wraps never
+//! in practice) that the daemon echoes in the answer ([`PickerEvt::Page`],
+//! [`PickerEvt::Thumb`]) or in a [`PickerEvt::Error`]. Answers may arrive in
+//! any order; the picker drops pages whose `seq` is not its latest query
+//! (typing outran the search). Every `Query`/`Thumb` gets exactly one answer:
+//! the page/thumb, or an `Error` with that `seq`. An edit is answered only
+//! when it fails: an `Error` with its `seq`.
 //!
 //! # Unlock flow
 //!
@@ -40,7 +42,8 @@ use crate::{Hello, WireItemId};
 
 /// Picker channel protocol version carried in the picker [`Hello`]. Bump on
 /// any incompatible change to the types in this module. v1 was the id-less
-/// M4 draft (never shipped to spoold); v3 added [`PickerReq::Edit`].
+/// M4 draft (never shipped to spoold); v3 added [`PickerReq::Edit`] and
+/// `seq` to `Pin`, `Delete` and `Tag` so their errors can be matched.
 pub const PICKER_PROTO_VERSION: u16 = 3;
 
 impl Hello {
@@ -83,17 +86,24 @@ pub enum PickerReq {
     id: WireItemId,
     mode: SelectMode,
   },
+  /// Pin / unpin. Answered only on failure (an [`PickerEvt::Error`] with
+  /// this `seq`), like `Delete` and `Tag`.
   Pin {
     id: WireItemId,
     on: bool,
+    seq: u32,
   },
   Delete {
     id: WireItemId,
+    seq: u32,
   },
+  /// Add (`on`) or remove a tag. `tag` must pass [`check_tag`]; the daemon
+  /// stores its normalized (trimmed) form.
   Tag {
     id: WireItemId,
     tag: String,
     on: bool,
+    seq: u32,
   },
   /// Unlock the encrypted history. `secret` is the passphrase
   /// ([`UnlockProvider::Passphrase`]), the FIDO2 PIN ([`UnlockProvider::Fido2`]
@@ -338,6 +348,50 @@ pub enum PreviewKind {
   Other,
 }
 
+/// Longest tag (in characters) a [`PickerReq::Tag`] may carry.
+pub const MAX_TAG_CHARS: usize = 64;
+
+/// Why a tag is not acceptable for [`PickerReq::Tag`] (see [`check_tag`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagError {
+  /// Empty or only whitespace.
+  Empty,
+  /// More than [`MAX_TAG_CHARS`] characters.
+  TooLong,
+  /// Contains a control character or `/` (tags are search facets).
+  BadChar,
+}
+
+impl TagError {
+  /// Short user-facing text (never echoes the tag).
+  pub const fn message(self) -> &'static str {
+    match self {
+      TagError::Empty => "A tag cannot be empty",
+      TagError::TooLong => "A tag can be at most 64 characters",
+      TagError::BadChar => "A tag cannot contain '/' or control characters",
+    }
+  }
+}
+
+/// The tag rule shared by daemon and picker: surrounding whitespace is
+/// trimmed, then the tag must be 1..=[`MAX_TAG_CHARS`] characters with no
+/// control characters and no `/`. Returns the normalized (trimmed) tag, which
+/// is what gets stored; case is kept. The picker checks it before sending,
+/// so the user sees why at once; the daemon checks it again and stores the
+/// result.
+pub fn check_tag(tag: &str) -> Result<&str, TagError> {
+  let t = tag.trim();
+  if t.is_empty() {
+    Err(TagError::Empty)
+  } else if t.chars().count() > MAX_TAG_CHARS {
+    Err(TagError::TooLong)
+  } else if t.chars().any(|c| c.is_control() || c == '/') {
+    Err(TagError::BadChar)
+  } else {
+    Ok(t)
+  }
+}
+
 /// One row in the picker list. `preview` is a short, already-sanitized
 /// excerpt (never the full content).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -404,9 +458,9 @@ mod tests {
       PickerReq::Select { id: 1, mode: SelectMode::Copy },
       PickerReq::Select { id: 1, mode: SelectMode::Paste },
       PickerReq::Select { id: 1, mode: SelectMode::PastePlain },
-      PickerReq::Pin { id: 2, on: true },
-      PickerReq::Delete { id: 2 },
-      PickerReq::Tag { id: 2, tag: "x".into(), on: false },
+      PickerReq::Pin { id: 2, on: true, seq: 12 },
+      PickerReq::Delete { id: 2, seq: 13 },
+      PickerReq::Tag { id: 2, tag: "x".into(), on: false, seq: 14 },
       PickerReq::Unlock { provider: UnlockProvider::Passphrase, secret: secret("correct horse") },
       PickerReq::Unlock { provider: UnlockProvider::Fido2, secret: secret("1234") },
       PickerReq::Unlock { provider: UnlockProvider::Fido2, secret: None },
@@ -491,6 +545,28 @@ mod tests {
     match back {
       PickerReq::Unlock { secret: Some(s), .. } => assert_eq!(s.expose(), "hunter2"),
       other => panic!("{other:?}"),
+    }
+  }
+
+  #[test]
+  fn tag_rules() {
+    assert_eq!(check_tag("work"), Ok("work"));
+    assert_eq!(check_tag("two words"), Ok("two words"));
+    assert_eq!(check_tag("Ünïcode"), Ok("Ünïcode"), "case is kept");
+    let max = "é".repeat(MAX_TAG_CHARS);
+    assert_eq!(check_tag(&max), Ok(max.as_str()), "characters, not bytes");
+    // Normalized: surrounding whitespace is trimmed before the checks.
+    assert_eq!(check_tag("  pad\t"), Ok("pad"));
+    let padded = format!(" {max} ");
+    assert_eq!(check_tag(&padded), Ok(max.as_str()), "trimmed before the length check");
+    assert_eq!(check_tag(""), Err(TagError::Empty));
+    assert_eq!(check_tag(" \t "), Err(TagError::Empty));
+    assert_eq!(check_tag(&"x".repeat(MAX_TAG_CHARS + 1)), Err(TagError::TooLong));
+    assert_eq!(check_tag("a/b"), Err(TagError::BadChar));
+    assert_eq!(check_tag("a\nb"), Err(TagError::BadChar));
+    assert_eq!(check_tag("a\u{85}b"), Err(TagError::BadChar), "C1 control");
+    for e in [TagError::Empty, TagError::TooLong, TagError::BadChar] {
+      assert!(!e.message().is_empty());
     }
   }
 

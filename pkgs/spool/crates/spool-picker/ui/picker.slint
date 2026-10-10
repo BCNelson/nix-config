@@ -21,6 +21,8 @@ export struct Row {
     badge: string,
     time: string,
     pinned: bool,
+    // Compact tag label ("#work #todo +2"), "" without tags.
+    tags: string,
     is-image: bool,
     thumb: image,
     has-thumb: bool,
@@ -69,6 +71,36 @@ export component PickerWindow inherits Window {
     in property <[string]> edit-formats;
     in property <int> edit-current;
 
+    // ---- tag editor (Ctrl+T; keys are interpreted in Rust, see tags.rs)
+    in property <bool> tag-editing;
+    // Preview of the item being tagged.
+    in property <string> tag-item;
+    in property <[string]> tag-chips;
+    // Selected chip (-1 = none): Backspace / Del removes it.
+    in property <int> tag-chip: -1;
+    in-out property <string> tag-text;
+    in property <int> tag-focus-req;
+    in property <string> tag-error;
+    // Chip strip scroll offset wanted: kept so the selected chip, or the end
+    // next to the field when none is selected, is visible. Clamped where used.
+    property <length> chip-scroll: 1000000px;
+    changed tag-chip => {
+        if (root.tag-chip < 0) {
+            root.chip-scroll = 1000000px;
+        }
+    }
+    // Scroll the chip strip (viewport `view` wide, clamped offset `off`) the
+    // least needed to show [x, x + w].
+    function reveal-chip(x: length, w: length, off: length, view: length) {
+        if (x < off) {
+            root.chip-scroll = x;
+        } else if (x + w > off + view) {
+            root.chip-scroll = x + w - view;
+        } else {
+            root.chip-scroll = off;
+        }
+    }
+
     callback edited(string);
     callback clicked(int);
     callback scrolled(int, int);
@@ -86,6 +118,11 @@ export component PickerWindow inherits Window {
     }
     public function scroll-top() {
         list.content-y = 0;
+    }
+    // Put row `r` at the top (as far as the list allows).
+    public function scroll-to-row(r: int) {
+        list.content-y = -min(max(0, r) * root.row-height, max(0px, list.content-height - list.height));
+        root.report-range();
     }
     public function ensure-visible() {
         if (root.current * root.row-height < -list.content-y) {
@@ -272,6 +309,124 @@ export component PickerWindow inherits Window {
                 }
             }
 
+            if root.tag-editing: Rectangle {
+                vertical-stretch: 0;
+                background: Theme.surface;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 6px;
+
+                    Text {
+                        text: "Tags · " + root.tag-item;
+                        color: Theme.dim;
+                        font-size: Theme.font-size * 0.9;
+                        overflow: elide;
+                    }
+
+                    // Chips; when they overflow, the strip scrolls so the
+                    // selected chip (or, with none selected, the newest ones
+                    // next to the field) is visible.
+                    if root.tag-chips.length > 0: strip := Rectangle {
+                        property <length> off: clamp(root.chip-scroll, 0px, max(0px, chips.preferred-width - self.width));
+                        height: 22px;
+                        min-width: 0px;
+                        clip: true;
+                        chips := HorizontalLayout {
+                            x: -strip.off;
+                            width: self.preferred-width;
+                            spacing: 4px;
+                            for chip[i] in root.tag-chips: Rectangle {
+                                property <bool> sel: i == root.tag-chip;
+                                // Layout positions are only known here; follow
+                                // them while this chip is selected.
+                                changed sel => {
+                                    if (self.sel) {
+                                        root.reveal-chip(self.x, self.width, strip.off, strip.width);
+                                    }
+                                }
+                                changed x => {
+                                    if (self.sel) {
+                                        root.reveal-chip(self.x, self.width, strip.off, strip.width);
+                                    }
+                                }
+                                width: chip-text.preferred-width + 12px;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: i == root.tag-chip ? Theme.negative : Theme.accent;
+                                background: i == root.tag-chip ? Theme.negative : transparent;
+                                chip-text := Text {
+                                    text: chip;
+                                    font-size: Theme.font-size * 0.85;
+                                    color: i == root.tag-chip ? Theme.sel-fg : Theme.accent;
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 30px;
+                        background: Theme.bg;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Theme.accent;
+
+                        Text {
+                            x: 10px;
+                            width: parent.width - 120px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: "Add a tag";
+                            color: Theme.dim;
+                            visible: root.tag-text == "";
+                        }
+
+                        tag-input := TextInput {
+                            property <int> req: root.tag-focus-req;
+                            x: 10px;
+                            width: parent.width - 120px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            single-line: true;
+                            color: Theme.fg;
+                            selection-background-color: Theme.sel-bg;
+                            selection-foreground-color: Theme.sel-fg;
+                            text <=> root.tag-text;
+                            changed req => {
+                                self.focus();
+                            }
+                            init => {
+                                if (root.shown) {
+                                    self.focus();
+                                }
+                            }
+                        }
+
+                        Text {
+                            x: parent.width - 110px;
+                            width: 100px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            text: "Enter ↵ add";
+                            color: Theme.dim;
+                            font-size: Theme.font-size * 0.85;
+                        }
+                    }
+
+                    if root.tag-error != "": Text {
+                        text: root.tag-error;
+                        color: Theme.negative;
+                        overflow: elide;
+                    }
+                }
+            }
+
             Rectangle {
               vertical-stretch: 1;
               list := Flickable {
@@ -294,6 +449,8 @@ export component PickerWindow inherits Window {
                     background: i == root.current ? Theme.sel-bg : ta.has-hover ? Theme.surface : transparent;
                     border-radius: 6px;
 
+                    // Rust decides what a click does (paste, or only select
+                    // while the tag editor is open).
                     ta := TouchArea {
                         clicked => {
                             root.current = i;
@@ -336,6 +493,16 @@ export component PickerWindow inherits Window {
                             overflow: elide;
                             wrap: no-wrap;
                             color: i == root.current ? Theme.sel-fg : Theme.fg;
+                        }
+
+                        if row.tags != "": Text {
+                            max-width: 200px;
+                            vertical-alignment: center;
+                            text: row.tags;
+                            font-size: Theme.font-size * 0.8;
+                            overflow: elide;
+                            wrap: no-wrap;
+                            color: i == root.current ? Theme.sel-fg : Theme.accent;
                         }
 
                         if row.pinned: Text {
@@ -396,7 +563,7 @@ export component PickerWindow inherits Window {
                 }
                 Text {
                     horizontal-alignment: right;
-                    text: root.secret-focused ? "Enter unlock · Tab search · Esc close" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Del delete";
+                    text: root.tag-editing ? "Enter add · Backspace/Del remove · Left/Right choose · Esc back" : root.secret-focused ? "Enter unlock · Tab search · Esc close" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Ctrl+T tags · Ctrl+E edit · Del delete";
                     color: Theme.dim;
                     font-size: Theme.font-size * 0.8;
                 }

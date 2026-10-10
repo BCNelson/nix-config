@@ -40,9 +40,9 @@ pub use framing::{FrameError, MAX_FRAME, decode_payload, encode_frame, read_fram
 #[cfg(feature = "tokio")]
 pub use framing::{read_frame_async, write_frame_async};
 pub use picker::{
-  CursorPos, HideReason, ItemPreview, PICKER_PROTO_VERSION, PickerErrorCode, PickerEvt, PickerReq,
-  PreviewKind, QueryFilters, SelectMode, UnlockFailReason, UnlockPrompt, UnlockProvider,
-  UnlockSecret,
+  CursorPos, HideReason, ItemPreview, MAX_TAG_CHARS, PICKER_PROTO_VERSION, PickerErrorCode,
+  PickerEvt, PickerReq, PreviewKind, QueryFilters, SelectMode, TagError, UnlockFailReason,
+  UnlockPrompt, UnlockProvider, UnlockSecret, check_tag,
 };
 pub use public::{Capabilities, ErrorCode, PauseState, PublicReq, PublicResp, StatusInfo};
 
