@@ -1,4 +1,4 @@
-//! Picker channel messages (protocol v2, see [`PICKER_PROTO_VERSION`]).
+//! Picker channel messages (protocol v3, see [`PICKER_PROTO_VERSION`]).
 //!
 //! The daemon spawns the picker and talks to it over a private socketpair, so
 //! these never travel over the public socket. The picker channel has its own
@@ -40,8 +40,8 @@ use crate::{Hello, WireItemId};
 
 /// Picker channel protocol version carried in the picker [`Hello`]. Bump on
 /// any incompatible change to the types in this module. v1 was the id-less
-/// M4 draft (never shipped to spoold).
-pub const PICKER_PROTO_VERSION: u16 = 2;
+/// M4 draft (never shipped to spoold); v3 added [`PickerReq::Edit`].
+pub const PICKER_PROTO_VERSION: u16 = 3;
 
 impl Hello {
   /// `Hello` for the picker channel ([`PICKER_PROTO_VERSION`]).
@@ -110,6 +110,18 @@ pub enum PickerReq {
   /// picker's visibility.
   Hidden {
     reason: HideReason,
+  },
+  /// Edit item `id`'s representation `mime` in the configured external
+  /// editor (Ctrl+E: the preferred representation; Ctrl+Shift+E: one the
+  /// user chose). The picker has already hidden itself
+  /// (`Hidden{reason: Selected}` precedes this) and never receives the
+  /// content: the daemon writes it to a private temp file, starts the
+  /// editor and stores accepted saves as a new item. Failures come back as
+  /// [`PickerEvt::Error`] with `seq: None` (and as a desktop notification,
+  /// since the picker is hidden). Appended in v3.
+  Edit {
+    id: WireItemId,
+    mime: String,
   },
 }
 
@@ -399,6 +411,7 @@ mod tests {
       PickerReq::Unlock { provider: UnlockProvider::Fido2, secret: secret("1234") },
       PickerReq::Unlock { provider: UnlockProvider::Fido2, secret: None },
       PickerReq::Unlock { provider: UnlockProvider::KWallet, secret: None },
+      PickerReq::Edit { id: 4, mime: "text/html".into() },
     ];
     let reasons = [
       HideReason::Esc,

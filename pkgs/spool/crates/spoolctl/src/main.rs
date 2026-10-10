@@ -1,7 +1,7 @@
 //! `spoolctl`: command-line client for `spoold`.
 //!
 //! Exit codes: 0 success, 1 error (daemon error/unreachable), 2 usage
-//! (clap), 3 nothing to print (`current`: empty history; `pick`: cancelled).
+//! (clap), 3 nothing to print (`current`: empty history; `pick` / `edit`: cancelled).
 
 mod client;
 mod escape;
@@ -49,6 +49,19 @@ pub enum Command {
     /// bidi and zero-width characters when stdout is a TTY).
     #[arg(long)]
     raw: bool,
+  },
+  /// Open the picker and edit the item you choose in your external editor
+  /// (`[editor]` in config.toml; Ctrl+Shift+E in the picker picks another
+  /// format). Each save is stored as a new item, and the last one goes on
+  /// the clipboard when the editor closes; the original is never changed.
+  /// Returns once the editor started (Esc cancels, exit 3).
+  Edit,
+  /// Start writing a new item in your external editor (an empty file).
+  /// Returns once the editor started.
+  New {
+    /// MIME type of the new item.
+    #[arg(long, default_value = DEFAULT_MIME)]
+    mime: String,
   },
   /// Print the current (newest) clipboard item.
   Current {
@@ -106,6 +119,8 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
     Command::Current { .. } => PublicReq::Current,
     Command::Show => PublicReq::Show,
     Command::Pick { .. } => PublicReq::Pick,
+    Command::Edit => PublicReq::Edit,
+    Command::New { mime } => PublicReq::New { mime: mime.clone() },
     Command::Status { .. } => PublicReq::Status,
     Command::Pause { for_secs } => PublicReq::Pause { secs: *for_secs },
     Command::Resume => PublicReq::Resume,
@@ -113,7 +128,7 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
   let mut client = client::Client::connect()?;
   let resp = match req {
     // No reply timeout: the user is choosing.
-    PublicReq::Pick => client.request_untimed(&req)?,
+    PublicReq::Pick | PublicReq::Edit => client.request_untimed(&req)?,
     _ => client.request(&req)?,
   };
   if let PublicResp::Error { code, message } = &resp {
@@ -123,10 +138,22 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
     anyhow::bail!("spoold has no picker (is spool-picker installed on its PATH?)");
   }
   match cli.command {
-    Command::Copy { .. } | Command::Resume | Command::Pause { .. } | Command::Show => {
+    Command::Copy { .. }
+    | Command::Resume
+    | Command::Pause { .. }
+    | Command::Show
+    | Command::New { .. } => {
       expect_ok(resp)?;
       Ok(ExitCode::SUCCESS)
     }
+    Command::Edit => match resp {
+      PublicResp::Ok => Ok(ExitCode::SUCCESS),
+      PublicResp::Cancelled => {
+        eprintln!("spoolctl: cancelled");
+        Ok(ExitCode::from(3))
+      }
+      other => anyhow::bail!("unexpected response from spoold: {}", resp_name(&other)),
+    },
     Command::Current { raw } => match resp {
       PublicResp::Current { mime, data } => {
         print_current(&mime, &data, raw, std::io::stdout().is_terminal())?;
@@ -339,6 +366,17 @@ mod tests {
     assert!(matches!(c.command, Command::Pick { raw: true }));
     let c = Cli::try_parse_from(["spoolctl", "show"]).unwrap();
     assert!(matches!(c.command, Command::Show));
+    let c = Cli::try_parse_from(["spoolctl", "edit"]).unwrap();
+    assert!(matches!(c.command, Command::Edit));
+    // There is deliberately no way to name an item: the public socket
+    // cannot read history, the user picks it in the picker.
+    assert!(Cli::try_parse_from(["spoolctl", "edit", "12"]).is_err());
+    assert!(Cli::try_parse_from(["spoolctl", "edit", "--id", "12"]).is_err());
+    let c = Cli::try_parse_from(["spoolctl", "new"]).unwrap();
+    assert!(matches!(c.command, Command::New { ref mime } if mime == DEFAULT_MIME));
+    let c = Cli::try_parse_from(["spoolctl", "new", "--mime", "text/html"]).unwrap();
+    assert!(matches!(c.command, Command::New { ref mime } if mime == "text/html"));
+    assert!(Cli::try_parse_from(["spoolctl", "new", "file.txt"]).is_err());
     let c = Cli::try_parse_from(["spoolctl", "status", "--json"]).unwrap();
     assert!(matches!(c.command, Command::Status { json: true }));
     assert!(Cli::try_parse_from(["spoolctl", "pause", "--for", "x"]).is_err());

@@ -30,6 +30,22 @@ pub enum PublicReq {
   Resume,
   /// Answers [`PublicResp::Status`].
   Status,
+  /// Show the picker in "pick to edit" mode: the item the user picks is
+  /// opened in the configured external editor (its preferred representation;
+  /// Ctrl+Shift+E in the picker chooses another). Answers [`PublicResp::Ok`]
+  /// once the editor was started, [`PublicResp::Cancelled`] when the picker
+  /// was closed without a choice, or an error (no editor configured for the
+  /// type, too many edit sessions, ...). There is deliberately no way to
+  /// name an item here: the public socket cannot read history. Without a
+  /// picker: [`PublicResp::NotYetImplemented`]. Rate-limited like `Pick`.
+  /// (Appended: postcard enum tags are positional.)
+  Edit,
+  /// Start an editing session on an empty file of type `mime` (e.g.
+  /// `text/plain;charset=utf-8`): each accepted save is stored as a new
+  /// item, the last one is put on the clipboard when the editor exits.
+  /// Answers [`PublicResp::Ok`] once the editor was started. Rate-limited
+  /// like `Show`. (Appended.)
+  New { mime: String },
 }
 
 /// Response from the daemon to a public client.

@@ -1,4 +1,4 @@
-//! Interactive unlock from the picker's unlock panel (picker protocol v2,
+//! Interactive unlock from the picker's unlock panel (picker protocol v3,
 //! `PickerReq::Unlock`).
 //!
 //! The background key flow ([`crate::keyflow`]) only ever uses the

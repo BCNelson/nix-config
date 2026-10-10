@@ -242,31 +242,34 @@ async fn connection_loop(
     };
     tracing::debug!(pid = ?peer.pid, req = req_name(&req), "request");
 
-    let resp = if matches!(req, PublicReq::Show | PublicReq::Pick)
-      && !limiter.lock().unwrap_or_else(|p| p.into_inner()).allow(Instant::now())
-    {
-      error(ErrorCode::RateLimited, "too many Show/Pick requests; slow down")
-    } else {
-      let is_pick = req == PublicReq::Pick;
-      let (reply, mut rx) = oneshot::channel();
-      if requests.send(Request::Public { req, peer, reply }).await.is_err() {
-        let _ =
-          write_frame_async(stream, &error(ErrorCode::Unavailable, "daemon is shutting down"))
-            .await;
-        return Err(ConnError::Shutdown);
-      }
-      if is_pick {
-        // The user may take a while; no idle timeout. A client that goes
-        // away (or talks out of turn) drops `rx`, so the orchestrator falls
-        // back to a normal selection.
-        tokio::select! {
-          r = &mut rx => r.unwrap_or_else(|_| error(ErrorCode::Internal, "request was dropped")),
-          () = client_gone(stream) => return Err(ConnError::Gone),
-        }
+    // `Edit` opens the picker and `New` an editor: same budget as Show/Pick.
+    let resp =
+      if matches!(req, PublicReq::Show | PublicReq::Pick | PublicReq::Edit | PublicReq::New { .. })
+        && !limiter.lock().unwrap_or_else(|p| p.into_inner()).allow(Instant::now())
+      {
+        error(ErrorCode::RateLimited, "too many Show/Pick/Edit requests; slow down")
       } else {
-        rx.await.unwrap_or_else(|_| error(ErrorCode::Internal, "request was dropped"))
-      }
-    };
+        // `Edit` waits for the user's choice like `Pick`.
+        let is_pick = matches!(req, PublicReq::Pick | PublicReq::Edit);
+        let (reply, mut rx) = oneshot::channel();
+        if requests.send(Request::Public { req, peer, reply }).await.is_err() {
+          let _ =
+            write_frame_async(stream, &error(ErrorCode::Unavailable, "daemon is shutting down"))
+              .await;
+          return Err(ConnError::Shutdown);
+        }
+        if is_pick {
+          // The user may take a while; no idle timeout. A client that goes
+          // away (or talks out of turn) drops `rx`, so the orchestrator falls
+          // back to a normal selection.
+          tokio::select! {
+            r = &mut rx => r.unwrap_or_else(|_| error(ErrorCode::Internal, "request was dropped")),
+            () = client_gone(stream) => return Err(ConnError::Gone),
+          }
+        } else {
+          rx.await.unwrap_or_else(|_| error(ErrorCode::Internal, "request was dropped"))
+        }
+      };
     write_frame_async(stream, &resp).await?;
   }
 }
@@ -302,6 +305,8 @@ pub fn req_name(req: &PublicReq) -> &'static str {
     PublicReq::Pause { .. } => "Pause",
     PublicReq::Resume => "Resume",
     PublicReq::Status => "Status",
+    PublicReq::Edit => "Edit",
+    PublicReq::New { .. } => "New",
   }
 }
 

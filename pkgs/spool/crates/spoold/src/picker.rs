@@ -1,4 +1,4 @@
-//! The resident picker: spoold's side of picker protocol v2
+//! The resident picker: spoold's side of picker protocol v3
 //! (INTERFACES.md "Picker channel").
 //!
 //! # Launch
@@ -19,7 +19,7 @@
 //!   `SPOOL_PICKER_PRERENDER` (`[picker] prerender`),
 //! - stdin/stdout `/dev/null`, stderr inherited (the journal).
 //!
-//! The picker sends `Hello{proto: 2}` first; the host answers
+//! The picker sends `Hello{proto: 3}` first; the host answers
 //! `Hello::picker()` and closes after it on a mismatch (and stops
 //! restarting: a version mismatch does not heal).
 //!
@@ -42,7 +42,9 @@
 //! - `Select` -> `Request::Select` (the picker already hid itself);
 //!   `Pin`/`Delete`/`Tag` -> `Request::Edit` (the store's change feed
 //!   updates the index); `Hidden` -> visibility + `Request::PickerHidden`
-//!   (cancels a `spoolctl pick`). All are forwarded in arrival order.
+//!   (cancels a `spoolctl pick`); `Edit{id, mime}` -> `Request::EditItem`
+//!   (external editor, [`crate::editor`]; a failure comes back as
+//!   `Error{seq: None}`). All are forwarded in arrival order.
 //! - Pushed: `Show`/`Hide` (orchestrator), `NewItem` (stored clipboard
 //!   items), `IndexProgress` (index rebuild), `Locked{prompts}` /
 //!   `Unlocked` (key state; prompts from `keyslots.json`, see
@@ -81,6 +83,7 @@ use tokio::net::unix::OwnedReadHalf;
 use tokio::sync::{mpsc, oneshot, watch};
 
 use crate::autopaste::{LockView, PickerError, PickerLauncher, SelectError, ShowContext};
+use crate::editor::EditFailKind;
 use crate::index::{self, IndexStatus, SearchError};
 use crate::keyflow::{KeyEvent, OpenGate};
 use crate::orchestrator::{EditOp, Request};
@@ -740,6 +743,24 @@ impl Host {
         tracing::debug!(?reason, "picker hidden");
         self.shared.visible.store(false, Ordering::SeqCst);
         let _ = self.forward(Request::PickerHidden { reason }).await;
+      }
+      PickerReq::Edit { id, mime } => {
+        let (reply, rx) = oneshot::channel();
+        if !self.forward(Request::EditItem { id: ItemId(id), mime, reply }).await {
+          return;
+        }
+        let out = out.clone();
+        tokio::spawn(async move {
+          if let Ok(Err(f)) = rx.await {
+            let code = match f.kind {
+              EditFailKind::NotFound => PickerErrorCode::NotFound,
+              EditFailKind::Internal => PickerErrorCode::Internal,
+              _ => PickerErrorCode::Unavailable,
+            };
+            // Short and content-free (mime, program name at most).
+            let _ = out.send(err(None, code, &f.message));
+          }
+        });
       }
     }
   }

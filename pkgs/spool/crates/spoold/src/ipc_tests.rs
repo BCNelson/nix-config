@@ -47,7 +47,9 @@ async fn fake_backend(mut rx: mpsc::Receiver<Request>) {
         paused = PauseState::Recording;
         PublicResp::Ok
       }
-      PublicReq::Show | PublicReq::Pick => PublicResp::NotYetImplemented,
+      PublicReq::Show | PublicReq::Pick | PublicReq::Edit | PublicReq::New { .. } => {
+        PublicResp::NotYetImplemented
+      }
       PublicReq::Current => PublicResp::Empty,
       PublicReq::Copy { .. } => PublicResp::Ok,
     };

@@ -83,6 +83,7 @@ use crate::autopaste::{
   SelectOutcome, ShowContext, ShowOrigin, UnwiredPicker,
 };
 use crate::desktop::DesktopLink;
+use crate::editor::{EditReply, EditorDeps, Editors};
 use crate::index::{self, IndexActor, IndexEvent, IndexStatus, SearchError};
 use crate::ipc::RateLimiter;
 use crate::keyflow::{KeyEvent, OpenedStore};
@@ -167,6 +168,10 @@ pub enum Request {
   /// The picker hid itself (`Hidden{reason}`): cancels a pending
   /// `spoolctl pick` unless `Selected` (a `Select` follows).
   PickerHidden { reason: HideReason },
+  /// Edit item `id`'s representation `mime` in the external editor (picker
+  /// channel only; see [`crate::editor`]). The reply comes once the editor
+  /// runs (or why it does not).
+  EditItem { id: ItemId, mime: String, reply: EditReply },
 }
 
 impl std::fmt::Debug for Request {
@@ -199,6 +204,9 @@ impl std::fmt::Debug for Request {
       }
       Request::PickerHidden { reason } => {
         f.debug_struct("PickerHidden").field("reason", reason).finish()
+      }
+      Request::EditItem { id, mime, .. } => {
+        f.debug_struct("EditItem").field("id", id).field("mime", mime).finish_non_exhaustive()
       }
     }
   }
@@ -507,8 +515,13 @@ pub struct Orchestrator<W: WaylandSide = WaylandHandle> {
   pending_paste: Option<PendingPaste>,
   /// Shows made so far (see `PendingPaste::show_seq`).
   show_seq: u64,
-  /// A `spoolctl pick` waiting for the user's choice.
+  /// A `spoolctl pick` (or `spoolctl edit`, see `pick_edit`) waiting for
+  /// the user's choice.
   pick: Option<oneshot::Sender<PublicResp>>,
+  /// `pick` is a `spoolctl edit`: the chosen item is edited, not returned.
+  pick_edit: bool,
+  /// External-editor sessions ([`crate::editor`]).
+  editors: Editors,
   /// The background key flow, stopped once history is ready.
   key_task: Option<tokio::task::AbortHandle>,
   /// The lock state last reported to the picker.
@@ -558,6 +571,8 @@ impl<W: WaylandSide> Orchestrator<W> {
       pending_paste: None,
       show_seq: 0,
       pick: None,
+      pick_edit: false,
+      editors: Editors::new(None),
       key_task: None,
       last_lock: None,
     })
@@ -570,6 +585,12 @@ impl<W: WaylandSide> Orchestrator<W> {
     self.focus = link.focus;
     self.autopaste = link.autopaste;
     self.capabilities = Some(link.capabilities);
+    self
+  }
+
+  /// Enable "edit in external editor" (default: unavailable).
+  pub fn with_editor(mut self, deps: EditorDeps) -> Self {
+    self.editors = Editors::new(Some(deps));
     self
   }
 
@@ -629,6 +650,7 @@ impl<W: WaylandSide> Orchestrator<W> {
     let mut key_events = self.key_events.take();
     let mut index_events = self.index.events_rx.take().expect("run() called once");
     let mut desktop_events = self.desktop_events.take();
+    let mut editor_events = self.editors.take_events().expect("run() called once");
     if self.index.actor.is_none() {
       self.start_ram_index().await;
     }
@@ -654,12 +676,22 @@ impl<W: WaylandSide> Orchestrator<W> {
         }
         Some(ev) = index_events.recv() => self.handle_index_event(ev).await,
         Some(ev) = recv_opt(&mut desktop_events) => self.handle_desktop(ev),
+        Some(ev) = editor_events.recv() => self.on_editor_event(ev).await,
         () = sleep_until_opt(ack_deadline) => self.paste_not_confirmed(),
         req = requests.recv() => match req {
           Some(Request::Public { req: PublicReq::Pick, peer, reply }) => {
             tracing::debug!(pid = ?peer.pid, req = "Pick", "public request");
-            self.start_pick(reply);
+            self.start_pick(reply, false);
           }
+          Some(Request::Public { req: PublicReq::Edit, peer, reply }) => {
+            tracing::debug!(pid = ?peer.pid, req = "Edit", "public request");
+            self.start_pick(reply, true);
+          }
+          Some(Request::Public { req: PublicReq::New { mime }, peer, reply }) => {
+            tracing::debug!(pid = ?peer.pid, req = "New", "public request");
+            self.start_new(mime, reply).await;
+          }
+          Some(Request::EditItem { id, mime, reply }) => self.picker_edit(id, mime, reply).await,
           Some(Request::Public { req, peer, reply }) => {
             tracing::debug!(pid = ?peer.pid, req = crate::ipc::req_name(&req), "public request");
             let resp = self.handle_public(req).await;
@@ -686,6 +718,9 @@ impl<W: WaylandSide> Orchestrator<W> {
     if let Some(pick) = self.pick.take() {
       let _ = pick.send(PublicResp::Cancelled);
     }
+    // Stop watching and delete the plaintext temp files; the editors
+    // themselves (separate units) are left alone.
+    self.editors.shutdown();
     // Store first (no more feed), then the index writer commits and exits.
     // Every wait is bounded (see `crate::shutdown`): a loaded machine must
     // not turn SIGTERM into SIGKILL.
@@ -922,6 +957,7 @@ impl<W: WaylandSide> Orchestrator<W> {
     self.policy = policy;
     let ids: HashMap<ItemId, InsertOutcome> = report.ids.iter().copied().collect();
     self.state.remap_ids(|id| ids.get(&id).copied());
+    self.editors.remap_ids(|id| ids.get(&id).copied());
     self.store_kind = kind;
     self.key_state = KeyState::Ready;
     // Search: drop the RAM index, open (or rebuild) the encrypted one.
@@ -1229,8 +1265,10 @@ impl<W: WaylandSide> Orchestrator<W> {
           Err(e) => PublicResp::Error { code: ErrorCode::Unavailable, message: e.to_string() },
         }
       }
-      // Answered later, from the run loop (`start_pick`).
-      PublicReq::Pick => internal("Pick is handled by the request loop".into()),
+      // Answered later, from the run loop (`start_pick`, `start_new`).
+      PublicReq::Pick | PublicReq::Edit | PublicReq::New { .. } => {
+        internal("handled by the request loop".into())
+      }
       PublicReq::Copy { mime, data } => self.copy(mime, data, now).await,
       PublicReq::Current => match self.store.call(|s| s.latest(Selection::Clipboard)).await {
         Ok(Ok(Some(item))) => match item.preferred() {
@@ -1363,12 +1401,15 @@ impl<W: WaylandSide> Orchestrator<W> {
 
   /// `PublicReq::Pick`: open the picker in "return" mode; the reply waits
   /// for the user (rate limited by the socket layer like `Show`).
-  fn start_pick(&mut self, reply: oneshot::Sender<PublicResp>) {
+  /// `PublicReq::Edit` (`edit`): the same, but the chosen item is opened in
+  /// the external editor instead of being returned.
+  fn start_pick(&mut self, reply: oneshot::Sender<PublicResp>, edit: bool) {
     self.cancel_pick();
     match self.show(ShowOrigin::Socket, None, None) {
       Ok(()) => {
-        tracing::info!("pick requested (socket)");
+        tracing::info!(edit, "pick requested (socket)");
         self.pick = Some(reply);
+        self.pick_edit = edit;
       }
       Err(PickerError::NotWired) => {
         let _ = reply.send(PublicResp::NotYetImplemented);
@@ -1522,48 +1563,32 @@ impl<W: WaylandSide> Orchestrator<W> {
     let _ = reply.send(Ok(SelectOutcome::Returned));
   }
 
-  /// `Request::Select` (see [`Request::Select`] and [`crate::autopaste`]).
-  async fn handle_select(&mut self, id: ItemId, mode: SelectMode, reply: SelectReply) {
-    // `spoolctl pick` waiting (and still connected): the item goes there.
-    if let Some(pick) = self.pick.take() {
-      if !pick.is_closed() {
-        return self.select_return(id, mode, pick, reply).await;
-      }
-      tracing::debug!("pick client went away; selecting normally");
-    }
+  /// Put stored item `id` on the clipboard (`PastePlain`: its text reps
+  /// only) and bump its `last_used_at`; supersedes a paste waiting for an
+  /// earlier publish. Shared by `Select` and the editor's publish on exit.
+  async fn publish_item(&mut self, id: ItemId, mode: SelectMode) -> Result<(), SelectError> {
     let now = SystemTime::now();
     let item = match self.store.call(move |s| s.get(id)).await {
       Ok(Ok(Some(item))) => item,
-      Ok(Ok(None)) => {
-        let _ = reply.send(Err(SelectError::NotFound));
-        return;
-      }
-      Ok(Err(e)) => {
-        let _ = reply.send(Err(SelectError::Internal(format!("store: {e}"))));
-        return;
-      }
-      Err(e) => {
-        let _ = reply.send(Err(SelectError::Internal(e.to_string())));
-        return;
-      }
+      Ok(Ok(None)) => return Err(SelectError::NotFound),
+      Ok(Err(e)) => return Err(SelectError::Internal(format!("store: {e}"))),
+      Err(e) => return Err(SelectError::Internal(e.to_string())),
     };
     let mut reps = publish_reps(&item.reps);
     if mode == SelectMode::PastePlain {
       reps.retain(|(m, _)| TEXT_MIMES.iter().any(|t| t.eq_ignore_ascii_case(m)));
     }
     if reps.is_empty() {
-      let _ = reply.send(Err(SelectError::NoData));
-      return;
+      return Err(SelectError::NoData);
     }
     match self.store.call(move |s| s.touch(id, now)).await {
       Ok(Ok(_)) => {}
       Ok(Err(e)) => tracing::warn!(%id, "bumping last_used_at failed: {e}"),
       Err(e) => tracing::warn!(%id, "bumping last_used_at: {e}"),
     }
-    if let Err(e) = self.publish(Selection::Clipboard, reps) {
-      let _ = reply.send(Err(SelectError::Unavailable(e.to_string())));
-      return;
-    }
+    self
+      .publish(Selection::Clipboard, reps)
+      .map_err(|e| SelectError::Unavailable(e.to_string()))?;
     // The clipboard now holds a history item we publish ourselves:
     // keep-alive has nothing to do for it, and a later clear by another app
     // must not purge it from history (clear detection is for items that
@@ -1573,6 +1598,26 @@ impl<W: WaylandSide> Orchestrator<W> {
     tracing::info!(%id, hash = %hash_prefix(&item.hash), ?mode, "selected");
     if let Some(p) = self.pending_paste.take() {
       let _ = p.reply.send(Ok(SelectOutcome::NotPasted(NoPaste::Superseded)));
+    }
+    Ok(())
+  }
+
+  /// `Request::Select` (see [`Request::Select`] and [`crate::autopaste`]).
+  async fn handle_select(&mut self, id: ItemId, mode: SelectMode, reply: SelectReply) {
+    // `spoolctl pick` / `spoolctl edit` waiting (and still connected): the
+    // item goes there.
+    if let Some(pick) = self.pick.take() {
+      if !pick.is_closed() {
+        if self.pick_edit {
+          return self.select_edit(id, pick, reply).await;
+        }
+        return self.select_return(id, mode, pick, reply).await;
+      }
+      tracing::debug!("pick client went away; selecting normally");
+    }
+    if let Err(e) = self.publish_item(id, mode).await {
+      let _ = reply.send(Err(e));
+      return;
     }
     if mode == SelectMode::Copy {
       let _ = reply.send(Ok(SelectOutcome::Copied));
@@ -1748,6 +1793,13 @@ pub fn bridge_wayland_events(
     .expect("spawn wayland bridge thread");
   out
 }
+
+#[path = "edit_flow.rs"]
+mod edit_flow;
+
+#[cfg(test)]
+#[path = "edit_tests.rs"]
+mod edit_tests;
 
 #[cfg(test)]
 #[path = "keyflow_tests.rs"]

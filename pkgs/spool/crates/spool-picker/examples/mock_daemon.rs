@@ -570,6 +570,10 @@ fn answer(req: PickerReq, items: &Mutex<Vec<Item>>, lock: &Mutex<LockState>) -> 
       println!("HIDDEN reason={reason:?}");
       None
     }
+    PickerReq::Edit { id, mime } => {
+      println!("EDIT id={id} mime={mime}");
+      None
+    }
     PickerReq::Query { seq, q, offset, limit, .. } => {
       if q.matches('"').count() % 2 == 1 {
         println!("QUERY seq={seq} -> BadQuery");

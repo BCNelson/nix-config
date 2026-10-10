@@ -1,4 +1,4 @@
-//! Picker protocol v2 through the real [`ResidentPicker`] host and the
+//! Picker protocol v3 through the real [`ResidentPicker`] host and the
 //! orchestrator, with a fake picker on an in-process socketpair (the
 //! [`Spawner`] seam), a fake Wayland side, focus tracker and paste sink,
 //! and fake unlock providers over a real `keyslots.json` + encrypted store.
@@ -74,7 +74,7 @@ impl Spawner for FakeSpawner {
   }
 }
 
-/// The test's picker: speaks v2 like `spool-picker`.
+/// The test's picker: speaks v3 like `spool-picker`.
 struct FakePicker {
   rd: OwnedReadHalf,
   wr: OwnedWriteHalf,

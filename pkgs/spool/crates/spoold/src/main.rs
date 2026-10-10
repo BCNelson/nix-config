@@ -11,7 +11,8 @@
 //!    starts immediately), desktop integration ([`desktop`]: KWin script /
 //!    portal shortcut, focus tracking, auto-paste), Wayland thread,
 //!    orchestrator, the resident picker ([`picker`], if `spool-picker` is on
-//!    the audited PATH), then the key flow ([`keyflow`]) that unlocks the
+//!    the audited PATH), external-editor support ([`editor`]: stale edit
+//!    sessions removed), then the key flow ([`keyflow`]) that unlocks the
 //!    encrypted store in the background (the picker's unlock panel can
 //!    unlock passphrase / FIDO2 slots through the same gate, [`unlock`]).
 //!
@@ -24,6 +25,7 @@
 
 mod autopaste;
 mod desktop;
+mod editor;
 mod index;
 mod ipc;
 #[cfg(test)]
@@ -218,6 +220,10 @@ async fn run(
     let spawner = Box::new(picker::ProcessSpawner::new(exe, &picker_settings));
     orch =
       orch.with_picker(Box::new(picker::ResidentPicker::start(spawner, deps, &picker_settings)));
+  }
+  // "Edit in external editor": sessions under <socket dir>/edit.
+  if let Some(deps) = editor::system_deps(&socket_path) {
+    orch = orch.with_editor(deps);
   }
   let wl_rx = orchestrator::bridge_wayland_events(wl_events);
   let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();

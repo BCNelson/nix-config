@@ -33,6 +33,10 @@ tracing-journald = { workspace = true }
 libc = { workspace = true }
 rustix = { workspace = true }
 clap = { workspace = true }
+# external-editor sessions: temp dir names, change detection, D-Bus streams
+rand = { workspace = true }
+blake3 = { workspace = true }
+futures-util = { workspace = true }
 
 [features]
 # Test-only hooks (a private debug socket that answers search queries, for

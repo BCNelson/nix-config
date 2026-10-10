@@ -5300,10 +5300,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "blake3",
  "bytes",
  "clap",
  "crossbeam-channel",
+ "futures-util",
  "libc",
+ "rand",
  "rustix 1.1.5",
  "serde",
  "serde_json",

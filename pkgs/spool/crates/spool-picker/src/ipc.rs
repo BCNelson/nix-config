@@ -4,7 +4,7 @@
 //!   then starts a reader thread (frames -> calloop channel) and a writer
 //!   thread (so a slow daemon never blocks the UI thread).
 //! * `Correlator` numbers `Query`/`Thumb` requests (`seq`, picker protocol
-//!   v2) and matches the daemon's answers by `seq`, in any order: a page
+//!   v3) and matches the daemon's answers by `seq`, in any order: a page
 //!   whose `seq` is not the latest query is stale and dropped.
 
 use std::collections::HashMap;
@@ -150,7 +150,7 @@ struct PendingQuery {
   offset: u32,
 }
 
-/// Request numbering and answer matching (picker protocol v2).
+/// Request numbering and answer matching (picker protocol v3).
 #[derive(Debug, Default)]
 pub struct Correlator {
   next_seq: u32,
