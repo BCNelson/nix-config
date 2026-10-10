@@ -19,8 +19,16 @@
 //! [picker]
 //! renderer = "software"   # or "gpu" (FemtoVG/EGL; falls back to software)
 //! prerender = true        # keep the next frame drawn while hidden
+//!
+//! [editor]                # "edit in external editor" (Ctrl+E, spoolctl edit/new)
+//! terminal = ["konsole", "--separate", "-e"]
+//! [editor.mime]           # most specific pattern wins; commands must block
+//! "text/*"    = ["{terminal}", "nvim", "-n", "-i", "NONE", "{file}"]
+//! "text/html" = ["kate", "--block", "{file}"]
+//! "image/*"   = ["krita", "{file}"]
 //! ```
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -70,6 +78,142 @@ pub struct Config {
   pub paste_terminals: Option<Vec<String>>,
   /// The resident picker process (`[picker]` table).
   pub picker: PickerSettings,
+  /// External editors for "edit item" (`[editor]` table).
+  pub editor: EditorSettings,
+}
+
+/// Placeholder for the file being edited in an [`EditorSettings::mime`]
+/// command (may be part of a longer argument, e.g. `--file={file}`).
+pub const EDITOR_FILE_PLACEHOLDER: &str = "{file}";
+/// Placeholder (a whole argument) replaced by [`EditorSettings::terminal`].
+pub const EDITOR_TERMINAL_PLACEHOLDER: &str = "{terminal}";
+
+/// [`Config::editor`]: which program edits which type.
+///
+/// spoold never runs these itself: each editing session is a transient
+/// systemd user unit (outside spoold's sandbox), so the command must block
+/// until editing is done (`kate --block`, `code --wait`, a terminal editor
+/// in a terminal that does not fork into an existing instance).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EditorSettings {
+  /// Terminal argv spliced in for a `{terminal}` argument, e.g.
+  /// `["konsole", "--separate", "-e"]`.
+  pub terminal: Vec<String>,
+  /// Mime pattern -> argv. Patterns: an exact mime (`text/html`; parameters
+  /// such as `;charset=utf-8` may be given or left out), `type/*`, or `*/*`.
+  /// The most specific matching pattern wins (exact with parameters >
+  /// exact > `type/*` > `*/*`). Every command must contain `{file}`.
+  pub mime: BTreeMap<String, Vec<String>>,
+}
+
+/// Why [`EditorSettings::command_for`] has no command.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum EditorCommandError {
+  #[error("no editor configured for {0}")]
+  NoEditor(String),
+  #[error("the editor command for {0} is invalid")]
+  Invalid(String),
+}
+
+/// How specifically an [`EditorSettings::mime`] pattern matches a mime
+/// (`None`: it does not). Higher wins.
+fn mime_pattern_rank(pattern: &str, mime: &str) -> Option<u8> {
+  let pattern = pattern.trim();
+  let essence = |m: &str| m.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+  if pattern == "*" || pattern == "*/*" {
+    return Some(1);
+  }
+  if let Some(ty) = pattern.strip_suffix("/*") {
+    let m = essence(mime);
+    return m.split_once('/').is_some_and(|(t, _)| t.eq_ignore_ascii_case(ty.trim())).then_some(2);
+  }
+  if pattern.contains(';') {
+    let norm = |m: &str| m.split(';').map(|p| p.trim().to_ascii_lowercase()).collect::<Vec<_>>();
+    return (norm(pattern) == norm(mime)).then_some(4);
+  }
+  (essence(pattern) == essence(mime)).then_some(3)
+}
+
+fn valid_mime_pattern(p: &str) -> bool {
+  let p = p.trim();
+  if p == "*" || p == "*/*" {
+    return true;
+  }
+  let ess = p.split(';').next().unwrap_or("");
+  match ess.split_once('/') {
+    Some((t, s)) => {
+      !t.is_empty()
+        && t != "*"
+        && !s.is_empty()
+        && !ess.chars().any(|c| c.is_whitespace() || c.is_control())
+        && (s == "*" || !s.contains('*'))
+    }
+    None => false,
+  }
+}
+
+impl EditorSettings {
+  /// The argv to edit `file` of type `mime`: the most specific matching
+  /// pattern's command with `{terminal}` spliced in and `{file}` replaced.
+  pub fn command_for(
+    &self,
+    mime: &str,
+    file: &Path,
+  ) -> std::result::Result<Vec<String>, EditorCommandError> {
+    let (_, cmd) = self
+      .mime
+      .iter()
+      .filter_map(|(p, cmd)| mime_pattern_rank(p, mime).map(|r| (r, cmd)))
+      .max_by_key(|(r, _)| *r)
+      .ok_or_else(|| EditorCommandError::NoEditor(mime.to_owned()))?;
+    let file = file.to_string_lossy();
+    let mut argv = Vec::with_capacity(cmd.len() + self.terminal.len());
+    for arg in cmd {
+      if arg == EDITOR_TERMINAL_PLACEHOLDER {
+        argv.extend(self.terminal.iter().cloned());
+      } else {
+        argv.push(arg.replace(EDITOR_FILE_PLACEHOLDER, &file));
+      }
+    }
+    if argv.first().is_none_or(|a| a.trim().is_empty()) {
+      return Err(EditorCommandError::Invalid(mime.to_owned()));
+    }
+    Ok(argv)
+  }
+
+  fn validate(&self) -> std::result::Result<(), String> {
+    if self.terminal.iter().any(|a| a.contains(EDITOR_FILE_PLACEHOLDER) || a.contains("{terminal}"))
+    {
+      return Err("editor.terminal must not contain placeholders".into());
+    }
+    if self.terminal.first().is_some_and(|a| a.trim().is_empty()) {
+      return Err("editor.terminal: the first argument must not be empty".into());
+    }
+    for (pattern, cmd) in &self.mime {
+      if !valid_mime_pattern(pattern) {
+        return Err(format!("editor.mime: invalid mime pattern {pattern:?}"));
+      }
+      if !cmd.iter().any(|a| a.contains(EDITOR_FILE_PLACEHOLDER)) {
+        return Err(format!("editor.mime.{pattern:?}: the command must contain {{file}}"));
+      }
+      let uses_terminal = cmd.iter().any(|a| a == EDITOR_TERMINAL_PLACEHOLDER);
+      if uses_terminal && self.terminal.is_empty() {
+        return Err(format!(
+          "editor.mime.{pattern:?} uses {{terminal}} but editor.terminal is empty"
+        ));
+      }
+      let first_empty = match cmd.first() {
+        None => true,
+        Some(a) if a == EDITOR_TERMINAL_PLACEHOLDER => false,
+        Some(a) => a.trim().is_empty() || a.contains(EDITOR_FILE_PLACEHOLDER),
+      };
+      if first_empty {
+        return Err(format!("editor.mime.{pattern:?}: the first argument must name a program"));
+      }
+    }
+    Ok(())
+  }
 }
 
 /// [`Config::picker`]: how spoold starts `spool-picker`. Only policy: the
@@ -169,6 +313,7 @@ impl Default for Config {
       auto_paste: true,
       paste_terminals: None,
       picker: PickerSettings::default(),
+      editor: EditorSettings::default(),
     }
   }
 }
@@ -215,7 +360,7 @@ impl Config {
     {
       return Err(format!("paste_terminals: invalid app id {bad:?}"));
     }
-    Ok(())
+    self.editor.validate()
   }
 
   pub fn max_age(&self) -> Duration {
@@ -299,6 +444,97 @@ mod tests {
     assert_eq!(c.picker.renderer, PickerRenderer::Software);
     assert!(Config::from_toml_str("[picker]\nrenderer = \"vulkan\"\n", Path::new("x")).is_err());
     assert!(Config::from_toml_str("[picker]\nexe = \"/tmp/x\"\n", Path::new("x")).is_err());
+  }
+
+  const EDITOR_TOML: &str = r#"
+[editor]
+terminal = ["konsole", "--separate", "-e"]
+[editor.mime]
+"text/*"    = ["{terminal}", "nvim", "-n", "-i", "NONE", "--cmd", "set noundofile nobackup", "{file}"]
+"text/html" = ["kate", "--block", "{file}"]
+"text/plain;charset=utf-8" = ["gedit", "--wait", "--file={file}"]
+"image/*"   = ["krita", "{file}"]
+"*/*"       = ["hexedit", "{file}"]
+"#;
+
+  #[test]
+  fn editor_settings_parse_and_default() {
+    assert_eq!(Config::default().editor, EditorSettings::default());
+    let c = Config::from_toml_str(EDITOR_TOML, Path::new("x")).unwrap();
+    assert_eq!(c.editor.terminal, ["konsole", "--separate", "-e"]);
+    assert_eq!(c.editor.mime.len(), 5);
+    assert!(Config::from_toml_str("[editor]\nshell = \"sh\"\n", Path::new("x")).is_err());
+  }
+
+  #[test]
+  fn editor_most_specific_pattern_wins_and_placeholders_expand() {
+    let e = Config::from_toml_str(EDITOR_TOML, Path::new("x")).unwrap().editor;
+    let f = Path::new("/run/user/1/spool/edit/ab/item.txt");
+    let cmd = |m: &str| e.command_for(m, f).unwrap();
+    // `text/*` with the terminal spliced in.
+    assert_eq!(
+      cmd("text/uri-list"),
+      [
+        "konsole",
+        "--separate",
+        "-e",
+        "nvim",
+        "-n",
+        "-i",
+        "NONE",
+        "--cmd",
+        "set noundofile nobackup",
+        "/run/user/1/spool/edit/ab/item.txt"
+      ]
+    );
+    // Exact beats `text/*`; parameters are optional in the pattern.
+    assert_eq!(cmd("text/html")[0], "kate");
+    assert_eq!(cmd("TEXT/HTML; charset=utf-8")[0], "kate");
+    // Exact with parameters beats exact without; `{file}` inside an argument.
+    assert_eq!(
+      cmd("text/plain;charset=utf-8"),
+      ["gedit", "--wait", "--file=/run/user/1/spool/edit/ab/item.txt"]
+    );
+    assert_eq!(cmd("text/plain")[0], "konsole");
+    assert_eq!(cmd("image/png"), ["krita", "/run/user/1/spool/edit/ab/item.txt"]);
+    assert_eq!(cmd("application/octet-stream")[0], "hexedit");
+
+    let only_text = EditorSettings {
+      terminal: vec![],
+      mime: [("text/*".to_string(), vec!["ed".to_string(), "{file}".to_string()])].into(),
+    };
+    assert_eq!(
+      only_text.command_for("image/png", f),
+      Err(EditorCommandError::NoEditor("image/png".into()))
+    );
+    assert_eq!(
+      only_text.command_for("image/png", f).unwrap_err().to_string(),
+      "no editor configured for image/png"
+    );
+    assert!(EditorSettings::default().command_for("text/plain", f).is_err());
+  }
+
+  #[test]
+  fn editor_settings_validation() {
+    let bad = |s: &str| Config::from_toml_str(s, Path::new("x")).unwrap_err().to_string();
+    assert!(bad("[editor.mime]\n\"text/*\" = [\"nvim\"]\n").contains("{file}"));
+    assert!(
+      bad("[editor.mime]\n\"text/*\" = [\"{terminal}\", \"nvim\", \"{file}\"]\n")
+        .contains("terminal")
+    );
+    assert!(
+      bad("[editor.mime]\n\"text\" = [\"nvim\", \"{file}\"]\n").contains("invalid mime pattern")
+    );
+    assert!(
+      bad("[editor.mime]\n\"*/html\" = [\"nvim\", \"{file}\"]\n").contains("invalid mime pattern")
+    );
+    assert!(bad("[editor.mime]\n\"text/*\" = []\n").contains("{file}"));
+    assert!(bad("[editor.mime]\n\"text/*\" = [\"{file}\"]\n").contains("name a program"));
+    assert!(bad("[editor]\nterminal = [\"xterm\", \"{file}\"]\n").contains("placeholders"));
+    assert!(
+      Config::from_toml_str("[editor.mime]\n\"*\" = [\"ed\", \"{file}\"]\n", Path::new("x"))
+        .is_ok()
+    );
   }
 
   #[test]

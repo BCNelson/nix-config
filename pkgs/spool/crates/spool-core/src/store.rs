@@ -186,8 +186,16 @@ DROP INDEX items_recent;
         collapse_duplicates(tx).map(|_| ()).map_err(|e| HookError::Hook(e.to_string()))
       },
     ),
+    // Items saved from an external editor remember the item they were
+    // edited from. Not a foreign key: retention may delete the original.
+    M::up("ALTER TABLE items ADD COLUMN derived_from INTEGER;"),
   ])
 });
+
+/// Tests: undo migrations 5 and 4 so `MIGRATIONS.to_latest` runs them again.
+#[cfg(test)]
+const ROLLBACK_TO_V3: &str = "DROP INDEX items_dedupe; ALTER TABLE items DROP COLUMN derived_from;
+                              PRAGMA user_version = 3;";
 
 /// `meta` key holding the 32-byte dedupe hash key (plain stores only).
 pub const META_HASH_KEY: &str = "hash_key";
@@ -237,6 +245,26 @@ impl InsertOutcome {
   pub fn id(self) -> ItemId {
     match self {
       InsertOutcome::Inserted(id) | InsertOutcome::Bumped(id) => id,
+    }
+  }
+}
+
+/// What [`Store::replace_content`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReplaceOutcome {
+  /// The item now holds the new content (same id, new `change_seq`).
+  Replaced(ItemId),
+  /// The new content equals another item of the same selection and source
+  /// app: that item was bumped (keeping at most one row per `(selection,
+  /// hash, source_app)`), it gained the replaced item's tags, and the
+  /// replaced item was deleted (tombstone).
+  Merged(ItemId),
+}
+
+impl ReplaceOutcome {
+  pub fn id(self) -> ItemId {
+    match self {
+      ReplaceOutcome::Replaced(id) | ReplaceOutcome::Merged(id) => id,
     }
   }
 }
@@ -576,6 +604,151 @@ impl Store {
       ),
     }
     Ok(out)
+  }
+
+  /// [`Store::insert`] for an item saved from an external editor:
+  /// additionally records `derived_from` (the item it was edited from;
+  /// `None` for an edit that started from an empty file) on a newly
+  /// inserted row and gives the resulting item (inserted or bumped) the
+  /// original's tags. The original's pin is not copied, and nothing about
+  /// the original changes. A missing original is fine (retention may have
+  /// deleted it): the id is still recorded, no tags are copied.
+  pub fn insert_derived(
+    &mut self,
+    item: NewItem,
+    derived_from: Option<ItemId>,
+  ) -> Result<InsertOutcome> {
+    if item.reps.is_empty() {
+      return Err(Error::Corrupt("insert: item has no representations".into()));
+    }
+    let now_ms = to_millis(item.created_at);
+    let row = RowData {
+      selection: item.selection,
+      source_app: item.source_app.as_deref(),
+      created_at: now_ms,
+      last_used_at: now_ms,
+      flags: item.flags,
+      hash: &item.hash,
+      preview: item.preview.as_deref(),
+      total_size: item.total_size() as i64,
+    };
+    let Store { conn, mode, .. } = self;
+    let mut pending = blobs::Pending::new(mode);
+    let tx = conn.transaction()?;
+    let out = insert_row(&tx, mode, &row, &item.reps, &mut pending)?;
+    if let (InsertOutcome::Inserted(id), Some(orig)) = (out, derived_from) {
+      tx.execute("UPDATE items SET derived_from = ?1 WHERE id = ?2", params![orig.0, id.0])?;
+    }
+    if let Some(orig) = derived_from
+      && orig != out.id()
+    {
+      copy_missing_tags(&tx, orig.0, out.id().0)?;
+    }
+    tx.commit()?;
+    pending.disarm();
+    tracing::debug!(
+      id = out.id().0,
+      hash = %hash_prefix(&item.hash),
+      len = item.total_size(),
+      bumped = matches!(out, InsertOutcome::Bumped(_)),
+      derived = derived_from.is_some(),
+      "store: inserted edited item"
+    );
+    Ok(out)
+  }
+
+  /// Replace item `id`'s content (representations, hash, preview, size) with
+  /// `item`'s, keeping its id, selection, source app, tags, pin and
+  /// `created_at`; `last_used_at` moves to `item.created_at` (never
+  /// backwards) and a new `change_seq` makes the search index re-read it.
+  /// `item.selection` / `item.source_app` are ignored (the row's own count).
+  ///
+  /// If the new content equals another item of the row's selection and
+  /// source app, that item is bumped instead (flags OR-ed, this row's tags
+  /// added) and this row is deleted ([`ReplaceOutcome::Merged`]), so there
+  /// is still at most one row per `(selection, hash, source_app)`.
+  /// `Ok(None)`: no item `id`. Blob files of the old content are removed
+  /// after the commit.
+  pub fn replace_content(&mut self, id: ItemId, item: NewItem) -> Result<Option<ReplaceOutcome>> {
+    if item.reps.is_empty() {
+      return Err(Error::Corrupt("replace: item has no representations".into()));
+    }
+    let now_ms = to_millis(item.created_at);
+    let Store { conn, mode, .. } = self;
+    let mut pending = blobs::Pending::new(mode);
+    let tx = conn.transaction()?;
+    type Cur = (String, Option<String>, i64);
+    let cur: Option<Cur> = tx
+      .query_row(
+        "SELECT selection, source_app, coalesce(flags, 0) FROM items WHERE id = ?1",
+        params![id.0],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+      )
+      .optional()?;
+    let Some((selection, app, flags)) = cur else { return Ok(None) };
+    let other: Option<i64> = tx
+      .prepare_cached(
+        "SELECT id FROM items
+         WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3 AND id != ?4 LIMIT 1",
+      )?
+      .query_row(params![selection, &item.hash[..], app, id.0], |r| r.get(0))
+      .optional()?;
+    let files = blob_files_of(&tx, id.0)?;
+    let out = if let Some(other) = other {
+      copy_missing_tags(&tx, id.0, other)?;
+      let seq = next_change_seq(&tx)?;
+      tx.execute(
+        "UPDATE items SET last_used_at = max(coalesce(last_used_at, 0), ?1), change_seq = ?2,
+                          flags = coalesce(flags, 0) | ?3
+         WHERE id = ?4",
+        params![now_ms, seq, flags | i64::from(item.flags.bits()), other],
+      )?;
+      delete_with_tombstone(&tx, id.0)?;
+      ReplaceOutcome::Merged(ItemId(other))
+    } else {
+      tx.execute("DELETE FROM reps WHERE item_id = ?1", params![id.0])?;
+      insert_reps(&tx, mode, id.0, &item.reps, &mut pending)?;
+      let seq = next_change_seq(&tx)?;
+      tx.execute(
+        "UPDATE items SET hash = ?1, preview = ?2, total_size = ?3, change_seq = ?4,
+                          last_used_at = max(coalesce(last_used_at, 0), ?5),
+                          flags = coalesce(flags, 0) | ?6
+         WHERE id = ?7",
+        params![
+          &item.hash[..],
+          item.preview.as_deref(),
+          item.total_size() as i64,
+          seq,
+          now_ms,
+          item.flags.bits(),
+          id.0
+        ],
+      )?;
+      ReplaceOutcome::Replaced(id)
+    };
+    tx.commit()?;
+    pending.disarm();
+    tracing::debug!(
+      id = id.0,
+      result = out.id().0,
+      merged = matches!(out, ReplaceOutcome::Merged(_)),
+      hash = %hash_prefix(&item.hash),
+      len = item.total_size(),
+      "store: replaced content"
+    );
+    self.remove_blob_files(&files);
+    Ok(Some(out))
+  }
+
+  /// The item `id` was edited from (`derived_from`), if it was saved from an
+  /// external editor and started from an item; `None` also when `id` does
+  /// not exist.
+  pub fn derived_from(&self, id: ItemId) -> Result<Option<ItemId>> {
+    let v: Option<Option<i64>> = self
+      .conn
+      .query_row("SELECT derived_from FROM items WHERE id = ?1", params![id.0], |r| r.get(0))
+      .optional()?;
+    Ok(v.flatten().map(ItemId))
   }
 
   /// The item with all reps. Blob files are read and authenticated; a
@@ -953,6 +1126,20 @@ pub(crate) fn insert_row(
     ],
   )?;
   let id = tx.last_insert_rowid();
+  insert_reps(tx, mode, id, reps, pending)?;
+  Ok(InsertOutcome::Inserted(ItemId(id)))
+}
+
+/// Insert `reps` for item `id` (inside the caller's transaction). Duplicate
+/// mimes keep the first; large reps of encrypted stores become blob files
+/// recorded in `pending`.
+fn insert_reps(
+  tx: &Connection,
+  mode: &Mode,
+  id: i64,
+  reps: &[Representation],
+  pending: &mut blobs::Pending,
+) -> Result<()> {
   let mut stmt = tx.prepare_cached(
     "INSERT INTO reps(item_id, mime, alias_of, inline, blob_file, size)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -972,7 +1159,22 @@ pub(crate) fn insert_row(
     };
     stmt.execute(params![id, rep.mime, rep.alias_of, inline, blob, size])?;
   }
-  Ok(InsertOutcome::Inserted(ItemId(id)))
+  Ok(())
+}
+
+/// Give item `to` every tag of item `from` it does not have yet (inside the
+/// caller's transaction). Returns the number of tags added.
+fn copy_missing_tags(conn: &Connection, from: i64, to: i64) -> Result<usize> {
+  Ok(
+    conn
+      .prepare_cached(
+        "INSERT INTO tags(item_id, tag)
+     SELECT DISTINCT ?1, tag FROM tags
+     WHERE item_id = ?2 AND tag IS NOT NULL
+       AND tag NOT IN (SELECT tag FROM tags WHERE item_id = ?1 AND tag IS NOT NULL)",
+      )?
+      .execute(params![to, from])?,
+  )
 }
 
 /// Blob file names of one item's reps.
@@ -1477,6 +1679,119 @@ mod store_tests {
     assert_eq!(s.count().unwrap(), 3);
   }
 
+  fn edited(text: &str, at: SystemTime) -> NewItem {
+    let mut it = text_item(Selection::Clipboard, text, at);
+    it.source_app = Some("spool.editor".into());
+    it
+  }
+
+  #[test]
+  fn migration_5_adds_derived_from() {
+    let s = Store::open_in_memory().unwrap();
+    let v: i64 = s.conn().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+    assert_eq!(v, 5);
+    let cols: Vec<String> = {
+      let mut st = s.conn().prepare("SELECT name FROM pragma_table_info('items')").unwrap();
+      st.query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+    };
+    assert!(cols.iter().any(|c| c == "derived_from"), "{cols:?}");
+  }
+
+  #[test]
+  fn insert_derived_records_origin_and_copies_tags_not_pin() {
+    let mut s = Store::open_in_memory().unwrap();
+    let orig = s.insert(text_item(Selection::Clipboard, "orig", t(0))).unwrap().id();
+    s.set_tag(orig, "work", true).unwrap();
+    s.set_tag(orig, "x", true).unwrap();
+    s.set_pinned(orig, true).unwrap();
+    let before = s.get(orig).unwrap().unwrap();
+
+    let out = s.insert_derived(edited("orig, edited", t(5)), Some(orig)).unwrap();
+    let InsertOutcome::Inserted(new) = out else { panic!("{out:?}") };
+    assert_eq!(s.derived_from(new).unwrap(), Some(orig));
+    assert_eq!(tags_of(&s, new), ["work", "x"]);
+    let it = s.get(new).unwrap().unwrap();
+    assert!(!it.flags.contains(ItemFlags::PINNED), "pin is not copied");
+    assert_eq!(it.source_app.as_deref(), Some("spool.editor"));
+    // The original is untouched.
+    assert_eq!(s.get(orig).unwrap().unwrap(), before);
+    assert_eq!(s.derived_from(orig).unwrap(), None);
+    assert_eq!(s.derived_from(ItemId(999)).unwrap(), None);
+
+    // `spoolctl new`: no origin. A deleted origin is still recorded.
+    let fresh = s.insert_derived(edited("fresh", t(6)), None).unwrap().id();
+    assert_eq!(s.derived_from(fresh).unwrap(), None);
+    assert!(tags_of(&s, fresh).is_empty());
+    let gone = s.insert_derived(edited("gone", t(7)), Some(ItemId(4242))).unwrap().id();
+    assert_eq!(s.derived_from(gone).unwrap(), Some(ItemId(4242)));
+
+    // Equal to an existing editor item: bumped (dedupe), tags still merged.
+    let bumped = s.insert_derived(edited("fresh", t(8)), Some(orig)).unwrap();
+    assert_eq!(bumped, InsertOutcome::Bumped(fresh));
+    assert_eq!(tags_of(&s, fresh), ["work", "x"]);
+    assert_eq!(s.derived_from(fresh).unwrap(), None, "a bump keeps the row's origin");
+  }
+
+  #[test]
+  fn replace_content_updates_in_place() {
+    let mut s = Store::open_in_memory().unwrap();
+    let id = s.insert_derived(edited("v1", t(0)), None).unwrap().id();
+    s.set_tag(id, "keep", true).unwrap();
+    let seq = s.get(id).unwrap().unwrap().change_seq;
+    let mut v2 = edited("version two", t(9));
+    v2.reps.push(Representation::new("text/html", &b"<p>version two</p>"[..]));
+    let out = s.replace_content(id, v2.clone()).unwrap();
+    assert_eq!(out, Some(ReplaceOutcome::Replaced(id)));
+    let it = s.get(id).unwrap().unwrap();
+    assert_eq!(it.resolve("text/plain;charset=utf-8").unwrap().as_ref(), b"version two");
+    assert_eq!(it.resolve("UTF8_STRING").unwrap().as_ref(), b"version two");
+    assert_eq!(it.resolve("text/html").unwrap().as_ref(), b"<p>version two</p>");
+    assert_eq!(it.hash, v2.hash);
+    assert_eq!(it.preview.as_deref(), Some("version two"));
+    assert_eq!(it.total_size, 11 + 18);
+    assert_eq!(it.created_at, t(0));
+    assert_eq!(it.last_used_at, t(9));
+    assert!(it.change_seq > seq, "the index must re-read it");
+    assert_eq!(tags_of(&s, id), ["keep"]);
+    assert_eq!(s.count().unwrap(), 1);
+    // A later insert of the same content dedupes onto it.
+    assert_eq!(s.insert(edited("version two", t(10))).unwrap(), InsertOutcome::Bumped(id));
+    assert_eq!(s.replace_content(ItemId(77), edited("x", t(11))).unwrap(), None);
+  }
+
+  #[test]
+  fn replace_content_into_an_existing_duplicate_merges() {
+    let mut s = Store::open_in_memory().unwrap();
+    // Another editor item already holds "same"; a different app's copy of
+    // "same" is not a duplicate (other source app).
+    let other = s.insert_derived(edited("same", t(0)), None).unwrap().id();
+    let kate = s.insert(text_item(Selection::Clipboard, "same", t(1))).unwrap().id();
+    let ours = s.insert_derived(edited("draft", t(2)), None).unwrap().id();
+    s.set_tag(ours, "draft-tag", true).unwrap();
+    s.set_pinned(ours, true).unwrap();
+    let tomb_before = seqs(&s).1;
+    let out = s.replace_content(ours, edited("same", t(5))).unwrap();
+    assert_eq!(out, Some(ReplaceOutcome::Merged(other)));
+    assert!(s.get(ours).unwrap().is_none(), "the replaced row is gone");
+    assert!(seqs(&s).1 > tomb_before, "with a tombstone");
+    let it = s.get(other).unwrap().unwrap();
+    assert_eq!(it.last_used_at, t(5));
+    assert!(it.flags.contains(ItemFlags::PINNED), "the replaced row's pin carries over");
+    assert_eq!(tags_of(&s, other), ["draft-tag"]);
+    assert!(s.get(kate).unwrap().is_some());
+    assert_eq!(s.count().unwrap(), 2);
+    // Still one row per (selection, hash, source_app).
+    let n: i64 = s
+      .conn()
+      .query_row(
+        "SELECT max(c) FROM (SELECT count(*) AS c FROM items GROUP BY selection, hash, source_app)",
+        [],
+        |r| r.get(0),
+      )
+      .unwrap();
+    assert_eq!(n, 1);
+  }
+
   /// Give `dup` the hash of `of` (what the old newest-only dedupe allowed).
   fn make_duplicate(s: &Store, of: ItemId, dup: ItemId) {
     s.conn()
@@ -1517,7 +1832,7 @@ mod store_tests {
     for (of, dup) in [(a1, a2), (a1, a3), (c1, c2), (a1, other_app)] {
       make_duplicate(&s, of, dup);
     }
-    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    s.conn().execute_batch(ROLLBACK_TO_V3).unwrap();
     let before = max_seq(&s);
 
     MIGRATIONS.to_latest(&mut s.conn).unwrap();
@@ -1558,7 +1873,7 @@ mod store_tests {
     let mut s = Store::open_in_memory().unwrap();
     s.insert(text_item(Selection::Clipboard, "a", t(0))).unwrap();
     s.insert(text_item(Selection::Clipboard, "b", t(1))).unwrap();
-    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    s.conn().execute_batch(ROLLBACK_TO_V3).unwrap();
     let before = seqs(&s);
     MIGRATIONS.to_latest(&mut s.conn).unwrap();
     assert_eq!(seqs(&s), before);

@@ -5,6 +5,8 @@
 //! blob files of the source) and the same insert path as
 //! [`Store::insert`].
 
+use std::collections::HashMap;
+
 use rusqlite::params;
 use spool_crypto::Zeroizing;
 
@@ -38,7 +40,9 @@ impl Store {
   ///   the session item's missing tags added);
   /// - reps larger than [`super::INLINE_MAX`] become blob files (encrypted
   ///   stores);
-  /// - fresh `change_seq`s. Session tombstones are ignored.
+  /// - fresh `change_seq`s. Session tombstones are ignored;
+  /// - `derived_from` (edited items) is remapped to the merged original's
+  ///   new id, or left empty when the original is not in the session.
   ///
   /// On error nothing is committed and blob files written so far are
   /// removed. `session` is not modified; drop it only after `Ok`.
@@ -54,6 +58,10 @@ impl Store {
     let mut pending = blobs::Pending::new(mode);
     let tx = conn.transaction()?;
     let mut tags_stmt = session.conn.prepare("SELECT tag FROM tags WHERE item_id = ?1")?;
+    let mut derived_stmt = session.conn.prepare("SELECT derived_from FROM items WHERE id = ?1")?;
+    let mut new_ids: HashMap<i64, i64> = HashMap::new();
+    // (new row, session id it was edited from)
+    let mut derived: Vec<(i64, i64)> = Vec::new();
     for sid in ids {
       let Some(item) = session.get(ItemId(sid))? else { continue };
       let canonical = item.reps.iter().find(|r| !r.is_alias()).ok_or_else(|| {
@@ -77,6 +85,13 @@ impl Store {
         InsertOutcome::Inserted(_) => report.inserted += 1,
         InsertOutcome::Bumped(_) => report.bumped += 1,
       }
+      new_ids.insert(sid, out.id().0);
+      if let InsertOutcome::Inserted(id) = out {
+        let from: Option<i64> = derived_stmt.query_row(params![sid], |r| r.get(0))?;
+        if let Some(from) = from {
+          derived.push((id.0, from));
+        }
+      }
       let tags: Vec<Option<String>> =
         tags_stmt.query_map(params![sid], |r| r.get(0))?.collect::<Result<_, _>>()?;
       for tag in tags {
@@ -87,6 +102,13 @@ impl Store {
         )?;
       }
       report.ids.push((item.id, out));
+    }
+    // `derived_from` names a session id: point it at the merged original
+    // (after the loop: the original may be newer by `last_used_at`).
+    for (id, from) in derived {
+      if let Some(to) = new_ids.get(&from) {
+        tx.execute("UPDATE items SET derived_from = ?1 WHERE id = ?2", params![to, id])?;
+      }
     }
     tx.commit()?;
     pending.disarm();

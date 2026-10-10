@@ -729,7 +729,7 @@ fn migration_collapse_leaves_duplicate_blobs_to_gc() {
         params![dup.0, keep.0],
       )
       .unwrap();
-    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    s.conn().execute_batch(ROLLBACK_TO_V3).unwrap();
     assert_eq!(blob_names(d.path()).len(), 2);
     (keep, dup)
   };
@@ -745,4 +745,63 @@ fn migration_collapse_leaves_duplicate_blobs_to_gc() {
     s.insert(image_item(&hk, INLINE_MAX + 1, 4, t(9))).unwrap(),
     InsertOutcome::Bumped(keep)
   );
+}
+
+#[test]
+fn replace_content_swaps_blob_files() {
+  let d = tempfile::tempdir().unwrap();
+  let k = DataKey::generate();
+  let hk = hash_key_of(&k);
+  let mut s = Store::open_encrypted(d.path(), &k).unwrap();
+  let id = s.insert_derived(image_item(&hk, INLINE_MAX + 1, 1, t(0)), None).unwrap().id();
+  let first = blob_names(d.path());
+  assert_eq!(first.len(), 1);
+
+  let v2 = image_item(&hk, INLINE_MAX + 7, 2, t(1));
+  assert_eq!(s.replace_content(id, v2.clone()).unwrap(), Some(ReplaceOutcome::Replaced(id)));
+  let second = blob_names(d.path());
+  assert_eq!(second.len(), 1, "old blob removed after the commit");
+  assert_ne!(second, first);
+  assert_eq!(referenced_blobs(&s), second);
+  assert_eq!(s.get(id).unwrap().unwrap().reps, v2.reps);
+
+  // Small again: inline, no blob files left.
+  let v3 = image_item(&hk, 10, 3, t(2));
+  s.replace_content(id, v3.clone()).unwrap();
+  assert!(blob_names(d.path()).is_empty());
+  drop(s);
+  let s = Store::open_encrypted(d.path(), &k).unwrap();
+  assert_eq!(s.get(id).unwrap().unwrap().reps, v3.reps);
+}
+
+#[test]
+fn session_merge_remaps_derived_from() {
+  let d = tempfile::tempdir().unwrap();
+  let k = DataKey::generate();
+  let hk = hash_key_of(&k);
+  let mut p = Store::open_encrypted(d.path(), &k).unwrap();
+  // Shift persistent ids away from the session's.
+  for i in 0..3 {
+    p.insert(text_item(&hk, Selection::Clipboard, &format!("p{i}"), t(i))).unwrap();
+  }
+  let sk = DataKey::generate();
+  let shk = hash_key_of(&sk);
+  let mut s = Store::open_session(&sk).unwrap();
+  let orig = s.insert(text_item(&shk, Selection::Clipboard, "orig", t(10))).unwrap().id();
+  let mut ed = text_item(&shk, Selection::Clipboard, "edited", t(11));
+  ed.source_app = Some("spool.editor".into());
+  let edit = s.insert_derived(ed, Some(orig)).unwrap().id();
+  let mut lost = text_item(&shk, Selection::Clipboard, "lost origin", t(12));
+  lost.source_app = Some("spool.editor".into());
+  let orphan = s.insert_derived(lost, Some(ItemId(999))).unwrap().id();
+  // The original is used after the edit, so it is merged after it.
+  s.touch(orig, t(20)).unwrap();
+
+  let report = p.merge_from_session(&s).unwrap();
+  let map: std::collections::HashMap<ItemId, ItemId> =
+    report.ids.iter().map(|(sid, out)| (*sid, out.id())).collect();
+  assert_ne!(map[&orig], orig);
+  assert_eq!(p.derived_from(map[&edit]).unwrap(), Some(map[&orig]));
+  assert_eq!(p.derived_from(map[&orphan]).unwrap(), None, "origin not in the session");
+  assert_eq!(p.derived_from(map[&orig]).unwrap(), None);
 }

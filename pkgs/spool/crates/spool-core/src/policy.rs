@@ -767,32 +767,61 @@ impl Policy {
     data: Bytes,
     at: SystemTime,
   ) -> std::result::Result<NewItem, DropReason> {
-    let mime = mime.trim();
-    if mime.is_empty() || is_marker_mime(mime) || mime == PASSWORD_MANAGER_HINT {
+    self.manual_reps(selection, vec![(mime.to_owned(), data)], at)
+  }
+
+  /// [`Policy::manual_item`] for several representations of one explicit
+  /// user action (an edit saved from an external editor: e.g. the edited
+  /// `text/html` plus the plain text derived from it). The first entry is
+  /// canonical (its bytes are hashed). Every entry gets `manual_item`'s
+  /// checks (mime, empty, per-representation cap, secret patterns on
+  /// textual mimes); the sum must fit `max_item_bytes`. The first entry that
+  /// is one of [`TEXT_MIMES`] gets the other text variants as aliases.
+  /// Duplicate mimes keep the first. Same errors as `manual_item`.
+  pub fn manual_reps(
+    &self,
+    selection: Selection,
+    reps: Vec<(String, Bytes)>,
+    at: SystemTime,
+  ) -> std::result::Result<NewItem, DropReason> {
+    if reps.is_empty() {
       return Err(DropReason::NoUsableData);
     }
-    if data.is_empty() {
-      return Err(DropReason::Empty);
+    let mut canon: Vec<Representation> = Vec::with_capacity(reps.len());
+    let mut total = 0usize;
+    for (mime, data) in reps {
+      let mime = mime.trim();
+      if mime.is_empty() || is_marker_mime(mime) || mime == PASSWORD_MANAGER_HINT {
+        return Err(DropReason::NoUsableData);
+      }
+      if data.is_empty() {
+        return Err(DropReason::Empty);
+      }
+      total = total.saturating_add(data.len());
+      if data.len() > self.config.max_rep_bytes || total > self.config.max_item_bytes {
+        return Err(DropReason::TooLarge);
+      }
+      if is_textual(mime)
+        && let Some(kind) = detect_secret_text(&String::from_utf8_lossy(&data))
+      {
+        tracing::debug!(len = data.len(), mime, ?kind, "manual item not stored: secret");
+        return Err(DropReason::Secret(kind));
+      }
+      if !canon.iter().any(|r| r.mime.eq_ignore_ascii_case(mime)) {
+        canon.push(Representation::new(mime, data));
+      }
     }
-    if data.len() > self.config.max_rep_bytes || data.len() > self.config.max_item_bytes {
-      return Err(DropReason::TooLarge);
-    }
-    if is_textual(mime)
-      && let Some(kind) = detect_secret_text(&String::from_utf8_lossy(&data))
-    {
-      tracing::debug!(len = data.len(), mime, ?kind, "manual copy not stored: secret");
-      return Err(DropReason::Secret(kind));
-    }
-    let mut reps = vec![Representation::new(mime, data)];
-    if text_mime_rank(mime).is_some() {
-      reps.extend(
+    let mut aliases = Vec::new();
+    if let Some(text) = canon.iter().find(|r| text_mime_rank(&r.mime).is_some()) {
+      aliases.extend(
         TEXT_MIMES
           .iter()
-          .filter(|t| !t.eq_ignore_ascii_case(mime))
-          .map(|t| Representation::alias(*t, mime)),
+          .filter(|t| !canon.iter().any(|r| r.mime.eq_ignore_ascii_case(t)))
+          .map(|t| Representation::alias(*t, text.mime.clone())),
       );
     }
-    Ok(self.build_item(selection, None, at, reps))
+    canon.extend(aliases);
+    Ok(self.build_item(selection, None, at, canon))
   }
 
   /// Classify text against the secret patterns. Exposed for tests and for
@@ -1511,6 +1540,56 @@ mod policy_tests {
     assert!(
       p.manual_item(Selection::Clipboard, "text/plain", Bytes::from_static(b" "), at(0)).is_ok()
     );
+  }
+
+  #[test]
+  fn manual_reps_for_an_edited_html_item() {
+    let p = policy();
+    let it = p
+      .manual_reps(
+        Selection::Clipboard,
+        vec![
+          ("text/html".into(), Bytes::from_static(b"<b>hi</b> there")),
+          ("text/plain;charset=utf-8".into(), Bytes::from_static(b"hi there")),
+        ],
+        at(0),
+      )
+      .unwrap();
+    // HTML is canonical (hashed); the derived text carries the aliases.
+    assert_eq!(it.reps[0].mime, "text/html");
+    assert_eq!(it.hash, dedupe_hash(&KEY, &it.reps[0]));
+    assert_eq!(it.reps[1], Representation::new("text/plain;charset=utf-8", &b"hi there"[..]));
+    let aliases: Vec<_> = it.reps[2..].iter().map(|r| r.mime.as_str()).collect();
+    assert_eq!(aliases, vec!["text/plain", "UTF8_STRING", "TEXT", "STRING"]);
+    assert!(it.reps[2..].iter().all(|r| r.alias_of.as_deref() == Some("text/plain;charset=utf-8")));
+    assert_eq!(it.preview.as_deref(), Some("hi there"));
+    assert_eq!(it.total_size(), 15 + 8);
+
+    // A secret in any representation (here only the HTML) is refused.
+    let r = p.manual_reps(
+      Selection::Clipboard,
+      vec![
+        ("text/html".into(), Bytes::from_static(b"<i>AKIAIOSFODNN7EXAMPLE</i>")),
+        ("text/plain;charset=utf-8".into(), Bytes::from_static(b"x")),
+      ],
+      at(0),
+    );
+    assert_eq!(r, Err(DropReason::Secret(SecretKind::AwsAccessKey)));
+    // The item cap covers the sum.
+    let small = policy_with(|c| {
+      c.max_rep_bytes = 4;
+      c.max_item_bytes = 6;
+    });
+    let r = small.manual_reps(
+      Selection::Clipboard,
+      vec![
+        ("text/html".into(), Bytes::from_static(b"abcd")),
+        ("text/plain".into(), Bytes::from_static(b"abc")),
+      ],
+      at(0),
+    );
+    assert_eq!(r, Err(DropReason::TooLarge));
+    assert_eq!(p.manual_reps(Selection::Clipboard, vec![], at(0)), Err(DropReason::NoUsableData));
   }
 
   #[test]
