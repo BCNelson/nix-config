@@ -129,6 +129,15 @@ in
         serviceConfig.ExecStart = "${pkgs.bash}/bin/bash -c 'printf %s spool-test-password | exec ${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --foreground --unlock --components=secrets'";
       };
 
+      # Like home-manager: config.toml lives in ~/.config/spool before spoold
+      # first starts. With StateDirectory=spool that made systemd symlink
+      # ~/.local/state/spool to it and spoold refused to start (sierra-2).
+      systemd.tmpfiles.rules = [
+        "d /home/${user}/.config 0755 ${user} users -"
+        "d /home/${user}/.config/spool 0755 ${user} users -"
+        "L+ /home/${user}/.config/spool/config.toml - - - - ${pkgs.writeText "spool-config.toml" "max_items = 5000\n"}"
+      ];
+
       systemd.user.services.spool = {
         unitConfig = unitDef.unit;
         serviceConfig = unitDef.service;
@@ -209,7 +218,7 @@ in
               "systemctl --user show spool -p NoNewPrivileges -p PrivateNetwork -p PrivateUsers "
               "-p ProtectSystem -p ReadWritePaths -p MemoryDenyWriteExecute -p LockPersonality "
               "-p RestrictAddressFamilies -p SystemCallFilter -p UMask -p LimitCORE -p LimitMEMLOCK "
-              "-p UnsetEnvironment -p Environment -p Slice -p StateDirectory -p RuntimeDirectory "
+              "-p UnsetEnvironment -p Environment -p Slice -p RuntimeDirectory "
               "-p RestrictNamespaces -p RestrictRealtime -p RestrictSUIDSGID -p MainPID"
           )
           print(props)
@@ -287,6 +296,10 @@ in
           st = status()
           assert st["encrypted"] and st["unlocked"], st
           print(machine.succeed("ls -la ${state}"))
+          # A real 0700 directory, not systemd's ~/.config compatibility symlink.
+          machine.succeed("test -d ${state} && test ! -L ${state}")
+          mode = machine.succeed("stat -c %a ${state}").strip()
+          assert mode == "700", mode
           machine.succeed("test -s ${state}/history.db")
           machine.fail("head -c 15 ${state}/history.db | grep -q 'SQLite format 3'")
           machine.fail("grep -rqa hello-spool ${state}/")

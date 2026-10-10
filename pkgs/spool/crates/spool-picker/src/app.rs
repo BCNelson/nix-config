@@ -782,6 +782,14 @@ impl App {
         s.layer.set_margin(0, 0, 0, 0);
       }
     }
+    // Unmapping resets the layer surface to its initial state, and KWin 6.7
+    // resets the (double-buffered, v2+) layer to its default, Bottom, not the
+    // layer given to get_layer_surface: without this every re-show maps
+    // behind normal windows. Re-send everything create_surface set.
+    if s.layer.version() >= 2 {
+      s.layer.set_layer(zwlr_layer_shell_v1::Layer::Overlay);
+    }
+    s.layer.set_exclusive_zone(-1);
     s.layer.set_size(self.logical.0, self.logical.1);
     s.layer.set_keyboard_interactivity(KeyboardInteractivity::Exclusive);
     s.wl.commit();

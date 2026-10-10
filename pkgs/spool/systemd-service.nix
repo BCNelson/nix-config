@@ -36,9 +36,14 @@
 #   MemoryDenyWriteExecute is inherited by the picker (spoold execs it): fine
 #   for the Slint software renderer, but a GPU renderer on llvmpipe (Mesa's
 #   JIT) would need W+X pages.
-# * StateDirectory=/RuntimeDirectory= are created by the user manager with
-#   mode 0700 (spoold insists on 0700 for the socket dir). The runtime dir is
-#   removed when the unit stops; spoold recreates its socket on start.
+# * RuntimeDirectory= is created by the user manager with mode 0700 (spoold
+#   insists on 0700 for the socket dir); it is removed when the unit stops and
+#   spoold recreates its socket on start.
+# * No StateDirectory=: for user units, when the legacy ~/.config/<name>
+#   exists (home-manager puts config.toml in ~/.config/spool), systemd makes
+#   ~/.local/state/<name> a compatibility symlink to it, and spoold rightly
+#   refuses a symlinked state dir. spoold creates $XDG_STATE_HOME/spool itself
+#   (0700, own uid, no symlinks).
 # * LimitMEMLOCK=256M is accepted (`systemctl --user show` reports it) but is
 #   NOT effective: an unprivileged user manager cannot raise a limit above its
 #   own hard limit, and the process got 8 MiB (the systemd default). Kept for
@@ -88,8 +93,6 @@
     LimitCORE = "0";
     LimitMEMLOCK = "256M";
 
-    StateDirectory = "spool";
-    StateDirectoryMode = "0700";
     RuntimeDirectory = "spool";
     RuntimeDirectoryMode = "0700";
 

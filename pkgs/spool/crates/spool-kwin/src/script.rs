@@ -12,10 +12,10 @@
 //!   `org.kde.kwin.Script.run()` (replies once the JS has been evaluated, or
 //!   with `org.kde.kwin.Scripting.FileError` if the file cannot be read) and
 //!   `stop()`. `id` is `scripts.size()` at load time, so it can collide with a
-//!   still-registered object of another script after unloads; if `run` on the
-//!   object fails we fall back to `start()`.
-//! - A JS evaluation error makes KWin delete the script after `run` replied
-//!   successfully, so we confirm with `isScriptLoaded` afterwards.
+//!   still-registered object of another script after unloads; we therefore
+//!   never call `run` on it and use `Scripting.start()` instead.
+//! - A JS evaluation error makes KWin delete the script after it ran, so we
+//!   confirm with `isScriptLoaded` afterwards.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -27,7 +27,6 @@ use crate::{KWIN_BUS_NAME, KwinError, SCRIPT_PLUGIN_NAME};
 
 const SCRIPTING_PATH: &str = "/Scripting";
 const SCRIPTING_IFACE: &str = "org.kde.kwin.Scripting";
-const SCRIPT_IFACE: &str = "org.kde.kwin.Script";
 
 /// Path of the script entry point inside a KPackage dir.
 pub fn main_js(script_dir: &Path) -> PathBuf {
@@ -114,25 +113,14 @@ impl KwinScript {
     }
     let mut me = Self { conn: conn.clone(), id, loaded: true };
 
-    let obj = format!("{SCRIPTING_PATH}/Script{id}");
-    let ran =
-      conn.call_method(Some(KWIN_BUS_NAME), obj.as_str(), Some(SCRIPT_IFACE), "run", &()).await;
-    if let Err(e) = ran {
-      match &e {
-        zbus::Error::MethodError(name, msg, _)
-          if name.as_str() == "org.kde.kwin.Scripting.FileError" =>
-        {
-          me.loaded = false;
-          return Err(KwinError::ScriptLoad(msg.clone().unwrap_or_else(|| name.to_string())));
-        }
-        _ => {
-          tracing::debug!(error = %e, "Script{id}.run failed; falling back to Scripting.start");
-          let _: () = scripting_call(conn, "start", &()).await?;
-        }
-      }
-    }
+    // Start it with Scripting.start() (runs every loaded-but-not-running
+    // script), never `/Scripting/Script<id>.run`: the id is KWin's script-list
+    // length and collides after unloads, so that object can be another,
+    // already-running script. On sierra-2 that left Meta+V unregistered after
+    // a restart while a second script was loaded.
+    let _: () = scripting_call(conn, "start", &()).await?;
 
-    // A JS error deletes the script asynchronously after `run` replied.
+    // A JS error deletes the script asynchronously after it ran.
     tokio::time::sleep(Duration::from_millis(50)).await;
     let loaded: bool = scripting_call(conn, "isScriptLoaded", &(SCRIPT_PLUGIN_NAME,)).await?;
     if !loaded {
