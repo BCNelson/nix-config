@@ -8,7 +8,7 @@
 //! * The picker sends `Hello` first; spoold answers with its `Hello`.
 //!   Then frames are `PickerEvt` (daemon -> picker) and `PickerReq`
 //!   (picker -> daemon), postcard + u32 BE length (`spool_proto` framing).
-//! * Picker protocol v2 (`spool_proto::picker`): the picker sends
+//! * Picker protocol v3 (`spool_proto::picker`): the picker sends
 //!   `Hello::picker()` first. It queries the first page (`Query{seq, q: "",
 //!   offset: 0}`) at startup, pre-renders it and then sends `Ready`; `Show`
 //!   maps the surface, `Hide` (or Esc, focus loss, a selection) unmaps it,
@@ -30,6 +30,7 @@
 #![deny(unsafe_code)]
 
 mod app;
+mod edit;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod ipc;

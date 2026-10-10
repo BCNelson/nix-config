@@ -64,6 +64,11 @@ export component PickerWindow inherits Window {
     in property <string> touch-text;
     in property <string> unlock-error;
 
+    // ---- Ctrl+Shift+E format chooser (labels only; never content)
+    in property <bool> edit-open;
+    in property <[string]> edit-formats;
+    in property <int> edit-current;
+
     callback edited(string);
     callback clicked(int);
     callback scrolled(int, int);
@@ -394,6 +399,52 @@ export component PickerWindow inherits Window {
                     text: root.secret-focused ? "Enter unlock · Tab search · Esc close" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Del delete";
                     color: Theme.dim;
                     font-size: Theme.font-size * 0.8;
+                }
+            }
+        }
+
+        // Ctrl+Shift+E: which format of the selected item to edit
+        // (keyboard only; the list underneath does not take clicks).
+        if root.edit-open: Rectangle {
+            background: #00000080;
+            border-radius: 10px;
+            TouchArea { }
+            Rectangle {
+                width: min(parent.width - 80px, 440px);
+                height: 26px * root.edit-formats.length + 72px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: Theme.surface;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: Theme.accent;
+                VerticalLayout {
+                    padding: 10px;
+                    spacing: 4px;
+                    Text {
+                        text: "Edit which format?";
+                        color: Theme.fg;
+                        font-weight: 600;
+                    }
+                    for label[i] in root.edit-formats: Rectangle {
+                        height: 26px;
+                        border-radius: 4px;
+                        background: i == root.edit-current ? Theme.sel-bg : transparent;
+                        Text {
+                            x: 8px;
+                            width: parent.width - 16px;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: label;
+                            overflow: elide;
+                            color: i == root.edit-current ? Theme.sel-fg : Theme.fg;
+                        }
+                    }
+                    Text {
+                        text: "Enter edit · Up/Down choose · Esc back";
+                        color: Theme.dim;
+                        font-size: Theme.font-size * 0.8;
+                    }
                 }
             }
         }

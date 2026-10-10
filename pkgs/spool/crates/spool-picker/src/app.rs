@@ -236,6 +236,10 @@ pub struct App {
   /// (and the picker hidden) on that key's **release**, so the window that
   /// gets focus back never receives a stray Return release.
   enter_down: Option<(u32, SelectMode)>,
+  /// Ctrl+Shift+E's format chooser, while open.
+  chooser: Option<crate::edit::Chooser>,
+  /// Enter pressed in the chooser (raw keycode): picks on release.
+  chooser_enter: Option<u32>,
   loop_handle: LoopHandle<'static, App>,
 
   pub ui: PickerWindow,
@@ -347,6 +351,8 @@ impl App {
       pending_marks: Vec::new(),
       key_mark: None,
       enter_down: None,
+      chooser: None,
+      chooser_enter: None,
       query_mark: None,
       keyboard: None,
       pointer: None,
@@ -839,6 +845,7 @@ impl App {
   /// pre-render that state.
   pub fn hide(&mut self, reason: HideReason) {
     self.enter_down = None;
+    self.close_chooser();
     if let Some(s) = &self.surf {
       // Only the null buffer: any other state change in this commit makes
       // the compositor send a configure that arrives after the unmap reset
@@ -1122,11 +1129,85 @@ impl App {
     }
   }
 
+  // ------------------------------------------------------------- edit
+
+  /// Ctrl+E / Ctrl+Shift+E on the selected item.
+  fn on_edit_key(&mut self, key: crate::edit::EditKey) {
+    let Some((_, e)) = self.current_entry() else { return };
+    let (id, mimes) = (e.id, e.mimes.clone());
+    match key {
+      crate::edit::EditKey::Preferred => {
+        if let Some(m) = crate::edit::preferred_format(&mimes) {
+          self.edit(id, m);
+        }
+      }
+      crate::edit::EditKey::Choose => match crate::edit::Chooser::new(id, &mimes) {
+        Some(c) if c.formats.len() == 1 => self.edit(id, c.formats[0].clone()),
+        Some(c) => {
+          self.chooser = Some(c);
+          self.sync_chooser();
+        }
+        None => {}
+      },
+    }
+  }
+
+  /// A key while the chooser is open (it takes every key). Enter acts on
+  /// its release, like in the list (no stray Return for the next window).
+  fn on_chooser_key(&mut self, ev: &KeyEvent, repeat: bool) {
+    if matches!(ev.keysym, Keysym::Return | Keysym::KP_Enter) {
+      if !repeat {
+        self.chooser_enter = Some(ev.raw_code);
+      }
+      return;
+    }
+    let Some(c) = self.chooser.as_mut() else { return };
+    match c.on_key(ev.keysym) {
+      crate::edit::ChooserAction::Stay => self.sync_chooser(),
+      crate::edit::ChooserAction::Pick(mime) => {
+        let id = c.id;
+        self.close_chooser();
+        self.edit(id, mime);
+      }
+      crate::edit::ChooserAction::Close => self.close_chooser(),
+    }
+  }
+
+  fn sync_chooser(&mut self) {
+    let Some(c) = &self.chooser else { return };
+    let labels: Vec<SharedString> = c.labels().into_iter().map(SharedString::from).collect();
+    self.ui.set_edit_formats(ModelRc::from(Rc::new(VecModel::from(labels))));
+    self.ui.set_edit_current(c.current as i32);
+    self.ui.set_edit_open(true);
+  }
+
+  fn close_chooser(&mut self) {
+    self.chooser_enter = None;
+    if self.chooser.take().is_some() {
+      self.ui.set_edit_open(false);
+    }
+  }
+
+  /// Hide and ask spoold to open `mime` of item `id` in the editor (it never
+  /// sends us the content).
+  fn edit(&mut self, id: WireItemId, mime: String) {
+    self.hide(HideReason::Selected);
+    self.chan.send(PickerReq::Edit { id, mime });
+  }
+
   // ------------------------------------------------------------- keys
 
   fn on_key(&mut self, ev: KeyEvent, repeat: bool) {
     if self.vis != Vis::Shown && self.vis != Vis::AwaitConfigure {
       return;
+    }
+    if self.chooser.is_some() {
+      return self.on_chooser_key(&ev, repeat);
+    }
+    if let Some(k) = crate::edit::edit_key(ev.keysym, &self.mods, repeat)
+      && !self.ui.get_secret_focused()
+    {
+      return self.on_edit_key(k);
     }
     let page = ((self.logical.1 as f32 - 90.0) / 46.0).floor().max(1.0) as i64;
     let cur = self.ui.get_current() as i64;
@@ -1176,6 +1257,17 @@ impl App {
   }
 
   fn on_key_release(&mut self, ev: KeyEvent) {
+    if self.chooser_enter == Some(ev.raw_code) {
+      self.chooser_enter = None;
+      if let Some(c) = self.chooser.as_mut()
+        && let crate::edit::ChooserAction::Pick(mime) = c.on_key(Keysym::Return)
+      {
+        let id = c.id;
+        self.close_chooser();
+        self.edit(id, mime);
+      }
+      return;
+    }
     if let Some((code, mode)) = self.enter_down
       && code == ev.raw_code
     {
