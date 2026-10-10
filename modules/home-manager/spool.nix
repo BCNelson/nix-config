@@ -250,6 +250,14 @@ in {
           unitDef.service
           // {
             Environment = ["PATH=${unitDef.path}"];
+            # KWin checks the spool-paster fake_input grant against KDE's
+            # service cache (ksycoca), which otherwise only refreshes at login,
+            # so after a rebuild it still lists the old store path and refuses
+            # auto-paste. Refresh it here: the user manager carries the Plasma
+            # session's XDG_DATA_DIRS, which names the cache file KWin reads
+            # (home-manager's activation service has a different one). "-":
+            # never block spoold on it.
+            ExecStartPre = lib.mkIf (hasPlasmaManager && cfg.autoPaste) "-${pkgs.kdePackages.kservice}/bin/kbuildsycoca6";
           };
         Install.WantedBy = ["graphical-session.target"];
       };

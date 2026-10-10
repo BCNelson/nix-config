@@ -5,5 +5,9 @@
 {outputs, ...}: {
   imports = [outputs.homeModules.spool];
 
-  services.spool.enable = true;
+  services.spool = {
+    enable = true;
+    # Picking an item (Enter) only sets the clipboard; paste it yourself.
+    autoPaste = false;
+  };
 }
