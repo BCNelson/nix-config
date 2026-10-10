@@ -37,7 +37,7 @@ locks, security model, compositor matrix) is in
 | `crates/spool-portal` | lib | hotkey via the XDG GlobalShortcuts portal |
 | `crates/spool-hypr` | lib | Hyprland IPC (focus, cursor) |
 | `crates/spoold` | bin | the daemon |
-| `crates/spoolctl` | bin | `copy`, `current`, `show`, `pick [--raw]`, `status [--json]`, `pause [--for SECS]`, `resume` |
+| `crates/spoolctl` | bin | `copy`, `current`, `show`, `pick [--raw]`, `edit`, `new [--mime M]`, `status [--json]`, `pause [--for SECS]`, `resume` |
 | `crates/spool-keyctl` | bin + lib | `status`, `add`, `remove`, `rotate`, `recover`, `wipe` (see "Key management") |
 | `crates/spool-picker` | bin | resident layer-shell picker, unlock panel, optional GPU renderer |
 
@@ -54,7 +54,7 @@ home-manager module (`modules/home-manager/spool.nix`, imported as
 `outputs.homeModules.spool`) runs spoold as a hardened systemd user unit tied
 to `graphical-session.target`, writes `~/.config/spool/config.toml` from its
 options (`keyProvider`, `retention.*`, `primarySelection`, `excludedApps`,
-`autoPaste`, `pasteTerminals`, `picker.*`, `settings`), puts
+`autoPaste`, `pasteTerminals`, `picker.*`, `editor.*`, `settings`), puts
 `pickerPackage` on spoold's PATH and frees Plasma's Meta+V
 (`disableKlipperShortcut`). The ready-made mixin
 `home-manager/bcnelson/_mixins/programs/spool.nix` enables it; it is **not**
@@ -155,7 +155,9 @@ The `src` filesets only include `Cargo.toml`, `Cargo.lock`, `crates/` (and
 rebuilds. The VM test runs the packaged spoold under exactly the unit the
 home-manager module ships (headless sway session, throwaway gnome-keyring):
 hardening properties, the sandbox probe, encrypted persistence across
-restarts, the PATH audit, secrets not stored, session-only mode.
+restarts, the PATH audit, secrets not stored, session-only mode, and
+the external editor started as a transient user unit outside the sandbox
+(`spoolctl new` with a scripted editor).
 
 ## Testing
 
@@ -267,11 +269,21 @@ with a throwaway state directory.
 9. **GPU picker** (optional): `picker.renderer = "gpu"` on the real GPU;
    check it renders and falls back to software if it cannot (see
    "MemoryDenyWriteExecute" below for llvmpipe / NVIDIA).
+10. **External editor**: Ctrl+E on a text item opens the `text/*` editor
+    (Konsole + nvim by default) with the text; `:w` adds a new item at the
+    top of the picker, a second `:w` updates it, `:q` puts it on the
+    clipboard. Ctrl+Shift+E on a Firefox copy offers text and HTML; HTML in
+    Kate (`--block`) stores HTML plus plain text. Pasting a GitHub token
+    and saving shows "Spool: edit not saved" and keeps the previous version.
+    `journalctl --user -u 'spool-edit-*'` shows the editor units;
+    `$XDG_RUNTIME_DIR/spool/edit/` is empty afterwards. Check that the
+    editor gets focus on Plasma (a newly started window from a background
+    service may open behind the active one).
 
 ## Picker (`spool-picker`)
 
 A resident Slint UI on a wlr-layer-shell overlay surface, launched once by
-spoold and driven over a socketpair on fd 3 (picker protocol v2, INTERFACES.md
+spoold and driven over a socketpair on fd 3 (picker protocol v3, INTERFACES.md
 section 6).
 
 - Launch: spoold finds `spool-picker` **only** on its own (audited) PATH,
@@ -295,7 +307,8 @@ section 6).
 - Keys: type to search, Up/Down/PgUp/PgDn, Enter = paste, Shift+Enter =
   copy only, Ctrl+Enter = paste as plain text (all act when Enter is
   **released**, so the target window never sees a stray Return), Ctrl+P
-  pin, Del delete, Esc close.
+  pin, Del delete, Ctrl+E edit in the external editor, Ctrl+Shift+E choose
+  which format to edit first (see "Editing items"), Esc close.
 - Unlock panel (history locked; the list shows this session's items):
   passphrase or security-key PIN field (Enter unlocks, Tab moves to the
   search box), "Touch your security key" with a spinner and Retry (Ctrl+R),
@@ -328,6 +341,59 @@ section 6).
   `spool-picker` package is GPL-3.0-only (Spool's own sources stay MIT); the
   embedded UI font is a Noto Sans subset under OFL-1.1
   (`crates/spool-picker/fonts/OFL.txt`).
+
+## Editing items in an external editor
+
+Ctrl+E in the picker opens the selected item in your editor (its preferred
+format: text first); Ctrl+Shift+E first asks which format (text, HTML, an
+image, ...). `spoolctl edit` opens the picker to choose the item (there is
+deliberately no `spoolctl edit <id>`: the public socket cannot read
+history), `spoolctl new [--mime M]` starts from an empty file.
+
+- spoold writes the format to `$XDG_RUNTIME_DIR/spool/edit/<random>/item.<ext>`
+  (tmpfs, dir 0700, file 0600) and starts the configured command as a
+  transient systemd user unit (`spool-edit-<random>.service`), never as its
+  own child (which would inherit its seccomp sandbox).
+- Every save (inotify, 300 ms debounce) goes through the same policy as
+  `spoolctl copy` (size caps, secret patterns): the first accepted save
+  becomes a **new** item (`source_app` `spool.editor`, the original's tags
+  but not its pin, `derived_from` = the original); later saves update that
+  item in place. The original is never modified. HTML is stored with a
+  plain-text version derived from it; an image is stored as whatever type
+  its bytes are. A refused save (e.g. it now contains a token) keeps the
+  previous version and shows a notification naming only the reason.
+- When the editor exits normally, the last accepted version goes on the
+  clipboard and the temp directory is deleted; if it crashed, the stored
+  version is kept but not put on the clipboard. At most 4 sessions at once;
+  works while history is locked.
+
+Config (`config.toml`, or `services.spool.editor.*` in the home-manager
+module):
+
+```toml
+[editor]
+terminal = ["konsole", "--separate", "-e"]
+[editor.mime]   # most specific pattern wins; {file} = the temp file
+"text/*"    = ["{terminal}", "nvim", "-n", "-i", "NONE", "--cmd", "set noundofile nobackup nowritebackup", "{file}"]
+"text/html" = ["kate", "--block", "{file}"]
+"image/*"   = ["krita", "--nosplash", "{file}"]
+```
+
+The command must **block until you are done**: Spool takes its exit as
+"finished". `kate --block`, `code --wait`, `gedit --wait`, a terminal editor
+in a terminal that does not hand the window to a running instance
+(`konsole --separate -e`, `foot`, `alacritty -e`); Krita and GIMP reuse a
+running instance (close it first, or `gimp --new-instance`). An editor that
+exits within 2 s without saving triggers a notification saying so. No entry
+for a type: "no editor configured for <mime>". The home-manager module
+defaults `text/*` to `home.sessionVariables.VISUAL` / `EDITOR` (the unit
+never sees a shell-only `$EDITOR`) or `nvim`, in `{terminal}`.
+
+Caveat: the editor runs outside Spool's sandbox and control. It may keep
+swap, undo, backup, session or autosave copies of the text elsewhere (Neovim:
+`~/.local/state/nvim/{swap,undo,shada}` unless started as above; Kate:
+swap files and sessions; Krita: autosave). Spool deletes only its own temp
+file.
 
 ## History encryption and the state directory
 

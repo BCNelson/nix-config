@@ -39,7 +39,51 @@
     picker = {
       inherit (cfg.picker) renderer prerender;
     };
+    # [editor]: commands for "edit in external editor". The one exception to
+    # "policy only" (see pathLikeKeys): spoold never runs these itself; each
+    # session is a transient systemd user unit outside spoold's sandbox, i.e.
+    # exactly what any process of this user could start anyway.
+    editor = {
+      inherit (cfg.editor) terminal mime;
+    };
   };
+
+  # The user unit does not see the shell's $EDITOR, so the default text
+  # editor comes from home.sessionVariables (VISUAL, then EDITOR), else
+  # Neovim; (n)vim gets flags that keep the edited text out of swap, undo,
+  # backup and shada files.
+  sessionEditor = let
+    v = config.home.sessionVariables;
+  in
+    v.VISUAL or v.EDITOR or null;
+  editorWords =
+    if sessionEditor == null
+    then ["nvim"]
+    else lib.filter (s: s != "") (lib.splitString " " (toString sessionEditor));
+  editorName = baseNameOf (builtins.head editorWords);
+  # Run in `{terminal}`; anything else is taken to be a GUI editor.
+  terminalEditors = ["nvim" "vim" "vi" "nano" "micro" "hx" "helix" "kak" "joe" "ne" "mg"];
+  # GUI editors that need a flag to wait until the file is closed.
+  waitFlags = {
+    kate = ["--block"];
+    code = ["--wait"];
+    codium = ["--wait"];
+    subl = ["--wait"];
+    zed = ["--wait"];
+    gedit = ["--wait"];
+  };
+  vimHardening = ["-n" "-i" "NONE" "--cmd" "set noundofile nobackup nowritebackup"];
+  defaultTextEditor =
+    if builtins.elem editorName terminalEditors
+    then
+      ["{terminal}"]
+      ++ editorWords
+      ++ lib.optionals (builtins.elem editorName ["nvim" "vim"]) vimHardening
+      ++ ["{file}"]
+    else
+      editorWords
+      ++ lib.filter (f: !(builtins.elem f editorWords)) (waitFlags.${editorName} or [])
+      ++ ["{file}"];
 
   # spool-paste's DEFAULT_TERMINALS (crates/spool-paste/src/chord.rs): KWin
   # desktop-file app ids that paste with Ctrl+Shift+V.
@@ -59,6 +103,9 @@
   # The config file is policy only: spoold must never learn an executable or
   # socket path from a file in $HOME (executables come from the unit's PATH,
   # the socket from $XDG_RUNTIME_DIR). Reject anything that looks like one.
+  # Exception: [editor.mime] (mime-type keys -> editor argv, see `editor`
+  # above), skipped here because a mime like application/x-binary would
+  # trip the key check.
   pathLikeKeys = let
     bad = k: builtins.match ".*(path|socket|sock|exec|command|cmd|bin|program).*" (lib.toLower k) != null;
     walk = prefix: attrs:
@@ -68,7 +115,7 @@
         lib.optional (bad k) name ++ lib.optionals (builtins.isAttrs v) (walk "${name}." v))
       attrs);
   in
-    walk "" rendered;
+    walk "" (rendered // {editor = removeAttrs (rendered.editor or {}) ["mime"];});
 
   # plasma-manager (inputs.plasma-manager) is how this repo manages KDE
   # config; use it when the importing config has it, else fall back to
@@ -182,6 +229,59 @@ in {
       };
     };
 
+    editor = {
+      terminal = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = ["konsole" "--separate" "-e"];
+        example = ["foot"];
+        description = ''
+          Terminal command spliced in for a `{terminal}` argument of
+          `editor.mime` (it must run the rest of the arguments as a command
+          and stay open until it exits). Konsole needs `--separate`: without
+          it a second `konsole` may hand the window to a running instance and
+          exit at once, which Spool would take as "editor closed".
+        '';
+      };
+
+      mime = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        default = {};
+        example = lib.literalExpression ''
+          {
+            "text/*" = ["{terminal}" "nvim" "-n" "-i" "NONE" "{file}"];
+            "text/html" = ["kate" "--block" "{file}"];
+            "image/*" = ["krita" "--nosplash" "{file}"];
+          }
+        '';
+        description = ''
+          Editors for "edit in external editor" (Ctrl+E / Ctrl+Shift+E in the
+          picker, `spoolctl edit`, `spoolctl new`), as `[editor.mime]`: a mime
+          pattern (exact, `type/*` or `*/*`; the most specific match wins) to
+          an argv with `{file}` (the temp file) and optionally `{terminal}`.
+          The command must block until you are done editing (`kate --block`,
+          `code --wait`, a terminal editor); each save is stored as a new
+          item and the last one goes on the clipboard when it exits.
+
+          `"text/*"` defaults (`mkDefault`) to `home.sessionVariables.VISUAL`
+          or `EDITOR` if set, else `nvim`: terminal editors (nvim, vim, nano,
+          helix, ...) run in `{terminal}`, (n)vim with `-n -i NONE --cmd
+          "set noundofile nobackup nowritebackup"`; other (GUI) editors run
+          directly, with `--block` / `--wait` added for kate, code, codium,
+          subl, zed and gedit. spoold runs in a systemd user unit, so a
+          shell-only `$EDITOR` (set in .bashrc, not in sessionVariables) is
+          not seen.
+
+          The edited plaintext lives in `$XDG_RUNTIME_DIR/spool/edit` (tmpfs,
+          0700) and is deleted when the editor exits, but the editor itself
+          runs outside Spool's control: it may keep swap, undo, backup,
+          recent-files or crash-recovery copies elsewhere (e.g. Neovim's
+          ~/.local/state/nvim/{swap,undo,shada}, Kate's session data,
+          Krita's autosave). Configure it not to, as the default does for
+          (n)vim.
+        '';
+      };
+    };
+
     disableKlipperShortcut = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -238,6 +338,8 @@ in {
       home.packages = [cfg.package];
 
       xdg.configFile."spool/config.toml".source = configFile;
+
+      services.spool.editor.mime."text/*" = lib.mkDefault defaultTextEditor;
 
       systemd.user.services.spool = {
         Unit =

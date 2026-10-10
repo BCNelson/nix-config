@@ -12,7 +12,7 @@ or a launch contract.
 3. Processes, launch contracts and locks
 4. State directory
 5. Public socket (`spool-proto`)
-6. Picker channel (protocol v2) and `spool-picker`
+6. Picker channel (protocol v3) and `spool-picker`
 7. Paste helper channel (`spool-paster`)
 8. Library crates: `spool-core`, `spool-crypto`, `spool-keys`,
    `spool-search`, `spool-wayland`, `spool-kwin`, `spool-paste`,
@@ -58,7 +58,7 @@ together. The picker depends on `spool-proto` only.
 
 | Crate | Kind | Owns |
 | --- | --- | --- |
-| `spool-proto` | lib | wire types and framing: public socket (`PublicReq`/`PublicResp`), picker channel v2 (`PickerReq`/`PickerEvt`), `Hello`, socket path |
+| `spool-proto` | lib | wire types and framing: public socket (`PublicReq`/`PublicResp`), picker channel v3 (`PickerReq`/`PickerEvt`), `Hello`, socket path |
 | `spool-crypto` | lib | `DataKey` / `SubKey` (HKDF labels), chunked AEAD file format, small sealed blobs, best-effort `mlock` |
 | `spool-core` | lib | item model, two-phase ingest `policy`, SQLite/SQLCipher `store` (session / encrypted / plain, blobs, merge, rekey, search feed), TOML `config` |
 | `spool-keys` | lib | `keyslots.json` (LUKS-style slots), providers: Secret Service (oo7), session, passphrase (Argon2id), FIDO2 `hmac-secret` (libfido2, feature `fido2`, default on) |
@@ -89,6 +89,7 @@ never shipped).
 | `spool-paster` | spoold (only with `auto_paste` and a focus source) | spoold over its stdin socketpair; Wayland | none |
 | `spoolctl` | user | spoold's public socket | none |
 | `spool-keyctl` | user, while spoold is stopped | state directory, Secret Service, FIDO2 keys, `/dev/tty` | data key during an operation |
+| external editor (`spool-edit-<hex>.service`) | systemd user manager, on spoold's `StartTransientUnit` (section 9, `editor`) | its temp file in `<runtime>/spool/edit/` | the one item being edited (plaintext, while open) |
 
 **spoold startup order** (security relevant): umask 077 and
 `PR_SET_DUMPABLE=0` -> logging (journald, or stderr with `--log-stderr`) ->
@@ -160,7 +161,9 @@ works, whatever socket path either was started with.
   clean close on a frame boundary.
 - Handshake: `Hello { proto: u16 }`, `PROTO_VERSION = 1`; client first,
   server answers with its own and closes on mismatch.
-- `PublicReq { Show, Pick, Copy{mime, data}, Current, Pause{secs: Option<u32>}, Resume, Status }`.
+- `PublicReq { Show, Pick, Copy{mime, data}, Current, Pause{secs: Option<u32>}, Resume, Status, Edit, New{mime} }`
+  (`Edit`, `New` appended for the external editor; `PROTO_VERSION` unchanged
+  since nothing was reordered).
 - `PublicResp { Ok, Current{mime, data}, Empty, Status(StatusInfo), Error{code: ErrorCode, message}, NotYetImplemented, Picked{mime, data}, Cancelled }`
   (`NotYetImplemented` = no picker on this install).
 - `ErrorCode { BadRequest, TooLarge, RateLimited, Forbidden, Unavailable, Locked, Internal }`.
@@ -175,28 +178,35 @@ works, whatever socket path either was started with.
   cursor: bool, auto_paste: bool, paste_backend: fake-input|virtual-keyboard|none }`.
 - Server rules (`spoold::ipc`): peer must pass `security::check_peer` (same
   uid, known pid, readable non-Flatpak `/proc/<pid>/root`; fail closed);
-  `Show`/`Pick` rate-limited (`RATE_BURST = 5` per `RATE_WINDOW = 2 s`,
-  shared with the hotkey path); `IDLE_TIMEOUT = 30 s`; a `Pick` reply has no
-  time limit, a client that closes or speaks out of turn while waiting drops
-  it.
+  `Show`/`Pick`/`Edit`/`New` rate-limited (`RATE_BURST = 5` per
+  `RATE_WINDOW = 2 s`, shared with the hotkey path); `IDLE_TIMEOUT = 30 s`;
+  a `Pick` / `Edit` reply has no time limit, a client that closes or speaks
+  out of turn while waiting drops it.
 - Semantics: `Copy` -> `manual_item` (size caps, secret patterns on text) ->
   publish + store (paused: publish only; a secret is published but never
   stored and never kept alive). `Show` targets the tracker's current window;
-  `Pick` opens the picker in return mode (section 6).
+  `Pick` opens the picker in return mode (section 6). `Edit` opens it in
+  "pick to edit" mode: the chosen item's preferred representation (or the
+  format chosen with Ctrl+Shift+E) is edited ([section 9, `editor`](#9-spoold-internals));
+  `Ok` once the editor runs, `Cancelled` on Esc / focus loss, `Error` (no
+  editor for the type, too many sessions, ...). There is deliberately no
+  `Edit{id}`: the public socket cannot name or read history. `New{mime}`
+  starts a session on an empty file (`Ok` once the editor runs).
 
-## 6. Picker channel (protocol v2) and `spool-picker`
+## 6. Picker channel (protocol v3) and `spool-picker`
 
 Types in `spool_proto::picker`; served by `spoold::picker::ResidentPicker`
 with `spoold::unlock` for the unlock panel.
 
-- Handshake: the picker sends `Hello { proto: PICKER_PROTO_VERSION (2) }`
+- Handshake: the picker sends `Hello { proto: PICKER_PROTO_VERSION (3) }`
   first; spoold answers `Hello::picker()` and closes after it on a mismatch
   (`is_picker_compatible`). EOF = the picker exits 0. Requests are read into
   zeroize-on-drop buffers (they may carry a passphrase).
 - `PickerReq`: `Ready` (once; first page pre-rendered), `Query{seq, q,
   filters: QueryFilters, offset, limit}`, `Thumb{seq, id, mime}`,
   `Select{id, mode}`, `Pin{id, on}`, `Delete{id}`, `Tag{id, tag, on}`,
-  `Unlock{provider, secret: Option<UnlockSecret>}`, `Hidden{reason}`.
+  `Unlock{provider, secret: Option<UnlockSecret>}`, `Hidden{reason}`,
+  `Edit{id, mime}` (v3).
 - `PickerEvt`: `Show{cursor, output, target_window, scale_hint: Option<f64>}`,
   `Hide`, `Page{seq, offset, items, more}`, `Thumb{seq, id, bytes}`,
   `Error{seq: Option<u32>, code: PickerErrorCode, message}`,
@@ -233,6 +243,14 @@ What spoold does:
   gone). The picker never receives an item's full text.
 - `Pin`/`Delete`/`Tag` -> `Request::Edit` (tags 1..=64 chars, no control
   chars or `/`).
+- `Edit{id, mime}` (Ctrl+E: the preferred format, text first; Ctrl+Shift+E:
+  a chooser of the item's formats from its summary's `mimes`, text variants
+  shown once) -> `Request::EditItem`. The picker hides first
+  (`Hidden{Selected}`) and never receives the content. A failure (no editor
+  configured for the type, too many sessions, item gone, editor not
+  startable) -> `Error{seq: None}` plus a desktop notification (the picker
+  is hidden). A waiting `spoolctl edit` gets the outcome; a waiting
+  `spoolctl pick` is cancelled.
 - `Locked{prompts}` right after the handshake whenever history is locked and
   whenever the prompt set changes (`unlock::prompts(dir, need_pin)`:
   `Passphrase` per passphrase slot, `Fido2Touch` per FIDO2 slot, `Fido2Pin`
@@ -259,7 +277,9 @@ What spoold does:
 - `Pick` (public socket): cancels an older pick, shows with no target; the
   next `Select` returns the item's preferred representation (text first;
   `PastePlain`: text only) as `Picked` (touch, no publish); `Hidden` (not
-  `Selected`), a new `Show`/`Pick` or shutdown -> `Cancelled`.
+  `Selected`), a new `Show`/`Pick` or shutdown -> `Cancelled`. `Edit`
+  (public socket) is the same, except that the `Select` (or a picker
+  `Edit`) starts an editing session and answers `Ok`.
 
 `spool-picker` itself: wlr-layer-shell overlay surface (keyboard
 interactivity exclusive while shown), software renderer by default (next
@@ -303,9 +323,16 @@ press paste chords with it.
   fetch_timeout_ms = 2000, mime_allowlist, key_provider: KeyProviderSetting
   { SecretService (default), Session }, auto_paste = true, paste_terminals:
   Option<Vec<String>>, picker: PickerSettings { renderer: PickerRenderer {
-  Software (default), Gpu }, prerender = true } }`, `deny_unknown_fields`
-  everywhere. `load`, `from_toml_str`, `default_path`, `retention()`,
-  `fetch_timeout()`. `DEFAULT_MIME_ALLOWLIST`: text variants,
+  Software (default), Gpu }, prerender = true }, editor: EditorSettings {
+  terminal: Vec<String>, mime: BTreeMap<pattern, argv> } }`,
+  `deny_unknown_fields` everywhere. `load`, `from_toml_str`, `default_path`,
+  `retention()`, `fetch_timeout()`. `EditorSettings::command_for(mime, file)
+  -> Result<argv, EditorCommandError { NoEditor(mime), Invalid(mime) }>`:
+  most specific pattern wins (exact with parameters > exact > `type/*` >
+  `*/*`), a `{terminal}` argument is replaced by `terminal`, `{file}`
+  (also inside an argument) by the path; validated at load (patterns,
+  `{file}` present, first argument a program, `{terminal}` only with a
+  non-empty `terminal`). Empty by default (no editor configured). `DEFAULT_MIME_ALLOWLIST`: text variants,
   `text/uri-list`, `text/html` (stored, never rendered), `image/png`,
   `image/jpeg`, `image/webp`; not SVG, GIF or file-manager cut/copy lists.
 - `policy` (two phases: plan what to fetch from the offered mimes, then
@@ -320,7 +347,10 @@ press paste chords with it.
     AwsAccessKey, OpenAiStyleKey, Jwt, SlackToken, AgeSecretKey, OtpCode }`.
   - `Policy::new(Config, hash_key)`, `plan`, `plan_after_hint`,
     `hint_is_secret`, `evaluate`, `manual_item` (caps + hashing, allowlist
-    not applied, secret patterns applied to text), `detect_secret`.
+    not applied, secret patterns applied to text), `manual_reps` (the same
+    for several representations of one explicit action, first canonical,
+    text aliases for the first text variant, item cap over the sum; used
+    for editor saves), `detect_secret`.
   - `PolicyState`: pause/resume, `record_stored/bumped/outcome`,
     `record_dropped/purged`, `keepalive_candidate`, `clear_candidate` (clear
     within `CLEAR_WINDOW = 60 s` purges the previous item, only if that copy
@@ -343,6 +373,17 @@ press paste chords with it.
     (never reads blobs), `touch`, `set_pinned`, `set_tag`, `delete`
     (tombstone), `retention_sweep(now, RetentionLimits)` (pinned exempt),
     `count`, `hash_key()`.
+  - Edited items: `insert_derived(NewItem, derived_from: Option<ItemId>)`
+    (= `insert`, plus `items.derived_from` on a new row and the original's
+    tags on the result; never its pin; the original is not touched),
+    `replace_content(id, NewItem) -> Option<ReplaceOutcome { Replaced(id),
+    Merged(other) }>` (new reps / hash / preview / size / `change_seq`,
+    keeps id, selection, app, tags, pin, `created_at`; content equal to
+    another row of the same selection and app bumps that row, gives it this
+    row's tags and flags and deletes this one, keeping one row per
+    `(selection, hash, source_app)`; old blob files removed after the
+    commit), `derived_from(id)`. `derived_from` is not a foreign key (the
+    original may be swept); `merge_from_session` remaps it.
   - Blobs: reps > `INLINE_MAX` (1 MiB) in encrypted stores ->
     `blobs/<hex>.bin` (`Label::Blob`), written before the DB commit, removed
     after commit + checkpoint; `gc_orphan_blobs` at open.
@@ -363,7 +404,8 @@ press paste chords with it.
     (`rusqlite_migration`, version in `PRAGMA user_version`, run at every
     open); migration 4 collapses existing `(selection, hash, source_app)` duplicates
     (pinned, else most recent survives, merged tags/flags/timestamps,
-    tombstones for the rest; their blob files go to `gc_orphan_blobs`).
+    tombstones for the rest; their blob files go to `gc_orphan_blobs`);
+    migration 5 adds `items.derived_from INTEGER`.
 
 ### spool-crypto
 
@@ -548,8 +590,9 @@ them).
   `with_picker`; `run(wl_events, requests, shutdown)` (Wayland events polled
   before requests). On `Opened`: new `Policy`, one store job
   `merge_from_session` + swap, `remap_ids`, retention sweep, `Ready`.
-  `Request { Public, Search, Thumb, Edit, Select, PickerHidden }`; picker
-  requests come only from the picker channel (and test hooks).
+  `Request { Public, Search, Thumb, Edit, Select, PickerHidden, EditItem }`;
+  picker requests come only from the picker channel (and test hooks).
+  `with_editor(EditorDeps)` enables external editing.
   `REQUEST_QUEUE = 64`, `RETENTION_INTERVAL = 1 h`.
 - Capture: `NewSelection{ours: false}` -> `plan` -> optional hint fetch ->
   `fetch` -> `evaluate` -> insert / drop / purge; only the newest pending
@@ -575,6 +618,50 @@ them).
   `NotConfirmed`; a newer Select -> `Superseded`), `picker.hide()`, then
   `tracker.wait_for(window, FOCUS_WAIT = 500 ms)`, chord from
   `TerminalList`, KWin layout index, paste via the helper -> `Pasted{chord}`.
+- `editor` (+ `edit_flow`, the orchestrator side): editing sessions, at
+  most `MAX_SESSIONS = 4` (more -> `Busy`), also while history is locked
+  (session store; ids remapped on merge). Per session:
+  1. The representation (aliases resolved; text variants -> UTF-8
+     `text/plain;charset=utf-8`; `text/html` stays HTML) is written to
+     `<socket dir>/edit/<16 hex>/item.<ext>` (`$XDG_RUNTIME_DIR/spool/edit`
+     by default; dir 0700, file 0600, `create_new`). `cleanup_stale` empties
+     `edit/` at startup.
+  2. `[editor]`'s command for that mime (checked before anything is
+     written) is started by an `EditorLauncher`: `SystemdLauncher` calls
+     `org.freedesktop.systemd1.Manager.StartTransientUnit` on the session
+     bus (`spool-edit-<hex>.service`, `Type=exec`,
+     `CollectMode=inactive-or-failed`, `WorkingDirectory=~`, `ExecStart=
+     /bin/sh -c 'exec "$@"' spool-edit <argv>` so the program is found on
+     the user manager's `PATH`; `WAYLAND_DISPLAY` / `DISPLAY` passed), after
+     `Subscribe` and match rules for the unit's `PropertiesChanged` and
+     `JobRemoved`; the exit is `ActiveState` `inactive` (after running) ->
+     `Success`, `failed` / a failed start job -> `Failed`, with a 3 s
+     `Get(ActiveState)` poll as fallback (a collected unit after it ran
+     counts as `Success`). Never spoold's child (it would inherit the
+     seccomp sandbox, `NoNewPrivileges` and the cleared environment).
+  3. `watch::DirWatch` (inotify on the directory: `CLOSE_WRITE`, `MODIFY`,
+     `MOVED_TO`, `CREATE`, `DELETE`; only the file's own name counts, so
+     editors that save by rename work and swap / backup files are ignored),
+     `DEBOUNCE = 300 ms`, then a read capped at `max_rep_bytes`; unchanged
+     bytes (BLAKE3 of the last read) are not reported. `EditorEvent::Saved`
+     -> `edit_flow`: text must be UTF-8; HTML -> HTML + `html_to_text`
+     (in-tree converter) as `text/plain;charset=utf-8`; images are sniffed
+     (PNG / JPEG / WebP, or the edited type) and stored as what they are;
+     then `Policy::manual_reps` (caps, secret patterns), `source_app =
+     "spool.editor"`, first accepted save `insert_derived` (tags,
+     `derived_from`), later ones `replace_content` on that item (a fresh
+     `insert_derived` if a save had deduped onto an item the session did
+     not create, or the item was deleted). Refused -> previous version kept
+     + a content-free notification (`org.freedesktop.Notifications`, e.g.
+     "Spool: edit not saved" / "Looks like a GitHub token. The previous
+     version is kept.").
+  4. `EditorEvent::Exited` (after one more read): `Success` with an
+     accepted save -> published like a picker `Copy`
+     (`Orchestrator::publish_item`); `Success` within `QUICK_EXIT = 2 s`
+     without any save -> notification that the command must block;
+     `Failed` -> nothing published (notified if something was stored). The
+     directory is deleted either way. Shutdown stops the watches and deletes
+     every session directory but leaves the editor units running.
 - `desktop::start(&Config) -> (Desktop, DesktopLink)` (never fails): session
   bus (5 s) -> `org.kde.KWin` present -> `KwinService` + `KwinScript`
   (`$SPOOL_KWIN_SCRIPT_DIR` or `<exe>/../../share/spool/kwin-script`); else
@@ -605,9 +692,12 @@ them).
 ## 10. spoolctl and spool-keyctl
 
 - `spoolctl`: `copy [--mime M] [FILE|-]`, `current [--raw]`, `show`,
-  `pick [--raw]` (no reply timeout), `status [--json]`, `pause [--for
-  SECS]`, `resume`. Exit codes: 0 ok, 1 error (daemon error / unreachable /
-  no picker), 2 usage, 3 nothing (`current`: empty; `pick`: cancelled).
+  `pick [--raw]` (no reply timeout), `edit` (picker in "pick to edit" mode,
+  no reply timeout, no item argument by design), `new [--mime M]` (default
+  `text/plain;charset=utf-8`), `status [--json]`, `pause [--for SECS]`,
+  `resume`. Exit codes: 0 ok, 1 error (daemon error / unreachable / no
+  picker), 2 usage, 3 nothing (`current`: empty; `pick` / `edit`:
+  cancelled).
   Raw bytes unless stdout is a TTY (then `escape::escape_for_tty`).
   `client::Client` is also compiled into spoold's tests via `#[path]`.
 - `spool-keyctl` (`status`/`list`, `add passphrase|fido2|secret-service`,
@@ -649,10 +739,29 @@ them).
   the window that was active at Show time.
 - **Logging** follows rule 3; the picker never receives an item's full text
   (previews and thumbnails only).
+- **External editing**: the picker and the public socket only name an item
+  and a format (`spoolctl edit` makes the user pick; there is no
+  `Edit{id}` on the socket); spoold writes the plaintext to a 0600 file in
+  a 0700 directory on the runtime tmpfs, deletes it when the editor exits
+  and at the next start, and runs every save through the manual-copy
+  policy. The editor command comes from `config.toml` (`[editor]`), the
+  only executable spoold takes from a file in `$HOME`; it never runs it
+  itself but asks the systemd user manager for a transient unit, which any
+  process of the user can do anyway, so this grants nothing new. Logs show
+  the program name, unit name, mime, sizes and hash prefixes, never the
+  content or the file path.
 - **Known limits**: Slint keeps internal copies of the typed passphrase that
   cannot be wiped; the FIDO2 / passphrase slots have no external secret, so
   an old `keyslots.json` copy plus the passphrase / key still opens an old
   DB copy (snapshots); `LimitMEMLOCK` is capped by the user manager.
+  External editors run outside spoold's sandbox (as the user, with the
+  user manager's environment) and outside Spool's control: they may write
+  swap, undo, backup, session, recent-files or crash-recovery copies of the
+  edited text elsewhere (Neovim's `~/.local/state/nvim/{swap,undo,shada}`
+  unless started with `-n -i NONE` and `noundofile`, as the home-manager
+  default does; Kate's swap files / sessions; Krita's autosave), and any
+  same-user process can read the temp file while it exists. Items stored
+  from an editor are encrypted like any other; those copies are not.
 
 ## 12. Compositor matrix
 
