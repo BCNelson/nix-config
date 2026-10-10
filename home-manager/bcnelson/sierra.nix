@@ -9,6 +9,8 @@
     ./_mixins/workstation.nix
     ./_mixins/3dprinting.nix
     ./_mixins/programs/voxtype.nix
+    # Spool replaces Klipper here first (Meta+V, clipboard history).
+    ./_mixins/programs/spool.nix
   ];
 
   home.packages = [

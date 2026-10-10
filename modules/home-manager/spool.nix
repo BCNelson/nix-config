@@ -194,6 +194,17 @@ in {
       '';
     };
 
+    disableKlipperHistory = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Stop Klipper (Plasma's built-in clipboard history) from keeping its
+        own history and from re-asserting the clipboard when the owning app
+        exits, so Spool is the only clipboard manager. Writes klipperrc via
+        plasma-manager; no-op without it. Takes effect at the next login.
+      '';
+    };
+
     settings = lib.mkOption {
       inherit (toml) type;
       default = {};
@@ -244,6 +255,17 @@ in {
       };
     }
 
+    (lib.mkIf (cfg.disableKlipperHistory && hasPlasmaManager) {
+      # Klipper otherwise records every copy too (persisting it unencrypted
+      # with KeepClipboardContents) and races spoold to re-publish the
+      # selection when its owner exits.
+      programs.plasma.configFile.klipperrc.General = {
+        KeepClipboardContents = false;
+        PreventEmptyClipboard = false;
+        IgnoreSelection = true;
+        MaxClipItems = 1;
+      };
+    })
     (lib.mkIf cfg.disableKlipperShortcut (
       if hasPlasmaManager
       then {
