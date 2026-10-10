@@ -666,6 +666,7 @@ fn change_seq_monotonic_across_sweep_merge_rekey_and_reopen() {
   let mut dup = image_item(&shk, 1, 0, t(30));
   dup.hash = dedupe_hash(&shk, &canon);
   dup.reps = vec![canon];
+  dup.source_app = newest.source_app.clone();
   sess.insert(dup).unwrap();
   sess.insert(text_item(&shk, Selection::Primary, "s1", t(31))).unwrap();
   sess.insert(text_item(&shk, Selection::Clipboard, "s2", t(32))).unwrap();
@@ -705,4 +706,43 @@ fn reset_change_seq_counter_is_raised_at_open() {
   let mut s = Store::open_encrypted(d.path(), &k).unwrap();
   let id = s.insert(text_item(&hk, Selection::Clipboard, "c", t(2))).unwrap().id();
   assert_eq!(s.get(id).unwrap().unwrap().change_seq, max + 1);
+}
+
+#[test]
+fn migration_collapse_leaves_duplicate_blobs_to_gc() {
+  let d = tempfile::tempdir().unwrap();
+  let k = DataKey::generate();
+  let hk = hash_key_of(&k);
+  let (keep, dup) = {
+    let mut s = Store::open_encrypted(d.path(), &k).unwrap();
+    let img = image_item(&hk, INLINE_MAX + 1, 4, t(0));
+    let dup = s.insert(img.clone()).unwrap().id();
+    // A second copy with its own blob file (the old dedupe let it in once
+    // another item had been copied in between).
+    let mut again = img.clone();
+    again.hash = dedupe_hash(&hk, &Representation::new("image/png", b"other".to_vec()));
+    again.created_at = t(5);
+    let keep = s.insert(again).unwrap().id();
+    s.conn()
+      .execute(
+        "UPDATE items SET hash = (SELECT hash FROM items WHERE id = ?1) WHERE id = ?2",
+        params![dup.0, keep.0],
+      )
+      .unwrap();
+    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    assert_eq!(blob_names(d.path()).len(), 2);
+    (keep, dup)
+  };
+
+  let mut s = Store::open_encrypted(d.path(), &k).unwrap();
+  assert_eq!(s.get(dup).unwrap(), None);
+  let it = s.get(keep).unwrap().unwrap();
+  assert_eq!(it.created_at, t(0));
+  assert_eq!(it.reps[0].data.len(), INLINE_MAX + 1);
+  assert_eq!(blob_names(d.path()), referenced_blobs(&s));
+  assert_eq!(blob_names(d.path()).len(), 1);
+  assert_eq!(
+    s.insert(image_item(&hk, INLINE_MAX + 1, 4, t(9))).unwrap(),
+    InsertOutcome::Bumped(keep)
+  );
 }

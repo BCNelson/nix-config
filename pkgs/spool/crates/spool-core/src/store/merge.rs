@@ -17,7 +17,7 @@ use crate::{Error, Result};
 pub struct MergeReport {
   /// Session items that became new rows.
   pub inserted: usize,
-  /// Session items that bumped the newest persistent item instead.
+  /// Session items that bumped an existing persistent item instead.
   pub bumped: usize,
   /// Blob files written for large reps.
   pub blob_files: usize,
@@ -33,9 +33,9 @@ impl Store {
   ///   `last_used_at`, selection, source app, flags, preview and tags;
   /// - re-hashed with **this** store's hash key (the session's hashes were
   ///   keyed with the session key);
-  /// - deduped like [`Store::insert`]: equal to the newest item of the same
-  ///   selection bumps it (`last_used_at = max(old, session)`; flags are
-  ///   not merged);
+  /// - deduped like [`Store::insert`]: equal to any item of the same
+  ///   selection and source app bumps it (`last_used_at = max(old, session)`, flags OR-ed,
+  ///   the session item's missing tags added);
   /// - reps larger than [`super::INLINE_MAX`] become blob files (encrypted
   ///   stores);
   /// - fresh `change_seq`s. Session tombstones are ignored.
@@ -74,15 +74,17 @@ impl Store {
       let out = insert_row(&tx, mode, &row, &item.reps, &mut pending)?;
       report.blob_files += pending.len() - before;
       match out {
-        InsertOutcome::Inserted(id) => {
-          report.inserted += 1;
-          let tags: Vec<Option<String>> =
-            tags_stmt.query_map(params![sid], |r| r.get(0))?.collect::<Result<_, _>>()?;
-          for tag in tags {
-            tx.execute("INSERT INTO tags(item_id, tag) VALUES (?1, ?2)", params![id.0, tag])?;
-          }
-        }
+        InsertOutcome::Inserted(_) => report.inserted += 1,
         InsertOutcome::Bumped(_) => report.bumped += 1,
+      }
+      let tags: Vec<Option<String>> =
+        tags_stmt.query_map(params![sid], |r| r.get(0))?.collect::<Result<_, _>>()?;
+      for tag in tags {
+        tx.execute(
+          "INSERT INTO tags(item_id, tag) SELECT ?1, ?2
+           WHERE NOT EXISTS (SELECT 1 FROM tags WHERE item_id = ?1 AND tag IS ?2)",
+          params![out.id().0, tag],
+        )?;
       }
       report.ids.push((item.id, out));
     }

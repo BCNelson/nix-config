@@ -6,7 +6,7 @@
 //! * `NewSelection { ours: false }` -> `Policy::plan` -> maybe hint fetch ->
 //!   `WaylandHandle::fetch` -> on `Fetched`, `Policy::evaluate` -> act on the
 //!   `Decision` (`Store::insert` / `Store::delete`) -> report back to
-//!   `PolicyState` (`record_stored` / `record_dropped` / `record_purged`).
+//!   `PolicyState` (`record_outcome` / `record_dropped` / `record_purged`).
 //!   Only the newest pending offer per selection matters; stale `Fetched`
 //!   results are discarded.
 //! * `SelectionCleared` -> keep-alive: re-publish
@@ -920,8 +920,7 @@ impl<W: WaylandSide> Orchestrator<W> {
       }
     };
     self.policy = policy;
-    let ids: HashMap<ItemId, ItemId> =
-      report.ids.iter().map(|(session, outcome)| (*session, outcome.id())).collect();
+    let ids: HashMap<ItemId, InsertOutcome> = report.ids.iter().copied().collect();
     self.state.remap_ids(|id| ids.get(&id).copied());
     self.store_kind = kind;
     self.key_state = KeyState::Ready;
@@ -1148,7 +1147,7 @@ impl<W: WaylandSide> Orchestrator<W> {
           InsertOutcome::Bumped(id) => ("bumped", id),
         };
         tracing::info!(sel = sel.as_str(), %id, hash = %hp, bytes = size, ?mimes, "stored ({kind})");
-        self.state.record_stored(sel, id, at);
+        self.state.record_outcome(sel, outcome, at);
         Some(outcome)
       }
       Ok(Err(e)) => {

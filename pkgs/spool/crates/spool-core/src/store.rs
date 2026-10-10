@@ -71,8 +71,10 @@
 //!
 //! Every hot operation is logarithmic in the item count:
 //!
-//! - `items_sel_recent (selection, last_used_at DESC, id DESC)`: the insert
-//!   dedupe lookup and [`Store::latest`].
+//! - `items_sel_recent (selection, last_used_at DESC, id DESC)`:
+//!   [`Store::latest`].
+//! - `items_dedupe (selection, hash, source_app)`: the insert dedupe lookup
+//!   (any item of the selection from the same app, not just the newest).
 //! - `items_pin_recent ((flags & 1) DESC, last_used_at DESC, id DESC)`:
 //!   [`Store::recent`] (pinned first) and the retention sweep's
 //!   oldest-unpinned scan.
@@ -102,7 +104,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use rusqlite::{Connection, OptionalExtension, params};
-use rusqlite_migration::{M, Migrations};
+use rusqlite_migration::{HookError, M, Migrations};
 use spool_crypto::{DataKey, Label, SubKey, Zeroizing};
 
 pub use merge::MergeReport;
@@ -175,6 +177,15 @@ CREATE INDEX tags_item ON tags(item_id);
 DROP INDEX items_recent;
 "#,
     ),
+    // Dedupe against the whole history (same selection, content and source
+    // app): collapse the duplicates the newest-only dedupe let in, then index
+    // the lookup.
+    M::up_with_hook(
+      "CREATE INDEX items_dedupe ON items(selection, hash, source_app);",
+      |tx: &rusqlite::Transaction<'_>| {
+        collapse_duplicates(tx).map(|_| ()).map_err(|e| HookError::Hook(e.to_string()))
+      },
+    ),
   ])
 });
 
@@ -216,8 +227,9 @@ pub fn from_millis(ms: i64) -> SystemTime {
 pub enum InsertOutcome {
   /// A new row was created.
   Inserted(ItemId),
-  /// The hash equals the newest item of the same selection; its
-  /// `last_used_at` (and `change_seq`) were bumped instead.
+  /// The hash and source app equal an existing item of the same selection; its
+  /// `last_used_at` (and `change_seq`) were bumped and the new flags
+  /// OR-ed in instead.
   Bumped(ItemId),
 }
 
@@ -522,11 +534,13 @@ impl Store {
     &self.conn
   }
 
-  /// Insert `item`, or bump the newest item of the same selection if its
-  /// hash equals `item.hash`. Allocates a new `change_seq` either way.
+  /// Insert `item`, or bump the item of the same selection whose hash and
+  /// source app equal `item`'s (anywhere in the history; an unknown app only
+  /// matches an unknown app). Allocates a new `change_seq` either way.
   ///
   /// A bump sets `last_used_at = item.created_at` (never moving it
-  /// backwards). Duplicate mimes in `item.reps` keep the first. In an
+  /// backwards) and ORs `item.flags` into the existing flags; the existing
+  /// row keeps its tags, pin and `created_at`. Duplicate mimes in `item.reps` keep the first. In an
   /// encrypted store, reps larger than [`INLINE_MAX`] go to blob files.
   pub fn insert(&mut self, item: NewItem) -> Result<InsertOutcome> {
     if item.reps.is_empty() {
@@ -891,9 +905,9 @@ impl Store {
   }
 }
 
-/// Insert a row (or bump the newest same-selection item with an equal
-/// hash) inside the caller's transaction. Large reps of encrypted stores
-/// are written to blob files recorded in `pending`.
+/// Insert a row (or bump the same-selection, same-app item with an equal hash, see
+/// [`Store::insert`]) inside the caller's transaction. Large reps of
+/// encrypted stores are written to blob files recorded in `pending`.
 pub(crate) fn insert_row(
   tx: &Connection,
   mode: &Mode,
@@ -901,22 +915,22 @@ pub(crate) fn insert_row(
   reps: &[Representation],
   pending: &mut blobs::Pending,
 ) -> Result<InsertOutcome> {
-  // One `items_sel_recent` seek.
-  let newest: Option<(i64, Vec<u8>)> = tx
+  // One `items_dedupe` seek. `collapse_duplicates` (migration) and this
+  // lookup keep at most one row per (selection, hash, source_app); `IS`
+  // so that an unknown (NULL) app matches only an unknown app.
+  let existing: Option<i64> = tx
     .prepare_cached(
-      "SELECT id, hash FROM items WHERE selection = ?1
-       ORDER BY last_used_at DESC, id DESC LIMIT 1",
+      "SELECT id FROM items WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3 LIMIT 1",
     )?
-    .query_row(params![row.selection.as_str()], |r| Ok((r.get(0)?, r.get(1)?)))
+    .query_row(params![row.selection.as_str(), &row.hash[..], row.source_app], |r| r.get(0))
     .optional()?;
-  if let Some((id, hash)) = newest
-    && hash.as_slice() == row.hash.as_slice()
-  {
+  if let Some(id) = existing {
     let seq = next_change_seq(tx)?;
     tx.execute(
-      "UPDATE items SET last_used_at = max(coalesce(last_used_at, 0), ?1), change_seq = ?2
-       WHERE id = ?3",
-      params![row.last_used_at, seq, id],
+      "UPDATE items SET last_used_at = max(coalesce(last_used_at, 0), ?1), change_seq = ?2,
+                        flags = coalesce(flags, 0) | ?3
+       WHERE id = ?4",
+      params![row.last_used_at, seq, row.flags.bits(), id],
     )?;
     return Ok(InsertOutcome::Bumped(ItemId(id)));
   }
@@ -1097,6 +1111,64 @@ fn delete_with_tombstone(conn: &Connection, id: i64) -> Result<bool> {
 /// Delete `ids` (in chunks) and write their tombstones with consecutive
 /// `change_seq`s in `ids` order, inside the caller's transaction. Returns
 /// the number deleted and the blob files they referenced.
+/// Collapse items that share `(selection, hash, source_app)` (NULL apps
+/// group together) into one survivor each
+/// (inside the caller's transaction): the pinned one, else the most
+/// recently used. The survivor gets the group's newest `last_used_at`,
+/// oldest `created_at`, OR-ed flags, the union of its tags and a new
+/// `change_seq`; the others are deleted with tombstones. Their blob files
+/// are left as orphans for [`Store::gc_orphan_blobs`] (run at open, after
+/// migrations). Returns the number of items deleted.
+fn collapse_duplicates(conn: &Connection) -> Result<usize> {
+  // Tombstone seqs come from the counter; make sure it covers the data.
+  reconcile_change_seq(conn)?;
+  let groups: Vec<(String, Vec<u8>, Option<String>)> = {
+    let mut stmt = conn.prepare(
+      "SELECT selection, hash, source_app FROM items
+       GROUP BY selection, hash, source_app HAVING count(*) > 1",
+    )?;
+    stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?
+  };
+  let mut members = conn.prepare(&format!(
+    "SELECT id, coalesce(flags, 0), created_at, last_used_at FROM items
+     WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3
+     ORDER BY {PINNED_EXPR} DESC, last_used_at DESC, id DESC"
+  ))?;
+  let mut copy_tags = conn.prepare(
+    "INSERT INTO tags(item_id, tag)
+     SELECT DISTINCT ?1, tag FROM tags
+     WHERE item_id = ?2 AND tag NOT IN (SELECT tag FROM tags WHERE item_id = ?1)",
+  )?;
+  let mut doomed = Vec::new();
+  for (selection, hash, app) in &groups {
+    type Member = (i64, i64, Option<i64>, Option<i64>);
+    let rows: Vec<Member> = members
+      .query_map(params![selection, hash, app], |r| {
+        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+      })?
+      .collect::<Result<_, _>>()?;
+    let Some(((keep, ..), losers)) = rows.split_first() else { continue };
+    let flags = rows.iter().fold(0, |acc, r| acc | r.1);
+    let created = rows.iter().filter_map(|r| r.2).min();
+    let last_used = rows.iter().filter_map(|r| r.3).max();
+    for (id, ..) in losers {
+      copy_tags.execute(params![keep, id])?;
+    }
+    let seq = next_change_seq(conn)?;
+    conn.execute(
+      "UPDATE items SET flags = ?1, created_at = ?2, last_used_at = ?3, change_seq = ?4
+       WHERE id = ?5",
+      params![flags, created, last_used, seq, keep],
+    )?;
+    doomed.extend(losers.iter().map(|r| r.0));
+  }
+  let (n, _orphans) = delete_many_with_tombstones(conn, &doomed)?;
+  if n > 0 {
+    tracing::info!(deleted = n, groups = groups.len(), "store: collapsed duplicate items");
+  }
+  Ok(n)
+}
+
 fn delete_many_with_tombstones(conn: &Connection, ids: &[i64]) -> Result<(usize, Vec<String>)> {
   let mut files = Vec::new();
   let mut gone = Vec::with_capacity(ids.len());
@@ -1186,7 +1258,9 @@ mod tests {
     let mut st = s.conn().prepare("SELECT name FROM sqlite_master WHERE type = 'index'").unwrap();
     let names: HashSet<String> =
       st.query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
-    for want in ["items_sel_recent", "items_change_seq", "items_pin_recent", "tags_item"] {
+    for want in
+      ["items_sel_recent", "items_dedupe", "items_change_seq", "items_pin_recent", "tags_item"]
+    {
       assert!(names.contains(want), "missing index {want}: {names:?}");
     }
     assert!(!names.contains("items_recent"), "superseded index still present");
@@ -1208,7 +1282,14 @@ mod tests {
     let ids = "1, 2, 3";
     let cases = [
       (
-        "dedupe/latest",
+        "dedupe",
+        "SELECT id FROM items WHERE selection = 'clipboard' AND hash = x'00'
+         AND source_app IS 'org.kde.kate' LIMIT 1"
+          .into(),
+        "items_dedupe",
+      ),
+      (
+        "latest",
         format!(
           "SELECT {ITEM_COLS} FROM items WHERE selection = 'clipboard'
            ORDER BY last_used_at DESC, id DESC LIMIT 1"
@@ -1334,8 +1415,13 @@ mod store_tests {
     assert_eq!(s.count().unwrap(), 1);
   }
 
+  fn tags_of(s: &Store, id: ItemId) -> Vec<String> {
+    let mut st = s.conn().prepare("SELECT tag FROM tags WHERE item_id = ?1 ORDER BY tag").unwrap();
+    st.query_map(params![id.0], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+  }
+
   #[test]
-  fn dedupe_bumps_newest_same_selection_only() {
+  fn dedupe_bumps_any_item_of_the_selection() {
     let mut s = Store::open_in_memory().unwrap();
     let a = s.insert(text_item(Selection::Clipboard, "a", t(0))).unwrap().id();
     let seq_a = s.get(a).unwrap().unwrap().change_seq;
@@ -1352,13 +1438,131 @@ mod store_tests {
       s.insert(text_item(Selection::Primary, "a", t(11))).unwrap(),
       InsertOutcome::Inserted(_)
     ));
-    // Not the newest any more -> new row.
-    s.insert(text_item(Selection::Clipboard, "b", t(12))).unwrap();
-    assert!(matches!(
+    // Not the newest any more: still found, bumped to the top, and it keeps
+    // its pin and tags.
+    let b = s.insert(text_item(Selection::Clipboard, "b", t(12))).unwrap().id();
+    s.set_pinned(a, true).unwrap();
+    s.set_tag(a, "work", true).unwrap();
+    assert_eq!(
       s.insert(text_item(Selection::Clipboard, "a", t(13))).unwrap(),
-      InsertOutcome::Inserted(_)
-    ));
-    assert_eq!(s.count().unwrap(), 4);
+      InsertOutcome::Bumped(a)
+    );
+    assert_eq!(s.latest(Selection::Clipboard).unwrap().unwrap().id, a);
+    assert!(s.get(a).unwrap().unwrap().flags.contains(ItemFlags::PINNED));
+    assert_eq!(tags_of(&s, a), ["work"]);
+    assert_eq!(s.count().unwrap(), 3);
+
+    // The copy's flags are OR-ed in.
+    let mut sensitive = text_item(Selection::Clipboard, "b", t(14));
+    sensitive.flags = ItemFlags::SENSITIVE;
+    assert_eq!(s.insert(sensitive).unwrap(), InsertOutcome::Bumped(b));
+    assert!(s.get(b).unwrap().unwrap().flags.contains(ItemFlags::SENSITIVE));
+  }
+
+  #[test]
+  fn dedupe_requires_the_same_source_app() {
+    let mut s = Store::open_in_memory().unwrap();
+    let from = |app: Option<&str>, at| {
+      let mut it = text_item(Selection::Clipboard, "same", at);
+      it.source_app = app.map(Into::into);
+      it
+    };
+    let kate = s.insert(from(Some("org.kde.kate"), t(0))).unwrap().id();
+    let konsole = s.insert(from(Some("org.kde.konsole"), t(1))).unwrap();
+    assert!(matches!(konsole, InsertOutcome::Inserted(_)), "other app: new item");
+    let unknown = s.insert(from(None, t(2))).unwrap();
+    assert!(matches!(unknown, InsertOutcome::Inserted(_)), "unknown app is its own app");
+    assert_eq!(s.insert(from(None, t(3))).unwrap(), InsertOutcome::Bumped(unknown.id()));
+    assert_eq!(s.insert(from(Some("org.kde.kate"), t(4))).unwrap(), InsertOutcome::Bumped(kate));
+    assert_eq!(s.count().unwrap(), 3);
+  }
+
+  /// Give `dup` the hash of `of` (what the old newest-only dedupe allowed).
+  fn make_duplicate(s: &Store, of: ItemId, dup: ItemId) {
+    s.conn()
+      .execute(
+        "UPDATE items SET hash = (SELECT hash FROM items WHERE id = ?1) WHERE id = ?2",
+        params![of.0, dup.0],
+      )
+      .unwrap();
+  }
+
+  #[test]
+  fn migration_collapses_existing_duplicates() {
+    let mut s = Store::open_in_memory().unwrap();
+    let ins = |s: &mut Store, sel, text, at| s.insert(text_item(sel, text, at)).unwrap().id();
+    // Group 1: a1 is pinned, so it survives although a3 is newer.
+    let a1 = ins(&mut s, Selection::Clipboard, "a", t(0));
+    let a2 = ins(&mut s, Selection::Clipboard, "a2", t(5));
+    let a3 = ins(&mut s, Selection::Clipboard, "a3", t(9));
+    // Group 2: nothing pinned, the most recently used survives.
+    let c1 = ins(&mut s, Selection::Clipboard, "c", t(1));
+    let c2 = ins(&mut s, Selection::Clipboard, "c2", t(2));
+    // Same content on the other selection, or from another app, is not a
+    // duplicate.
+    let pa = ins(&mut s, Selection::Primary, "a", t(11));
+    let other_app = ins(&mut s, Selection::Clipboard, "a-other-app", t(3));
+    s.conn()
+      .execute(
+        "UPDATE items SET source_app = 'org.kde.konsole' WHERE id = ?1",
+        params![other_app.0],
+      )
+      .unwrap();
+    let b = ins(&mut s, Selection::Clipboard, "b", t(12));
+    s.set_pinned(a1, true).unwrap();
+    s.set_tag(a1, "work", true).unwrap();
+    s.set_tag(a2, "work", true).unwrap();
+    s.set_tag(a3, "x", true).unwrap();
+    s.set_tag(c1, "y", true).unwrap();
+    for (of, dup) in [(a1, a2), (a1, a3), (c1, c2), (a1, other_app)] {
+      make_duplicate(&s, of, dup);
+    }
+    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    let before = max_seq(&s);
+
+    MIGRATIONS.to_latest(&mut s.conn).unwrap();
+
+    let mut left: Vec<ItemId> = s.recent(10).unwrap().iter().map(|i| i.id).collect();
+    left.sort();
+    assert_eq!(left, [a1, c2, pa, other_app, b]);
+    let it = s.get(a1).unwrap().unwrap();
+    assert_eq!((it.created_at, it.last_used_at), (t(0), t(9)));
+    assert!(it.flags.contains(ItemFlags::PINNED));
+    assert!(it.change_seq > before);
+    assert_eq!(tags_of(&s, a1), ["work", "x"]);
+    let it = s.get(c2).unwrap().unwrap();
+    assert_eq!((it.created_at, it.last_used_at), (t(1), t(2)));
+    assert_eq!(tags_of(&s, c2), ["y"]);
+    let mut tombs: Vec<(i64, i64)> = {
+      let mut st = s.conn().prepare("SELECT item_id, change_seq FROM tombstones").unwrap();
+      st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap()
+    };
+    tombs.sort();
+    assert_eq!(tombs.iter().map(|t| t.0).collect::<Vec<_>>(), [a2.0, a3.0, c1.0]);
+    assert!(tombs.iter().all(|t| t.1 > before));
+    // The counter still covers everything.
+    let next = s.insert(text_item(Selection::Clipboard, "new", t(20))).unwrap().id();
+    let last_tomb = tombs.iter().map(|t| t.1).max().unwrap();
+    assert!(s.get(next).unwrap().unwrap().change_seq > last_tomb);
+    assert_eq!(
+      s.insert(text_item(Selection::Clipboard, "a", t(21))).unwrap(),
+      InsertOutcome::Bumped(a1)
+    );
+  }
+
+  #[test]
+  fn migration_without_duplicates_changes_nothing() {
+    let mut s = Store::open_in_memory().unwrap();
+    s.insert(text_item(Selection::Clipboard, "a", t(0))).unwrap();
+    s.insert(text_item(Selection::Clipboard, "b", t(1))).unwrap();
+    s.conn().execute_batch("DROP INDEX items_dedupe; PRAGMA user_version = 3;").unwrap();
+    let before = seqs(&s);
+    MIGRATIONS.to_latest(&mut s.conn).unwrap();
+    assert_eq!(seqs(&s), before);
+    assert_eq!(s.count().unwrap(), 2);
   }
 
   #[test]

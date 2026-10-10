@@ -19,8 +19,8 @@
 //!    `spec.aliases`).
 //!
 //! After acting on a decision the orchestrator reports back:
-//! [`PolicyState::record_stored`] after a successful insert (with the id the
-//! store returned, also for a dedupe bump), [`PolicyState::record_dropped`]
+//! [`PolicyState::record_outcome`] after a successful insert (a new item, or
+//! a dedupe bump of an existing one), [`PolicyState::record_dropped`]
 //! after a `Drop` or `Skip`, [`PolicyState::record_purged`] after a
 //! `PurgePrevious`. `PolicyState` uses this to answer
 //! [`PolicyState::keepalive_candidate`] and to do clear detection.
@@ -36,6 +36,7 @@ use crate::config::Config;
 use crate::item::{
   ItemFlags, ItemId, NewItem, Representation, Selection, TEXT_MIMES, dedupe_hash, hash_prefix,
 };
+use crate::store::InsertOutcome;
 use crate::{Error, Result};
 
 /// KDE's "this came from a password manager" marker mime. If offered with
@@ -144,7 +145,13 @@ pub enum PauseUntil {
 /// What happened last on a selection (for keep-alive and clear detection).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LastEvent {
-  Stored { id: ItemId, at: SystemTime },
+  /// `purgeable`: clear detection may delete `id`, i.e. this run of copies
+  /// created it (it did not exist in the history before).
+  Stored {
+    id: ItemId,
+    at: SystemTime,
+    purgeable: bool,
+  },
   Dropped,
   Purged,
 }
@@ -187,9 +194,30 @@ impl PolicyState {
     self.pause_state(now).is_some()
   }
 
-  /// Record that `id` was stored (or dedupe-bumped) for `selection`.
+  /// Record that `id` was stored as a new item for `selection`.
   pub fn record_stored(&mut self, selection: Selection, id: ItemId, at: SystemTime) {
-    self.last.insert(selection, LastEvent::Stored { id, at });
+    self.last.insert(selection, LastEvent::Stored { id, at, purgeable: true });
+  }
+
+  /// Record that a copy on `selection` dedupe-bumped the existing item `id`.
+  /// It stays a keep-alive candidate, but clear detection purges it only if
+  /// the previous event was the purgeable store of the same item (copied
+  /// twice in a row): a clear must never delete history from before.
+  pub fn record_bumped(&mut self, selection: Selection, id: ItemId, at: SystemTime) {
+    let purgeable = matches!(
+      self.last.get(&selection),
+      Some(LastEvent::Stored { id: prev, purgeable: true, .. }) if *prev == id
+    );
+    self.last.insert(selection, LastEvent::Stored { id, at, purgeable });
+  }
+
+  /// [`PolicyState::record_stored`] or [`PolicyState::record_bumped`] by
+  /// `outcome`.
+  pub fn record_outcome(&mut self, selection: Selection, outcome: InsertOutcome, at: SystemTime) {
+    match outcome {
+      InsertOutcome::Inserted(id) => self.record_stored(selection, id, at),
+      InsertOutcome::Bumped(id) => self.record_bumped(selection, id, at),
+    }
   }
 
   /// Record that the latest offer on `selection` was skipped or dropped.
@@ -215,15 +243,17 @@ impl PolicyState {
 
   /// Rewrite the item ids this state refers to (keep-alive and clear
   /// candidates), e.g. after the daemon merged its pre-unlock session store
-  /// into the persistent one and every id changed. `map` returns the new id,
-  /// or `None` if the item no longer exists; such a selection is then
-  /// treated as dropped (nothing to keep alive or purge). Pause and
-  /// timestamps are kept.
-  pub fn remap_ids(&mut self, mut map: impl FnMut(ItemId) -> Option<ItemId>) {
+  /// into the persistent one and every id changed. `map` returns how the
+  /// item landed, or `None` if it no longer exists; such a selection is
+  /// then treated as dropped (nothing to keep alive or purge). An item that
+  /// bumped an existing one is no longer purgeable. Pause and timestamps
+  /// are kept.
+  pub fn remap_ids(&mut self, mut map: impl FnMut(ItemId) -> Option<InsertOutcome>) {
     for ev in self.last.values_mut() {
-      if let LastEvent::Stored { id, at } = *ev {
+      if let LastEvent::Stored { id, at, purgeable } = *ev {
         *ev = match map(id) {
-          Some(id) => LastEvent::Stored { id, at },
+          Some(InsertOutcome::Inserted(id)) => LastEvent::Stored { id, at, purgeable },
+          Some(InsertOutcome::Bumped(id)) => LastEvent::Stored { id, at, purgeable: false },
           None => LastEvent::Dropped,
         };
       }
@@ -231,10 +261,11 @@ impl PolicyState {
   }
 
   /// Previous stored item for clear detection: the last event on
-  /// `selection` was a store less than [`CLEAR_WINDOW`] before `now`.
+  /// `selection` was a purgeable store less than [`CLEAR_WINDOW`] before
+  /// `now`.
   pub fn clear_candidate(&self, selection: Selection, now: SystemTime) -> Option<ItemId> {
     match self.last.get(&selection)? {
-      LastEvent::Stored { id, at } => {
+      LastEvent::Stored { id, at, purgeable: true } => {
         let age = now.duration_since(*at).unwrap_or(Duration::ZERO);
         (age < CLEAR_WINDOW).then_some(*id)
       }
@@ -805,13 +836,42 @@ mod tests {
   }
 
   #[test]
+  fn bump_of_existing_item_is_never_purged() {
+    let mut s = PolicyState::new();
+    let c = Selection::Clipboard;
+    let soon = T0 + Duration::from_secs(1);
+    // A copy that matched an item already in the history: keep-alive yes,
+    // clear detection no.
+    s.record_outcome(c, InsertOutcome::Bumped(ItemId(9)), T0);
+    assert_eq!(s.keepalive_candidate(c), Some(ItemId(9)));
+    assert_eq!(s.clear_candidate(c, soon), None);
+    // Copied once (new), then again (bump of the same item): still ours.
+    s.record_outcome(c, InsertOutcome::Inserted(ItemId(10)), T0);
+    s.record_outcome(c, InsertOutcome::Bumped(ItemId(10)), T0);
+    assert_eq!(s.clear_candidate(c, soon), Some(ItemId(10)));
+    // A bump of some other item after that is not.
+    s.record_outcome(c, InsertOutcome::Bumped(ItemId(9)), T0);
+    assert_eq!(s.clear_candidate(c, soon), None);
+  }
+
+  #[test]
+  fn remap_bumped_is_not_purgeable() {
+    let mut s = PolicyState::new();
+    let c = Selection::Clipboard;
+    s.record_stored(c, ItemId(3), T0);
+    s.remap_ids(|_| Some(InsertOutcome::Bumped(ItemId(30))));
+    assert_eq!(s.keepalive_candidate(c), Some(ItemId(30)));
+    assert_eq!(s.clear_candidate(c, T0 + Duration::from_secs(1)), None);
+  }
+
+  #[test]
   fn remap_ids() {
     let mut s = PolicyState::new();
     let (c, p) = (Selection::Clipboard, Selection::Primary);
     s.record_stored(c, ItemId(3), T0);
     s.record_stored(p, ItemId(4), T0);
     s.pause(T0, None);
-    s.remap_ids(|id| (id == ItemId(3)).then_some(ItemId(30)));
+    s.remap_ids(|id| (id == ItemId(3)).then_some(InsertOutcome::Inserted(ItemId(30))));
     assert_eq!(s.keepalive_candidate(c), Some(ItemId(30)));
     assert_eq!(s.clear_candidate(c, T0 + Duration::from_secs(1)), Some(ItemId(30)));
     assert_eq!(s.keepalive_candidate(p), None);

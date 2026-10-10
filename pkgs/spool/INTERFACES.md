@@ -321,9 +321,11 @@ press paste chords with it.
   - `Policy::new(Config, hash_key)`, `plan`, `plan_after_hint`,
     `hint_is_secret`, `evaluate`, `manual_item` (caps + hashing, allowlist
     not applied, secret patterns applied to text), `detect_secret`.
-  - `PolicyState`: pause/resume, `record_stored/dropped/purged`,
-    `keepalive_candidate`, `clear_candidate` (clear within `CLEAR_WINDOW =
-    60 s` purges the previous item), `remap_ids` (after the session merge).
+  - `PolicyState`: pause/resume, `record_stored/bumped/outcome`,
+    `record_dropped/purged`, `keepalive_candidate`, `clear_candidate` (clear
+    within `CLEAR_WINDOW = 60 s` purges the previous item, only if that copy
+    created it: a bump of an item already in the history is never purged),
+    `remap_ids` (after the session merge; takes the `InsertOutcome`).
   - Text collapsing: one canonical text mime fetched, the rest aliased.
 - `store`:
   - Constructors: `Store::open(path, Option<&[u8; 32]>)` (plain;
@@ -335,7 +337,9 @@ press paste chords with it.
     source }` (missing/tampered blob: `get`/`latest` fail, `recent`/`delete`
     work), `Unsupported`.
   - `insert -> InsertOutcome { Inserted(id), Bumped(id) }` (bump = same hash
-    as the newest item of that selection), `get`, `latest`, `recent(limit)`
+    and source app as any item of that selection, via `items_dedupe`; NULL
+    app matches only NULL; the bump ORs in the new flags and keeps pin, tags
+    and `created_at`; at most one row per `(selection, hash, source_app)`), `get`, `latest`, `recent(limit)`
     (never reads blobs), `touch`, `set_pinned`, `set_tag`, `delete`
     (tombstone), `retention_sweep(now, RetentionLimits)` (pinned exempt),
     `count`, `hash_key()`.
@@ -343,7 +347,8 @@ press paste chords with it.
     `blobs/<hex>.bin` (`Label::Blob`), written before the DB commit, removed
     after commit + checkpoint; `gc_orphan_blobs` at open.
   - `merge_from_session(&Store) -> MergeReport { inserted, bumped,
-    blob_files, ids }` (one transaction, oldest first, re-hashed).
+    blob_files, ids }` (one transaction, oldest first, re-hashed; a bump
+    also adds the session item's tags).
   - `rekey(&DataKey)`: crash-safe (`meta.rekey_in_progress` + `rekey_blobs`);
     after any crash exactly one of old/new key opens the store and
     `open_encrypted` completes or undoes it. Recompile `Policy` afterwards.
@@ -354,7 +359,11 @@ press paste chords with it.
     -> Vec<TaggedSummary>`, `recent_page(offset, limit)`.
   - Constants: `DB_FILE_NAME`, `BLOB_DIR_NAME`, `KCV_FILE_NAME`,
     `STATE_LOCK_FILE_NAME`. Timestamps are ms since epoch; `change_seq`
-    comes from the `meta` counter. `MIGRATIONS` is append-only.
+    comes from the `meta` counter. `MIGRATIONS` is append-only
+    (`rusqlite_migration`, version in `PRAGMA user_version`, run at every
+    open); migration 4 collapses existing `(selection, hash, source_app)` duplicates
+    (pinned, else most recent survives, merged tags/flags/timestamps,
+    tombstones for the rest; their blob files go to `gc_orphan_blobs`).
 
 ### spool-crypto
 
