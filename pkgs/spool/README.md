@@ -37,7 +37,8 @@ locks, security model, compositor matrix) is in
 | `crates/spool-portal` | lib | hotkey via the XDG GlobalShortcuts portal |
 | `crates/spool-hypr` | lib | Hyprland IPC (focus, cursor) |
 | `crates/spoold` | bin | the daemon |
-| `crates/spoolctl` | bin | `copy`, `current`, `show`, `pick [--raw]`, `edit`, `new [--mime M]`, `status [--json]`, `pause [--for SECS]`, `resume` |
+| `crates/spoolctl` | bin | `copy`, `current [--version N \| --original]`, `versions`, `show`, `pick [--raw]`, `edit`, `new [--mime M]`, `status [--json]`, `pause [--for SECS]`, `resume` |
+| `crates/spool-scripts` | bin | Lua script host: filters for new copies (see "Scripts") |
 | `crates/spool-keyctl` | bin + lib | `status`, `add`, `remove`, `rotate`, `recover`, `wipe` (see "Key management") |
 | `crates/spool-picker` | bin | resident layer-shell picker, unlock panel, optional GPU renderer |
 
@@ -270,9 +271,9 @@ with a throwaway state directory.
    check it renders and falls back to software if it cannot (see
    "MemoryDenyWriteExecute" below for llvmpipe / NVIDIA).
 10. **External editor**: Ctrl+E on a text item opens the `text/*` editor
-    (Konsole + nvim by default) with the text; `:w` adds a new item at the
-    top of the picker, a second `:w` updates it, `:q` puts it on the
-    clipboard. Ctrl+Shift+E on a Firefox copy offers text and HTML; HTML in
+    (Konsole + nvim by default) with the text; `:w` replaces the item with
+    the edit at the top of the picker (the original becomes its earlier
+    version), a second `:w` updates it, `:q` puts it on the clipboard. Ctrl+Shift+E on a Firefox copy offers text and HTML; HTML in
     Kate (`--block`) stores HTML plus plain text. Pasting a GitHub token
     and saving shows "Spool: edit not saved" and keeps the previous version.
     `journalctl --user -u 'spool-edit-*'` shows the editor units;
@@ -309,7 +310,15 @@ section 6).
   **released**, so the target window never sees a stray Return), Ctrl+P
   pin, Ctrl+T tags, Del delete, Ctrl+E edit in the external editor,
   Ctrl+Shift+E choose which format to edit first (see "Editing items"),
-  Esc close.
+  Ctrl+H versions, Esc close.
+- Versions: a row with earlier versions (a script rewrite's original, the
+  item an edit came from) shows `⟲N`. Ctrl+H opens them in place of the
+  list, oldest first, the current one last and marked `●`; each says what
+  produced it (`original`, `script 10-urls.lua`, `edited`) and the
+  selection starts on the version before the current one. Enter /
+  Shift+Enter / Ctrl+Enter paste / copy / paste plain that version, Del
+  deletes an earlier version (not the current one), Esc or Ctrl+H goes back
+  to the list; nothing is typed, pinned, tagged or edited there.
 - Tags: list rows show up to three tags (`#work #todo +2`) after the
   preview. Ctrl+T opens an inline editor for the selected item (its tags as
   chips plus a text field); it takes every key until closed:
@@ -376,9 +385,12 @@ history), `spoolctl new [--mime M]` starts from an empty file.
   own child (which would inherit its seccomp sandbox).
 - Every save (inotify, 300 ms debounce) goes through the same policy as
   `spoolctl copy` (size caps, secret patterns): the first accepted save
-  becomes a **new** item (`source_app` `spool.editor`, the original's tags
-  but not its pin, `derived_from` = the original); later saves update that
-  item in place. The original is never modified. HTML is stored with a
+  becomes the **current** item (`source_app` `spool.editor`, the original's
+  tags and pin, `derived_from` = the original), and the original (with its
+  own earlier versions) becomes a hidden earlier version of it: the list
+  shows the edit, the picker's versions view and `spoolctl versions` show
+  both. Later saves of the same session update that item in place. The
+  original's content is never modified. HTML is stored with a
   plain-text version derived from it; an image is stored as whatever type
   its bytes are. A refused save (e.g. it now contains a token) keeps the
   previous version and shows a notification naming only the reason.
@@ -414,6 +426,66 @@ swap, undo, backup, session or autosave copies of the text elsewhere (Neovim:
 `~/.local/state/nvim/{swap,undo,shada}` unless started as above; Kate:
 swap files and sessions; Krita: autosave). Spool deletes only its own temp
 file.
+
+## Scripts (Lua filters)
+
+`services.spool.scripts` runs `spool-scripts`, a Lua 5.4 host in its own
+user unit (outside spoold's sandbox), which filters every copy that the
+built-in policy would store. Design and roadmap: [SCRIPTING.md](SCRIPTING.md).
+
+```nix
+services.spool.scripts = {
+  enable = true;
+  files."10-urls.lua" = ./spool/urls.lua;   # or .text = "...";
+  # filterBudgetMs = 250;  check = true;
+};
+```
+
+```lua
+local tracking = spool.regex("^(utm_.*|fbclid|gclid)$")
+spool.filter(function(item)
+  local u = item.text and item.text:match("^https?://%S+$") and spool.url.parse(item.text)
+  if not u then return end                     -- nil: keep unchanged
+  local kept = {}
+  for _, kv in ipairs(u.query) do
+    if not tracking:is_match(kv[1]) then kept[#kept + 1] = kv end
+  end
+  u.query = kept
+  return spool.keep{ text = spool.url.build(u), tags = { "link" } }
+end)
+```
+
+- `item`: `selection`, `source_app`, `created_at` (ms), `tags`, `mimes`,
+  `text` (preferred text rep or nil), `item:get(mime)`.
+- Return `spool.keep{ tags = {..}, text = ".." }` (or `reps = { {mime,
+  data}, .. }`, first is canonical), `spool.drop()`, or `nil`. Filters run
+  in file-name order, each seeing the previous one's result; `drop` ends
+  the chain. Rewrites are re-checked like `spoolctl copy` (a rewrite that
+  looks like a secret drops the copy).
+- Versions: a rewritten copy keeps the copy as it came in as a hidden
+  earlier version (picker: the versions key on the row; `spoolctl
+  versions`, `spoolctl current --original`), noted with the scripts that
+  rewrote it. A filter that removes something sensitive says
+  `spool.keep{ text = .., original = false }`: then the original is never
+  stored (one such filter in the chain is enough).
+- Helpers: `spool.regex(p)` (`:is_match`, `:match`, `:match_all`,
+  `:captures`, `:split`, `:replace(s, "$1" | fn)`), `spool.json.decode /
+  encode(v, {pretty = true})`, `spool.url.parse / build` (an untouched URL
+  comes back byte for byte), `spool.log(...)` (also `print`).
+- Fail open: no host, a script error, or no answer within `filterBudgetMs`
+  stores the copy unfiltered. The module loads every script at build time
+  (`check`), so a syntax error fails the switch. Logs:
+  `journalctl --user -u spool-scripts`.
+- Try scripts without a rebuild against the headless compositor above:
+  `SPOOL_INSECURE_SCRIPTS_OK=1 spool-scripts --scripts DIR --log-stderr`
+  (and `[scripts] enabled = true` in the test config.toml; with
+  `SPOOL_INSECURE_PATH_OK=1` spoold accepts the `spool-scripts` it finds
+  first on PATH). `spool-scripts --check --scripts DIR` only loads them;
+  `spool-scripts --scripts DIR --try 'TEXT' [--source-app ID]` runs the
+  filters on a text copy without spoold and prints the verdict.
+- Example: `home-manager/bcnelson/_mixins/programs/spool/strip-tracking.lua`
+  strips tracking parameters with the ClearURLs rules (pinned in
+  `programs/spool.nix`).
 
 ## History encryption and the state directory
 

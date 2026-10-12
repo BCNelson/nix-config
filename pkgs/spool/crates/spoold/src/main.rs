@@ -12,7 +12,8 @@
 //!    portal shortcut, focus tracking, auto-paste), Wayland thread,
 //!    orchestrator, the resident picker ([`picker`], if `spool-picker` is on
 //!    the audited PATH), external-editor support ([`editor`]: stale edit
-//!    sessions removed), then the key flow ([`keyflow`]) that unlocks the
+//!    sessions removed), the script host socket ([`scripts`], with
+//!    `[scripts] enabled` and `spool-scripts` on the audited PATH), then the key flow ([`keyflow`]) that unlocks the
 //!    encrypted store in the background (the picker's unlock panel can
 //!    unlock passphrase / FIDO2 slots through the same gate, [`unlock`]).
 //!
@@ -35,6 +36,7 @@ mod logging;
 mod orchestrator;
 mod paths;
 mod picker;
+mod scripts;
 mod security;
 mod shutdown;
 #[cfg(feature = "test-hooks")]
@@ -185,6 +187,7 @@ async fn run(
   let (req_tx, req_rx) = tokio::sync::mpsc::channel(orchestrator::REQUEST_QUEUE);
   let limiter = ipc::show_limiter();
   let picker_settings = config.picker.clone();
+  let script_settings = config.scripts.clone();
   let mut orch = match orchestrator::Orchestrator::new(config, store, wayland.clone()) {
     Ok(o) => o.with_desktop(desktop_link).with_show_limiter(limiter.clone()),
     Err(e) => {
@@ -225,6 +228,18 @@ async fn run(
   if let Some(deps) = editor::system_deps(&socket_path) {
     orch = orch.with_editor(deps);
   }
+  // Lua filters: the host connects to us; only the audited binary is let in.
+  let mut script_server = None;
+  if script_settings.enabled {
+    match scripts::setup(&socket_path, script_settings.filter_budget()) {
+      Ok(Some((link, listener, server))) => {
+        orch = orch.with_scripts(link);
+        script_server = Some(tokio::spawn(scripts::serve(listener, server)));
+      }
+      Ok(None) => {}
+      Err(e) => tracing::error!("script host socket: {e:#}; scripts disabled"),
+    }
+  }
   let wl_rx = orchestrator::bridge_wayland_events(wl_events);
   let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
   let mut orch_task = tokio::spawn(orch.run(wl_rx, req_rx, async move {
@@ -252,6 +267,9 @@ async fn run(
   // watchdog ends the process if something still hangs.
   let watchdog = shutdown::Watchdog::arm(shutdown::HARD_DEADLINE);
   server.abort();
+  if let Some(t) = &script_server {
+    t.abort();
+  }
   // The key flow may be waiting on the Secret Service or opening the store
   // on a blocking thread; abandon it (nothing it does is needed any more,
   // and the blocking part is cut off by the runtime's shutdown timeout).

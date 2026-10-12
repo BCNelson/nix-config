@@ -1,7 +1,8 @@
 //! `spoolctl`: command-line client for `spoold`.
 //!
 //! Exit codes: 0 success, 1 error (daemon error/unreachable), 2 usage
-//! (clap), 3 nothing to print (`current`: empty history; `pick` / `edit`: cancelled).
+//! (clap), 3 nothing to print (`current` / `versions`: empty history or no such
+//! version; `pick` / `edit`: cancelled).
 
 mod client;
 mod escape;
@@ -13,7 +14,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use spool_proto::{MAX_FRAME, PauseState, PublicReq, PublicResp, StatusInfo};
+use spool_proto::{MAX_FRAME, PauseState, PublicReq, PublicResp, StatusInfo, VersionInfo};
 
 /// Default mime for `copy`.
 const DEFAULT_MIME: &str = "text/plain;charset=utf-8";
@@ -53,7 +54,8 @@ pub enum Command {
   /// Open the picker and edit the item you choose in your external editor
   /// (`[editor]` in config.toml; Ctrl+Shift+E in the picker picks another
   /// format). Each save is stored as a new item, and the last one goes on
-  /// the clipboard when the editor closes; the original is never changed.
+  /// the clipboard when the editor closes; the original is kept as an
+  /// earlier version (`spoolctl versions`).
   /// Returns once the editor started (Esc cancels, exit 3).
   Edit,
   /// Start writing a new item in your external editor (an empty file).
@@ -69,7 +71,18 @@ pub enum Command {
     /// bidi and zero-width characters when stdout is a TTY).
     #[arg(long)]
     raw: bool,
+    /// Print version N of the item instead (as numbered by `spoolctl
+    /// versions`; 0 = the oldest).
+    #[arg(long, value_name = "N", conflicts_with = "original")]
+    version: Option<u32>,
+    /// Print the item as it was first copied (before scripts or edits
+    /// changed it); same as `--version 0`.
+    #[arg(long)]
+    original: bool,
   },
+  /// List the versions of the current item: the copy as it came in, script
+  /// rewrites and edits, oldest first (`current --version N` prints one).
+  Versions,
   /// Show daemon status.
   Status {
     /// Print machine-readable JSON.
@@ -116,7 +129,10 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
       check_copy_size(mime, data.len())?;
       PublicReq::Copy { mime: mime.clone(), data }
     }
+    Command::Current { version: Some(index), .. } => PublicReq::CurrentVersion { index: *index },
+    Command::Current { original: true, .. } => PublicReq::CurrentVersion { index: 0 },
     Command::Current { .. } => PublicReq::Current,
+    Command::Versions => PublicReq::Versions,
     Command::Show => PublicReq::Show,
     Command::Pick { .. } => PublicReq::Pick,
     Command::Edit => PublicReq::Edit,
@@ -154,10 +170,14 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
       }
       other => anyhow::bail!("unexpected response from spoold: {}", resp_name(&other)),
     },
-    Command::Current { raw } => match resp {
+    Command::Current { raw, version, original } => match resp {
       PublicResp::Current { mime, data } => {
         print_current(&mime, &data, raw, std::io::stdout().is_terminal())?;
         Ok(ExitCode::SUCCESS)
+      }
+      PublicResp::Empty if version.is_some() || original => {
+        eprintln!("spoolctl: no such version (see spoolctl versions)");
+        Ok(ExitCode::from(3))
       }
       PublicResp::Empty => {
         eprintln!("spoolctl: clipboard history is empty");
@@ -173,6 +193,19 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
       PublicResp::Cancelled => {
         eprintln!("spoolctl: cancelled");
         Ok(ExitCode::from(3))
+      }
+      other => anyhow::bail!("unexpected response from spoold: {}", resp_name(&other)),
+    },
+    Command::Versions => match resp {
+      PublicResp::Versions(v) if v.is_empty() => {
+        eprintln!("spoolctl: clipboard history is empty");
+        Ok(ExitCode::from(3))
+      }
+      PublicResp::Versions(v) => {
+        let mut out = std::io::stdout().lock();
+        out.write_all(versions_human(&v, SystemTime::now()).as_bytes())?;
+        out.flush()?;
+        Ok(ExitCode::SUCCESS)
       }
       other => anyhow::bail!("unexpected response from spoold: {}", resp_name(&other)),
     },
@@ -207,7 +240,53 @@ fn resp_name(r: &PublicResp) -> &'static str {
     PublicResp::NotYetImplemented => "NotYetImplemented",
     PublicResp::Picked { .. } => "Picked",
     PublicResp::Cancelled => "Cancelled",
+    PublicResp::Versions(_) => "Versions",
   }
+}
+
+/// What produced a version, for humans.
+fn revision_label(revision: Option<&str>) -> String {
+  match revision {
+    None => "original".into(),
+    Some("editor") => "edited".into(),
+    Some(r) => match r.strip_prefix("script:") {
+      Some(files) => format!("script {files}"),
+      None => r.to_owned(),
+    },
+  }
+}
+
+fn ago(then: SystemTime, now: SystemTime) -> String {
+  let s = now.duration_since(then).unwrap_or_default().as_secs();
+  match s {
+    0..60 => format!("{s}s ago"),
+    60..3600 => format!("{}m ago", s / 60),
+    3600..86_400 => format!("{}h ago", s / 3600),
+    _ => format!("{}d ago", s / 86_400),
+  }
+}
+
+/// One line per version: number, label, age, size, preview (escaped, cut).
+fn versions_human(v: &[VersionInfo], now: SystemTime) -> String {
+  const PREVIEW_CHARS: usize = 60;
+  let mut out = String::new();
+  for (i, v) in v.iter().enumerate() {
+    let label = revision_label(v.revision.as_deref()) + if v.current { " (current)" } else { "" };
+    let one_line: String =
+      v.preview.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
+    let mut preview: String = one_line.chars().take(PREVIEW_CHARS).collect();
+    if one_line.chars().count() > PREVIEW_CHARS {
+      preview.push('…');
+    }
+    out += &format!(
+      "{i}  {:<28} {:>8}  {:>9}  {}\n",
+      escape::escape_for_tty(label.as_bytes()),
+      ago(unix_ms_to_system(v.created_unix_ms), now),
+      format!("{} B", v.total_size),
+      escape::escape_for_tty(preview.as_bytes()),
+    );
+  }
+  out
 }
 
 /// Read FILE (or stdin for `None`/`-`), at most one byte past the limit.
@@ -401,6 +480,42 @@ mod tests {
     std::fs::write(&p, b"abc").unwrap();
     assert_eq!(read_input(Some(&p)).unwrap(), b"abc");
     assert!(read_input(Some(&d.path().join("missing"))).is_err());
+  }
+
+  #[test]
+  fn versions_args_and_output() {
+    let c = Cli::try_parse_from(["spoolctl", "current", "--original"]).unwrap();
+    assert!(matches!(c.command, Command::Current { original: true, version: None, .. }));
+    let c = Cli::try_parse_from(["spoolctl", "current", "--version", "2"]).unwrap();
+    assert!(matches!(c.command, Command::Current { version: Some(2), .. }));
+    assert!(Cli::try_parse_from(["spoolctl", "current", "--version", "1", "--original"]).is_err());
+
+    let now = unix_ms_to_system(10_000_000);
+    let v = vec![
+      VersionInfo {
+        created_unix_ms: 10_000_000 - 120_000,
+        revision: None,
+        mimes: vec![DEFAULT_MIME.into()],
+        total_size: 30,
+        preview: "https://x.com/?utm_source=a\nmore".into(),
+        current: false,
+      },
+      VersionInfo {
+        created_unix_ms: 10_000_000 - 5_000,
+        revision: Some("script:10-urls.lua".into()),
+        mimes: vec![DEFAULT_MIME.into()],
+        total_size: 14,
+        preview: "https://x.com/".into(),
+        current: true,
+      },
+    ];
+    let out = versions_human(&v, now);
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert!(lines[0].starts_with("0  original") && lines[0].contains("2m ago"), "{out}");
+    assert!(lines[0].ends_with("https://x.com/?utm_source=a more"), "{out}");
+    assert!(lines[1].starts_with("1  script 10-urls.lua (current)") && lines[1].contains("5s ago"));
+    assert_eq!(revision_label(Some("editor")), "edited");
   }
 
   #[test]

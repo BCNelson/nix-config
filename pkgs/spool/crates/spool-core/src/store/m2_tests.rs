@@ -805,3 +805,42 @@ fn session_merge_remaps_derived_from() {
   assert_eq!(p.derived_from(map[&orphan]).unwrap(), None, "origin not in the session");
   assert_eq!(p.derived_from(map[&orig]).unwrap(), None);
 }
+
+#[test]
+fn session_merge_carries_versions() {
+  let d = tempfile::tempdir().unwrap();
+  let k = DataKey::generate();
+  let hk = hash_key_of(&k);
+  let mut p = Store::open_encrypted(d.path(), &k).unwrap();
+  // The rewritten URL already exists in the persistent store.
+  let existing =
+    p.insert(text_item(&hk, Selection::Clipboard, "https://x.com/", t(1))).unwrap().id();
+  let sk = DataKey::generate();
+  let shk = hash_key_of(&sk);
+  let mut s = Store::open_session(&sk).unwrap();
+  let url = s
+    .insert_with_original(
+      text_item(&shk, Selection::Clipboard, "https://x.com/", t(10)),
+      Some(text_item(&shk, Selection::Clipboard, "https://x.com/?utm=1", t(10))),
+      "script:urls.lua",
+    )
+    .unwrap()
+    .id();
+  let orig = s.insert(text_item(&shk, Selection::Clipboard, "v1", t(11))).unwrap().id();
+  let mut ed = text_item(&shk, Selection::Clipboard, "v2", t(12));
+  ed.source_app = Some("spool.editor".into());
+  let v2 = s.insert_revision(ed, Some(orig), REVISION_EDITOR).unwrap().id();
+
+  let report = p.merge_from_session(&s).unwrap();
+  assert_eq!(report.ids.len(), 2, "versions are not reported as items");
+  let map: std::collections::HashMap<ItemId, ItemId> =
+    report.ids.iter().map(|(sid, out)| (*sid, out.id())).collect();
+  assert_eq!(map[&url], existing, "bumped onto the persistent item");
+  let v = p.versions(existing).unwrap();
+  assert_eq!(v.len(), 2);
+  assert_eq!(p.get(v[0].id).unwrap().unwrap().preview.as_deref(), Some("https://x.com/?utm=1"));
+  let v = p.versions(map[&v2]).unwrap();
+  assert_eq!(v.iter().map(|x| x.revision.as_deref()).collect::<Vec<_>>(), [None, Some("editor")]);
+  assert_eq!(p.get(v[0].id).unwrap().unwrap().preview.as_deref(), Some("v1"));
+  assert_eq!(p.count().unwrap(), 2);
+}

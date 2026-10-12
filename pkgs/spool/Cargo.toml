@@ -16,6 +16,7 @@ members = [
   "crates/spool-portal",
   "crates/spool-hypr",
   "crates/spool-keyctl",
+  "crates/spool-scripts",
 ]
 
 [workspace.package]
@@ -118,6 +119,10 @@ slint-build = "1.18"
 khronos-egl = { version = "6", default-features = false, features = ["1_5", "dynamic"] }
 wayland-egl = "0.32"
 wayland-backend = { version = "0.3", features = ["client_system"] }
+
+# Lua script host (spool-scripts only; the daemon must not pull these)
+mlua = { version = "0.12", features = ["lua54", "vendored", "serialize"] }
+url = "2"
 
 # dev
 tempfile = "3"

@@ -80,6 +80,22 @@
 //!   oldest-unpinned scan.
 //! - `items_change_seq`, `tombstones` PK: the `max(change_seq)` floor.
 //! - `tags_item`: the `ON DELETE CASCADE` lookup into `tags`.
+//! - `items_versions (version_of)`: an item's earlier versions.
+//!
+//! `items_sel_recent`, `items_pin_recent` and `items_dedupe` are partial
+//! (`WHERE version_of IS NULL`): they cover only current items, and every
+//! query that should use them repeats [`CURRENT`] textually.
+//!
+//! # Versions
+//!
+//! An item can have earlier versions: rows with `version_of` = its id
+//! (hidden: not listed, searched, deduped against or counted by retention;
+//! deleted with it). A script rewrite stores the rewritten copy as the item
+//! and the copy as it came in as its version
+//! ([`Store::insert_with_original`]); an edit makes the edited item current
+//! and the item it was edited from (with its versions) a version of it
+//! ([`Store::insert_revision`]). `revision` notes what produced a row
+//! (`script:<file>`, `editor`; NULL = captured as is).
 //!
 //! `change_seq`s are allocated from the `meta.change_seq` counter (one
 //! keyed read + write). The invariant "counter >= every `change_seq` in
@@ -189,13 +205,58 @@ DROP INDEX items_recent;
     // Items saved from an external editor remember the item they were
     // edited from. Not a foreign key: retention may delete the original.
     M::up("ALTER TABLE items ADD COLUMN derived_from INTEGER;"),
+    // Versions: hidden earlier versions point at the current item; the
+    // list / dedupe indexes cover current items only.
+    M::up(
+      r#"
+ALTER TABLE items ADD COLUMN version_of INTEGER;
+ALTER TABLE items ADD COLUMN revision TEXT;
+DROP INDEX items_sel_recent;
+CREATE INDEX items_sel_recent ON items(selection, last_used_at DESC, id DESC)
+  WHERE version_of IS NULL;
+DROP INDEX items_pin_recent;
+CREATE INDEX items_pin_recent ON items((flags & 1) DESC, last_used_at DESC, id DESC)
+  WHERE version_of IS NULL;
+DROP INDEX items_dedupe;
+CREATE INDEX items_dedupe ON items(selection, hash, source_app) WHERE version_of IS NULL;
+CREATE INDEX items_versions ON items(version_of) WHERE version_of IS NOT NULL;
+"#,
+    ),
   ])
 });
 
-/// Tests: undo migrations 5 and 4 so `MIGRATIONS.to_latest` runs them again.
+/// Tests: undo migrations 6, 5 and 4 so `MIGRATIONS.to_latest` runs them
+/// again.
 #[cfg(test)]
-const ROLLBACK_TO_V3: &str = "DROP INDEX items_dedupe; ALTER TABLE items DROP COLUMN derived_from;
-                              PRAGMA user_version = 3;";
+const ROLLBACK_TO_V3: &str = "DROP INDEX items_dedupe; DROP INDEX items_versions;
+  DROP INDEX items_sel_recent; DROP INDEX items_pin_recent;
+  CREATE INDEX items_sel_recent ON items(selection, last_used_at DESC, id DESC);
+  CREATE INDEX items_pin_recent ON items((flags & 1) DESC, last_used_at DESC, id DESC);
+  ALTER TABLE items DROP COLUMN revision; ALTER TABLE items DROP COLUMN version_of;
+  ALTER TABLE items DROP COLUMN derived_from; PRAGMA user_version = 3;";
+
+/// SQL condition for current (not hidden) items. Must match the partial
+/// indexes' `WHERE` textually.
+pub(crate) const CURRENT: &str = "version_of IS NULL";
+
+/// [`Store::insert_revision`] / [`Store::insert_with_original`] note for
+/// edits saved from an external editor.
+pub const REVISION_EDITOR: &str = "editor";
+
+/// One version of an item ([`Store::versions`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VersionSummary {
+  pub id: ItemId,
+  pub created_at: SystemTime,
+  pub last_used_at: SystemTime,
+  /// What produced it (`script:<file>`, `editor`); `None`: captured as is.
+  pub revision: Option<String>,
+  pub preview: Option<String>,
+  pub total_size: u64,
+  pub mimes: Vec<String>,
+  /// The current item (last in the list).
+  pub current: bool,
+}
 
 /// `meta` key holding the 32-byte dedupe hash key (plain stores only).
 pub const META_HASH_KEY: &str = "hash_key";
@@ -411,6 +472,23 @@ pub(crate) struct RowData<'a> {
   hash: &'a ItemHash,
   preview: Option<&'a str>,
   total_size: i64,
+}
+
+impl<'a> RowData<'a> {
+  /// The row for a new item (`last_used_at = created_at`).
+  fn of(item: &'a NewItem) -> Self {
+    let at = to_millis(item.created_at);
+    Self {
+      selection: item.selection,
+      source_app: item.source_app.as_deref(),
+      created_at: at,
+      last_used_at: at,
+      flags: item.flags,
+      hash: &item.hash,
+      preview: item.preview.as_deref(),
+      total_size: item.total_size() as i64,
+    }
+  }
 }
 
 impl Store {
@@ -689,13 +767,16 @@ impl Store {
     let other: Option<i64> = tx
       .prepare_cached(
         "SELECT id FROM items
-         WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3 AND id != ?4 LIMIT 1",
+         WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3 AND id != ?4
+           AND version_of IS NULL LIMIT 1",
       )?
       .query_row(params![selection, &item.hash[..], app, id.0], |r| r.get(0))
       .optional()?;
     let files = blob_files_of(&tx, id.0)?;
     let out = if let Some(other) = other {
       copy_missing_tags(&tx, id.0, other)?;
+      // This row's earlier versions become the surviving item's.
+      tx.execute("UPDATE items SET version_of = ?1 WHERE version_of = ?2", params![other, id.0])?;
       let seq = next_change_seq(&tx)?;
       tx.execute(
         "UPDATE items SET last_used_at = max(coalesce(last_used_at, 0), ?1), change_seq = ?2,
@@ -740,6 +821,141 @@ impl Store {
     Ok(Some(out))
   }
 
+  /// Store a copy that scripts rewrote: `item` (the rewritten content) is
+  /// inserted or bumps like [`Store::insert`] and gets `revision` (on a new
+  /// row); `original` (the copy as it came in), unless its content equals
+  /// `item`'s, becomes a hidden version of the result. A version with the
+  /// same content already under that item is bumped instead of duplicated.
+  /// One transaction.
+  pub fn insert_with_original(
+    &mut self,
+    item: NewItem,
+    original: Option<NewItem>,
+    revision: &str,
+  ) -> Result<InsertOutcome> {
+    if item.reps.is_empty() || original.as_ref().is_some_and(|o| o.reps.is_empty()) {
+      return Err(Error::Corrupt("insert: item has no representations".into()));
+    }
+    let Store { conn, mode, .. } = self;
+    let mut pending = blobs::Pending::new(mode);
+    let tx = conn.transaction()?;
+    let out = insert_row(&tx, mode, &RowData::of(&item), &item.reps, &mut pending)?;
+    if let InsertOutcome::Inserted(id) = out {
+      tx.execute("UPDATE items SET revision = ?1 WHERE id = ?2", params![revision, id.0])?;
+    }
+    if let Some(orig) = original.filter(|o| o.hash != item.hash) {
+      insert_version(&tx, mode, out.id().0, &orig, &mut pending)?;
+    }
+    tx.commit()?;
+    pending.disarm();
+    tracing::debug!(
+      id = out.id().0,
+      hash = %hash_prefix(&item.hash),
+      bumped = matches!(out, InsertOutcome::Bumped(_)),
+      "store: inserted rewritten item"
+    );
+    Ok(out)
+  }
+
+  /// [`Store::insert_derived`] for an edit that supersedes `previous`: the
+  /// result (inserted, or the current item it bumped) gets `revision` (on
+  /// a new row) and `previous`'s tags, and `previous` plus its own earlier
+  /// versions become versions of the result (its pin moves to the result).
+  /// Nothing is superseded when the result is `previous` itself or
+  /// `previous` is gone or already a version.
+  pub fn insert_revision(
+    &mut self,
+    item: NewItem,
+    previous: Option<ItemId>,
+    revision: &str,
+  ) -> Result<InsertOutcome> {
+    if item.reps.is_empty() {
+      return Err(Error::Corrupt("insert: item has no representations".into()));
+    }
+    let Store { conn, mode, .. } = self;
+    let mut pending = blobs::Pending::new(mode);
+    let tx = conn.transaction()?;
+    let out = insert_row(&tx, mode, &RowData::of(&item), &item.reps, &mut pending)?;
+    if let InsertOutcome::Inserted(id) = out {
+      tx.execute(
+        "UPDATE items SET revision = ?1, derived_from = ?2 WHERE id = ?3",
+        params![revision, previous.map(|p| p.0), id.0],
+      )?;
+    }
+    if let Some(prev) = previous.filter(|p| *p != out.id()) {
+      copy_missing_tags(&tx, prev.0, out.id().0)?;
+      supersede(&tx, prev.0, out.id().0)?;
+    }
+    tx.commit()?;
+    pending.disarm();
+    tracing::debug!(
+      id = out.id().0,
+      hash = %hash_prefix(&item.hash),
+      bumped = matches!(out, InsertOutcome::Bumped(_)),
+      superseded = previous.is_some(),
+      "store: inserted revision"
+    );
+    Ok(out)
+  }
+
+  /// The current item `id` belongs to: itself if current, else the item
+  /// it is a version of. `None` if `id` does not exist.
+  pub fn current_of(&self, id: ItemId) -> Result<Option<ItemId>> {
+    let v: Option<Option<i64>> = self
+      .conn
+      .query_row("SELECT version_of FROM items WHERE id = ?1", params![id.0], |r| r.get(0))
+      .optional()?;
+    Ok(v.map(|of| ItemId(of.unwrap_or(id.0))))
+  }
+
+  /// All versions of the item `id` belongs to, oldest first, the current
+  /// item last. Empty if `id` does not exist. Never reads blob files.
+  pub fn versions(&self, id: ItemId) -> Result<Vec<VersionSummary>> {
+    let Some(cur) = self.current_of(id)? else { return Ok(Vec::new()) };
+    type Row = (i64, Option<i64>, Option<i64>, Option<String>, Option<String>, Option<i64>);
+    let rows: Vec<Row> = {
+      let mut stmt = self.conn.prepare_cached(
+        "SELECT id, created_at, last_used_at, revision, preview, total_size FROM items
+         WHERE version_of = ?1 OR id = ?1
+         ORDER BY (id = ?1) ASC, created_at ASC, id ASC",
+      )?;
+      stmt
+        .query_map(params![cur.0], |r| {
+          Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+        })?
+        .collect::<Result<_, _>>()?
+    };
+    let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
+    let mut mimes = mimes_of(&self.conn, &ids)?;
+    Ok(
+      rows
+        .into_iter()
+        .map(|(vid, created, used, revision, preview, size)| {
+          let created_at = from_millis(created.unwrap_or(0));
+          VersionSummary {
+            id: ItemId(vid),
+            created_at,
+            last_used_at: used.map(from_millis).unwrap_or(created_at),
+            revision,
+            preview,
+            total_size: size.unwrap_or(0).max(0) as u64,
+            mimes: mimes.remove(&vid).unwrap_or_default(),
+            current: vid == cur.0,
+          }
+        })
+        .collect(),
+    )
+  }
+
+  /// Number of earlier versions of `id`.
+  pub fn version_count(&self, id: ItemId) -> Result<u32> {
+    let n: i64 = self
+      .conn
+      .prepare_cached("SELECT count(*) FROM items WHERE version_of = ?1")?
+      .query_row(params![id.0], |r| r.get(0))?;
+    Ok(u32::try_from(n).unwrap_or(u32::MAX))
+  }
+
   /// The item `id` was edited from (`derived_from`), if it was saved from an
   /// external editor and started from an item; `None` also when `id` does
   /// not exist.
@@ -771,7 +987,7 @@ impl Store {
       .conn
       .query_row(
         &format!(
-          "SELECT {ITEM_COLS} FROM items WHERE selection = ?1
+          "SELECT {ITEM_COLS} FROM items WHERE selection = ?1 AND {CURRENT}
            ORDER BY last_used_at DESC, id DESC LIMIT 1"
         ),
         params![selection.as_str()],
@@ -787,7 +1003,7 @@ impl Store {
     let limit = i64::try_from(limit).unwrap_or(i64::MAX);
     // Walks `items_pin_recent` in order; stops after `limit` rows.
     let mut stmt = self.conn.prepare_cached(&format!(
-      "SELECT {ITEM_COLS} FROM items
+      "SELECT {ITEM_COLS} FROM items WHERE {CURRENT}
        ORDER BY {PINNED_EXPR} DESC, last_used_at DESC, id DESC LIMIT ?1"
     ))?;
     let raws = stmt.query_map(params![limit], RawItem::from_row)?.collect::<Result<Vec<_>, _>>()?;
@@ -886,13 +1102,15 @@ impl Store {
     Ok(true)
   }
 
-  /// Delete the item (cascades to reps/tags) and write a tombstone with a
-  /// new `change_seq`. Returns `false` if it did not exist. Its blob files
-  /// are removed after the commit.
+  /// Delete the item (cascades to reps/tags), and its earlier versions,
+  /// and write tombstones with new `change_seq`s. Returns `false` if it did
+  /// not exist. Its blob files are removed after the commit.
   pub fn delete(&mut self, id: ItemId) -> Result<bool> {
     let tx = self.conn.transaction()?;
-    let files = blob_files_of(&tx, id.0)?;
-    let deleted = delete_with_tombstone(&tx, id.0)?;
+    let deleted = item_exists(&tx, id.0)?;
+    let mut ids = vec![id.0];
+    ids.extend(versions_of(&tx, &[id.0])?);
+    let (_, files) = delete_many_with_tombstones(&tx, &ids)?;
     tx.commit()?;
     if deleted {
       tracing::debug!(id = id.0, "store: deleted");
@@ -912,24 +1130,29 @@ impl Store {
     // `items_pin_recent` (covering; no table lookups).
     let mut doomed: Vec<i64> = {
       let mut stmt = tx.prepare_cached(&format!(
-        "SELECT id FROM items WHERE {PINNED_EXPR} = 0 AND coalesce(last_used_at, 0) < ?1"
+        "SELECT id FROM items WHERE {PINNED_EXPR} = 0 AND coalesce(last_used_at, 0) < ?1
+         AND {CURRENT}"
       ))?;
       stmt.query_map(params![cutoff], |r| r.get(0))?.collect::<Result<_, _>>()?
     };
-    let remaining: i64 =
-      tx.query_row(&format!("SELECT count(*) FROM items WHERE {PINNED_EXPR} = 0"), [], |r| {
-        r.get(0)
-      })?;
+    let remaining: i64 = tx.query_row(
+      &format!("SELECT count(*) FROM items WHERE {PINNED_EXPR} = 0 AND {CURRENT}"),
+      [],
+      |r| r.get(0),
+    )?;
     let excess = remaining - doomed.len() as i64 - i64::from(limits.max_items);
     if excess > 0 {
       let mut stmt = tx.prepare_cached(&format!(
         "SELECT id FROM items WHERE {PINNED_EXPR} = 0 AND coalesce(last_used_at, 0) >= ?1
-         ORDER BY last_used_at ASC, id ASC LIMIT ?2"
+         AND {CURRENT} ORDER BY last_used_at ASC, id ASC LIMIT ?2"
       ))?;
       let more: Vec<i64> =
         stmt.query_map(params![cutoff, excess], |r| r.get(0))?.collect::<Result<_, _>>()?;
       doomed.extend(more);
     }
+    // Earlier versions go with their item.
+    let versions = versions_of(&tx, &doomed)?;
+    doomed.extend(versions);
     let (n, files) = delete_many_with_tombstones(&tx, &doomed)?;
     tx.commit()?;
     if n > 0 {
@@ -939,9 +1162,12 @@ impl Store {
     Ok(n)
   }
 
-  /// Number of stored items.
+  /// Number of stored items (current ones; earlier versions not counted).
   pub fn count(&self) -> Result<u64> {
-    let n: i64 = self.conn.query_row("SELECT count(*) FROM items", [], |r| r.get(0))?;
+    let n: i64 =
+      self
+        .conn
+        .query_row(&format!("SELECT count(*) FROM items WHERE {CURRENT}"), [], |r| r.get(0))?;
     Ok(n.max(0) as u64)
   }
 
@@ -1093,7 +1319,8 @@ pub(crate) fn insert_row(
   // so that an unknown (NULL) app matches only an unknown app.
   let existing: Option<i64> = tx
     .prepare_cached(
-      "SELECT id FROM items WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3 LIMIT 1",
+      "SELECT id FROM items WHERE selection = ?1 AND hash = ?2 AND source_app IS ?3
+       AND version_of IS NULL LIMIT 1",
     )?
     .query_row(params![row.selection.as_str(), &row.hash[..], row.source_app], |r| r.get(0))
     .optional()?;
@@ -1128,6 +1355,110 @@ pub(crate) fn insert_row(
   let id = tx.last_insert_rowid();
   insert_reps(tx, mode, id, reps, pending)?;
   Ok(InsertOutcome::Inserted(ItemId(id)))
+}
+
+/// Insert `item` as a hidden version of current item `of` (inside the
+/// caller's transaction), or bump an existing version of `of` with the same
+/// content. Returns the version's id.
+fn insert_version(
+  tx: &Connection,
+  mode: &Mode,
+  of: i64,
+  item: &NewItem,
+  pending: &mut blobs::Pending,
+) -> Result<i64> {
+  let row = RowData::of(item);
+  let existing: Option<i64> = tx
+    .prepare_cached("SELECT id FROM items WHERE version_of = ?1 AND hash = ?2 LIMIT 1")?
+    .query_row(params![of, &row.hash[..]], |r| r.get(0))
+    .optional()?;
+  let seq = next_change_seq(tx)?;
+  if let Some(id) = existing {
+    tx.execute(
+      "UPDATE items SET last_used_at = max(coalesce(last_used_at, 0), ?1), change_seq = ?2
+       WHERE id = ?3",
+      params![row.last_used_at, seq, id],
+    )?;
+    return Ok(id);
+  }
+  tx.execute(
+    "INSERT INTO items(change_seq, created_at, last_used_at, selection, source_app, flags,
+                       hash, preview, total_size, version_of)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+    params![
+      seq,
+      row.created_at,
+      row.last_used_at,
+      row.selection.as_str(),
+      row.source_app,
+      row.flags.bits(),
+      &row.hash[..],
+      row.preview,
+      row.total_size,
+      of,
+    ],
+  )?;
+  let id = tx.last_insert_rowid();
+  insert_reps(tx, mode, id, &item.reps, pending)?;
+  Ok(id)
+}
+
+/// Make current item `old` and its versions versions of current item `new`
+/// (inside the caller's transaction). `old`'s pin moves to `new`; `old`
+/// leaves the search index (tombstone). No-op unless both are current.
+fn supersede(tx: &Connection, old: i64, new: i64) -> Result<()> {
+  let current = |id: i64| -> Result<Option<i64>> {
+    Ok(
+      tx.query_row(
+        "SELECT coalesce(flags, 0) FROM items WHERE id = ?1 AND version_of IS NULL",
+        params![id],
+        |r| r.get(0),
+      )
+      .optional()?,
+    )
+  };
+  let (Some(old_flags), Some(_)) = (current(old)?, current(new)?) else { return Ok(()) };
+  if old == new {
+    return Ok(());
+  }
+  tx.execute("UPDATE items SET version_of = ?1 WHERE version_of = ?2", params![new, old])?;
+  let pin = i64::from(ItemFlags::PINNED.bits());
+  let seq = next_change_seq(tx)?;
+  tx.execute(
+    "UPDATE items SET flags = coalesce(flags, 0) | ?1, change_seq = ?2 WHERE id = ?3",
+    params![old_flags & pin, seq, new],
+  )?;
+  let seq = next_change_seq(tx)?;
+  tx.execute(
+    "UPDATE items SET version_of = ?1, flags = coalesce(flags, 0) & ~?2, change_seq = ?3
+     WHERE id = ?4",
+    params![new, pin, seq, old],
+  )?;
+  let seq = next_change_seq(tx)?;
+  tx.execute("INSERT INTO tombstones(change_seq, item_id) VALUES (?1, ?2)", params![seq, old])?;
+  Ok(())
+}
+
+/// Ids of the earlier versions of `ids` (inside the caller's transaction).
+fn versions_of(conn: &Connection, ids: &[i64]) -> Result<Vec<i64>> {
+  let mut out = Vec::new();
+  for chunk in ids.chunks(IN_CHUNK) {
+    let mut stmt = conn.prepare_cached(&format!(
+      "SELECT id FROM items WHERE version_of IN ({})",
+      placeholders(chunk.len())
+    ))?;
+    for id in stmt.query_map(rusqlite::params_from_iter(chunk), |r| r.get(0))? {
+      out.push(id?);
+    }
+  }
+  Ok(out)
+}
+
+fn item_exists(conn: &Connection, id: i64) -> Result<bool> {
+  Ok(
+    conn
+      .query_row("SELECT EXISTS(SELECT 1 FROM items WHERE id = ?1)", params![id], |r| r.get(0))?,
+  )
 }
 
 /// Insert `reps` for item `id` (inside the caller's transaction). Duplicate
@@ -1486,14 +1817,14 @@ mod tests {
       (
         "dedupe",
         "SELECT id FROM items WHERE selection = 'clipboard' AND hash = x'00'
-         AND source_app IS 'org.kde.kate' LIMIT 1"
+         AND source_app IS 'org.kde.kate' AND version_of IS NULL LIMIT 1"
           .into(),
         "items_dedupe",
       ),
       (
         "latest",
         format!(
-          "SELECT {ITEM_COLS} FROM items WHERE selection = 'clipboard'
+          "SELECT {ITEM_COLS} FROM items WHERE selection = 'clipboard' AND {CURRENT}
            ORDER BY last_used_at DESC, id DESC LIMIT 1"
         ),
         "items_sel_recent",
@@ -1501,7 +1832,7 @@ mod tests {
       (
         "recent",
         format!(
-          "SELECT {ITEM_COLS} FROM items
+          "SELECT {ITEM_COLS} FROM items WHERE {CURRENT}
            ORDER BY {PINNED_EXPR} DESC, last_used_at DESC, id DESC LIMIT 50"
         ),
         "items_pin_recent",
@@ -1516,8 +1847,16 @@ mod tests {
         "sweep excess",
         format!(
           "SELECT id FROM items WHERE {PINNED_EXPR} = 0 AND coalesce(last_used_at, 0) >= 5
-           ORDER BY last_used_at ASC, id ASC LIMIT 10"
+           AND {CURRENT} ORDER BY last_used_at ASC, id ASC LIMIT 10"
         ),
+        "items_pin_recent",
+      ),
+      ("versions", format!("SELECT id FROM items WHERE version_of IN ({ids})"), "items_versions"),
+      (
+        "recent page",
+        "SELECT id FROM items WHERE version_of IS NULL
+         ORDER BY (flags & 1) DESC, last_used_at DESC, id DESC LIMIT 50 OFFSET 10"
+          .into(),
         "items_pin_recent",
       ),
       ("sweep delete", format!("DELETE FROM items WHERE id IN ({ids})"), "tags_item"),
@@ -1686,15 +2025,154 @@ mod store_tests {
   }
 
   #[test]
-  fn migration_5_adds_derived_from() {
+  fn migrations_5_and_6_add_columns() {
     let s = Store::open_in_memory().unwrap();
     let v: i64 = s.conn().query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 5);
+    assert_eq!(v, 6);
     let cols: Vec<String> = {
       let mut st = s.conn().prepare("SELECT name FROM pragma_table_info('items')").unwrap();
       st.query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
     };
-    assert!(cols.iter().any(|c| c == "derived_from"), "{cols:?}");
+    for want in ["derived_from", "version_of", "revision"] {
+      assert!(cols.iter().any(|c| c == want), "{want}: {cols:?}");
+    }
+  }
+
+  fn preview_of(s: &Store, id: ItemId) -> String {
+    s.get(id).unwrap().unwrap().preview.unwrap()
+  }
+
+  #[test]
+  fn rewrite_keeps_the_original_as_a_hidden_version() {
+    let mut s = Store::open_in_memory().unwrap();
+    let orig = text_item(Selection::Clipboard, "https://x.com/?utm=1", t(1));
+    let new = text_item(Selection::Clipboard, "https://x.com/", t(1));
+    let id = s.insert_with_original(new.clone(), Some(orig.clone()), "script:urls.lua").unwrap();
+    let InsertOutcome::Inserted(id) = id else { panic!("{id:?}") };
+    assert_eq!(s.count().unwrap(), 1, "the original is not counted");
+    let recent: Vec<_> = s.recent(10).unwrap().into_iter().map(|r| r.id).collect();
+    assert_eq!(recent, [id], "nor listed");
+    assert_eq!(s.latest(Selection::Clipboard).unwrap().unwrap().id, id);
+    assert_eq!(s.recent_page(0, 10).unwrap()[0].versions, 1);
+    let v = s.versions(id).unwrap();
+    assert_eq!(v.len(), 2);
+    assert_eq!((v[0].current, v[0].revision.as_deref()), (false, None));
+    assert_eq!(preview_of(&s, v[0].id), "https://x.com/?utm=1");
+    assert_eq!(
+      (v[1].id, v[1].current, v[1].revision.as_deref()),
+      (id, true, Some("script:urls.lua"))
+    );
+    // Asking with the version's id gives the same list.
+    assert_eq!(s.versions(v[0].id).unwrap(), v);
+    assert_eq!(s.current_of(v[0].id).unwrap(), Some(id));
+
+    // The same copy again: the item is bumped, the version not duplicated.
+    let again = s.insert_with_original(new.clone(), Some(orig.clone()), "script:urls.lua").unwrap();
+    assert_eq!(again, InsertOutcome::Bumped(id));
+    assert_eq!(s.versions(id).unwrap().len(), 2);
+    // The original's content does not dedupe against the hidden version.
+    let plain = s.insert(orig).unwrap();
+    assert!(matches!(plain, InsertOutcome::Inserted(p) if p != v[0].id));
+    // Nothing kept when the rewrite did not change the content.
+    let same = text_item(Selection::Clipboard, "same", t(3));
+    let out = s.insert_with_original(same.clone(), Some(same), "script:x.lua").unwrap();
+    assert_eq!(s.versions(out.id()).unwrap().len(), 1);
+  }
+
+  #[test]
+  fn delete_and_retention_take_versions_along() {
+    let mut s = Store::open_in_memory().unwrap();
+    let a = s
+      .insert_with_original(
+        text_item(Selection::Clipboard, "a2", t(1)),
+        Some(text_item(Selection::Clipboard, "a1", t(1))),
+        "script:s.lua",
+      )
+      .unwrap()
+      .id();
+    let b = s
+      .insert_with_original(
+        text_item(Selection::Clipboard, "b2", t(2)),
+        Some(text_item(Selection::Clipboard, "b1", t(2))),
+        "script:s.lua",
+      )
+      .unwrap()
+      .id();
+    let a_old = s.versions(a).unwrap()[0].id;
+    let b_old = s.versions(b).unwrap()[0].id;
+    assert!(s.delete(a).unwrap());
+    assert!(s.get(a_old).unwrap().is_none(), "version deleted with its item");
+    let tomb: i64 = s
+      .conn()
+      .query_row(
+        "SELECT count(*) FROM tombstones WHERE item_id IN (?1, ?2)",
+        params![a.0, a_old.0],
+        |r| r.get(0),
+      )
+      .unwrap();
+    assert_eq!(tomb, 2);
+    // max_items counts current items only: b stays, and so does its version.
+    let n = s
+      .retention_sweep(
+        t(3),
+        RetentionLimits { max_age: Duration::from_secs(1 << 30), max_items: 1 },
+      )
+      .unwrap();
+    assert_eq!(n, 0);
+    assert!(s.get(b_old).unwrap().is_some());
+    let n = s
+      .retention_sweep(
+        t(3),
+        RetentionLimits { max_age: Duration::from_secs(1 << 30), max_items: 0 },
+      )
+      .unwrap();
+    assert_eq!(n, 2);
+    assert!(s.get(b_old).unwrap().is_none());
+  }
+
+  #[test]
+  fn an_edit_supersedes_the_item_it_came_from() {
+    let mut s = Store::open_in_memory().unwrap();
+    let orig = s.insert(text_item(Selection::Clipboard, "v1", t(1))).unwrap().id();
+    s.set_pinned(orig, true).unwrap();
+    s.set_tag(orig, "work", true).unwrap();
+    let v2 = s.insert_revision(edited("v2", t(2)), Some(orig), REVISION_EDITOR).unwrap().id();
+    assert_eq!(s.count().unwrap(), 1);
+    let cur = &s.recent_page(0, 10).unwrap()[0];
+    assert_eq!((cur.summary.id, cur.versions), (v2, 1));
+    assert!(cur.summary.flags.contains(ItemFlags::PINNED), "the pin moves to the edit");
+    assert_eq!(cur.tags, ["work"]);
+    assert_eq!(s.derived_from(v2).unwrap(), Some(orig));
+    // Editing again: every earlier version moves under the newest.
+    let v3 = s.insert_revision(edited("v3", t(3)), Some(v2), REVISION_EDITOR).unwrap().id();
+    let v = s.versions(v3).unwrap();
+    assert_eq!(v.iter().map(|x| x.id).collect::<Vec<_>>(), [orig, v2, v3]);
+    assert_eq!(
+      v.iter().map(|x| x.revision.as_deref()).collect::<Vec<_>>(),
+      [None, Some("editor"), Some("editor")]
+    );
+    // The superseded items left the search feed (tombstones).
+    let tombs: Vec<i64> =
+      s.tombstones_after(0, i64::MAX).unwrap().into_iter().map(|t| t.id.0).collect();
+    assert!(tombs.contains(&orig.0) && tombs.contains(&v2.0), "{tombs:?}");
+    let fed: Vec<i64> =
+      s.items_for_index(0, i64::MAX, 100, 100).unwrap().into_iter().map(|i| i.id.0).collect();
+    assert_eq!(fed, [v3.0]);
+    // An edit that ends up equal to its source supersedes nothing.
+    let same = s.insert_revision(edited("v3", t(4)), Some(v3), REVISION_EDITOR).unwrap();
+    assert_eq!(same, InsertOutcome::Bumped(v3));
+    assert_eq!(s.versions(v3).unwrap().len(), 3);
+  }
+
+  #[test]
+  fn merging_an_edited_draft_keeps_its_versions() {
+    let mut s = Store::open_in_memory().unwrap();
+    let other = s.insert(edited("final", t(1))).unwrap().id();
+    let orig = s.insert(text_item(Selection::Clipboard, "orig", t(2))).unwrap().id();
+    let draft = s.insert_revision(edited("draft", t(3)), Some(orig), REVISION_EDITOR).unwrap().id();
+    let out = s.replace_content(draft, edited("final", t(4))).unwrap().unwrap();
+    assert_eq!(out, ReplaceOutcome::Merged(other));
+    assert_eq!(s.versions(other).unwrap().iter().map(|v| v.id).collect::<Vec<_>>(), [orig, other]);
   }
 
   #[test]

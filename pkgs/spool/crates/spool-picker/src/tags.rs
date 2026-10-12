@@ -145,6 +145,7 @@ mod tests {
       pinned: false,
       tags: tags(t),
       total_size: 1,
+      versions: 0,
     }
   }
 

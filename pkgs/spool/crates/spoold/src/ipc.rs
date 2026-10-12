@@ -154,7 +154,7 @@ pub async fn serve(
   }
 }
 
-fn is_transient_accept_error(e: &io::Error) -> bool {
+pub(crate) fn is_transient_accept_error(e: &io::Error) -> bool {
   matches!(
     e.raw_os_error(),
     Some(
@@ -307,6 +307,8 @@ pub fn req_name(req: &PublicReq) -> &'static str {
     PublicReq::Status => "Status",
     PublicReq::Edit => "Edit",
     PublicReq::New { .. } => "New",
+    PublicReq::Versions => "Versions",
+    PublicReq::CurrentVersion { .. } => "CurrentVersion",
   }
 }
 

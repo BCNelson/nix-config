@@ -214,6 +214,7 @@ mod tests {
         pinned: false,
         tags: vec![],
         total_size: 5,
+        versions: 1,
       }],
     });
   }

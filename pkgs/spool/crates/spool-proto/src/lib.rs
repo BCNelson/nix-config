@@ -26,6 +26,10 @@
 //!   [`PICKER_PROTO_VERSION`], exchanged as [`Hello::picker`] (the picker
 //!   speaks first); see [`picker`] for request ids and the unlock flow.
 //!
+//! * The **script** channel (`scripts.sock`, see [`script`]) carries
+//!   [`ScriptReq`] (script host -> daemon) and [`ScriptEvt`]
+//!   (daemon -> script host), versioned by [`SCRIPT_PROTO_VERSION`].
+//!
 //! Public and picker messages are deliberately separate enums so a public
 //! client can never speak picker messages (e.g. `Unlock`) and vice versa.
 
@@ -35,6 +39,7 @@ pub mod framing;
 pub mod paths;
 pub mod picker;
 pub mod public;
+pub mod script;
 
 pub use framing::{FrameError, MAX_FRAME, decode_payload, encode_frame, read_frame, write_frame};
 #[cfg(feature = "tokio")]
@@ -42,9 +47,14 @@ pub use framing::{read_frame_async, write_frame_async};
 pub use picker::{
   CursorPos, HideReason, ItemPreview, MAX_TAG_CHARS, PICKER_PROTO_VERSION, PickerErrorCode,
   PickerEvt, PickerReq, PreviewKind, QueryFilters, SelectMode, TagError, UnlockFailReason,
-  UnlockPrompt, UnlockProvider, UnlockSecret, check_tag,
+  UnlockPrompt, UnlockProvider, UnlockSecret, VersionPreview, check_tag,
 };
-pub use public::{Capabilities, ErrorCode, PauseState, PublicReq, PublicResp, StatusInfo};
+pub use public::{
+  Capabilities, ErrorCode, PauseState, PublicReq, PublicResp, StatusInfo, VersionInfo,
+};
+pub use script::{
+  SCRIPT_PROTO_VERSION, ScriptEvt, ScriptItem, ScriptReq, Verdict, WireRep, WireSelection,
+};
 
 use serde::{Deserialize, Serialize};
 

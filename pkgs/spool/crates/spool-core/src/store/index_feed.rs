@@ -57,6 +57,8 @@ pub struct IndexTombstone {
 pub struct TaggedSummary {
   pub summary: ItemSummary,
   pub tags: Vec<String>,
+  /// Number of earlier versions ([`Store::versions`]).
+  pub versions: u32,
 }
 
 /// Columns read for summaries (`ItemSummary` without mimes).
@@ -111,7 +113,7 @@ impl Store {
     let rows: Vec<Row> = {
       let mut stmt = self.conn.prepare_cached(
         "SELECT id, change_seq, created_at, last_used_at, source_app, flags, preview
-         FROM items WHERE change_seq > ?1 AND change_seq <= ?2
+         FROM items WHERE change_seq > ?1 AND change_seq <= ?2 AND version_of IS NULL
          ORDER BY change_seq ASC LIMIT ?3",
       )?;
       stmt
@@ -163,10 +165,11 @@ impl Store {
   }
 
   /// Summaries (with tags) of `ids`, in the given order; ids that no
-  /// longer exist are skipped. Never reads blob files.
+  /// longer exist (or are only earlier versions now) are skipped. Never reads blob files.
   pub fn summaries(&self, ids: &[ItemId]) -> Result<Vec<TaggedSummary>> {
-    let mut stmt =
-      self.conn.prepare_cached(&format!("SELECT {SUMMARY_COLS} FROM items WHERE id = ?1"))?;
+    let mut stmt = self.conn.prepare_cached(&format!(
+      "SELECT {SUMMARY_COLS} FROM items WHERE id = ?1 AND version_of IS NULL"
+    ))?;
     let mut out = Vec::with_capacity(ids.len());
     for id in ids {
       let Some(raw) = stmt.query_row(params![id.0], RawSummary::from_row).optional()? else {
@@ -184,7 +187,7 @@ impl Store {
     let offset = i64::try_from(offset).unwrap_or(i64::MAX);
     let raws: Vec<RawSummary> = {
       let mut stmt = self.conn.prepare_cached(&format!(
-        "SELECT {SUMMARY_COLS} FROM items
+        "SELECT {SUMMARY_COLS} FROM items WHERE version_of IS NULL
          ORDER BY (flags & 1) DESC, last_used_at DESC, id DESC LIMIT ?1 OFFSET ?2"
       ))?;
       stmt.query_map(params![limit, offset], RawSummary::from_row)?.collect::<Result<_, _>>()?
@@ -214,6 +217,7 @@ impl Store {
         mimes,
       },
       tags,
+      versions: self.version_count(ItemId(raw.id))?,
     })
   }
 

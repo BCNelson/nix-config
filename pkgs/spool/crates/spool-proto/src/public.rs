@@ -46,6 +46,15 @@ pub enum PublicReq {
   /// Answers [`PublicResp::Ok`] once the editor was started. Rate-limited
   /// like `Show`. (Appended.)
   New { mime: String },
+  /// The versions of the newest stored clipboard item (the one `Current`
+  /// returns): oldest first, that item last. Answers
+  /// [`PublicResp::Versions`] (empty: no item). Nothing beyond what
+  /// `Current` already exposes: the same item's earlier contents. (Appended.)
+  Versions,
+  /// `Current` for version `index` of [`PublicReq::Versions`]'s list (0 =
+  /// the oldest, the original). Answers [`PublicResp::Current`] or
+  /// [`PublicResp::Empty`] (no such version). (Appended.)
+  CurrentVersion { index: u32 },
 }
 
 /// Response from the daemon to a public client.
@@ -75,6 +84,23 @@ pub enum PublicResp {
   /// Answer to [`PublicReq::Pick`]: the picker was closed without a choice
   /// (Esc, focus loss, replaced by another `Show`/`Pick`, picker restart).
   Cancelled,
+  /// Answer to [`PublicReq::Versions`]. (Appended.)
+  Versions(Vec<VersionInfo>),
+}
+
+/// One entry of [`PublicResp::Versions`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VersionInfo {
+  /// Milliseconds since the Unix epoch.
+  pub created_unix_ms: u64,
+  /// What produced it (`script:<file>`, `editor`); `None`: captured as is.
+  pub revision: Option<String>,
+  pub mimes: Vec<String>,
+  pub total_size: u64,
+  /// Short excerpt (as in the picker list).
+  pub preview: String,
+  /// The current item (last).
+  pub current: bool,
 }
 
 /// Machine-readable error class for [`PublicResp::Error`]. `message` is for

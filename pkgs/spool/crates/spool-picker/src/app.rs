@@ -43,7 +43,7 @@ use smithay_client_toolkit::shm::{Shm, ShmHandler};
 use smithay_client_toolkit::{delegate_dispatch2, delegate_registry, registry_handlers};
 use spool_proto::{
   CursorPos, HideReason, ItemPreview, PickerReq, PreviewKind, SelectMode, UnlockFailReason,
-  UnlockPrompt, UnlockProvider, UnlockSecret, WireItemId,
+  UnlockPrompt, UnlockProvider, UnlockSecret, VersionPreview, WireItemId,
 };
 use zeroize::Zeroizing;
 
@@ -126,6 +126,27 @@ enum Vis {
   /// Show requested; waiting for the layer configure.
   AwaitConfigure,
   Shown,
+}
+
+/// The versions view (Ctrl+H) while open. It shows the versions in place
+/// of the list (`App::entries` / `rows`); the list is kept here and put back
+/// on Esc, Ctrl+H, a selection or hide.
+struct VersionsView {
+  /// The current item whose versions are shown.
+  of: WireItemId,
+  /// Row notes (`model::version_label`), parallel to `App::entries`.
+  labels: Vec<String>,
+  /// Which row is the current item (not deletable here).
+  current: Vec<bool>,
+  saved: SavedList,
+}
+
+/// The list the versions view replaced.
+struct SavedList {
+  entries: Vec<ItemPreview>,
+  selected: usize,
+  visible: (usize, usize),
+  has_more: bool,
 }
 
 enum ThumbState {
@@ -265,6 +286,8 @@ pub struct App {
   chips: Rc<VecModel<SharedString>>,
   /// Same as `focus_secret_after_render`, for the tag field.
   focus_tag_after_render: bool,
+  /// The open versions view (Ctrl+H), if any.
+  versions: Option<VersionsView>,
   /// Where to put the selection and scroll position when the next first
   /// page lands (a reload after a failed edit, not a new search).
   reselect: Option<Reselect>,
@@ -386,6 +409,7 @@ impl App {
       tags: None,
       chips,
       focus_tag_after_render: false,
+      versions: None,
       reselect: None,
       #[cfg(feature = "gpu")]
       gpu_warmed: false,
@@ -491,8 +515,21 @@ impl App {
       Event::EditFailed { id, code, message } => {
         tracing::debug!(id, ?code, "edit failed");
         self.set_notice(&crate::sanitize::sanitize_line(&message, 160));
-        // Undo the optimistic pin / tag / delete: reload from the daemon.
-        self.resync();
+        // Undo the optimistic pin / tag / delete: reload from the daemon
+        // (in the versions view: the versions).
+        match &self.versions {
+          Some(v) => {
+            let req = self.adapter.versions(v.of);
+            self.chan.send(req);
+          }
+          None => self.resync(),
+        }
+      }
+      Event::Versions { id, versions } => self.on_versions(id, versions),
+      Event::VersionsFailed { code, message } => {
+        tracing::debug!(?code, "versions failed");
+        self.close_versions();
+        self.set_notice(&crate::sanitize::sanitize_line(&message, 160));
       }
       Event::NewItem(p) => self.on_new_item(p),
       Event::Locked(prompts) => self.on_locked(prompts),
@@ -876,6 +913,9 @@ impl App {
   pub fn hide(&mut self, reason: HideReason) {
     self.enter_down = None;
     self.close_chooser();
+    // The next Show starts on the list.
+    self.close_versions();
+    self.adapter.cancel_versions();
     if let Some(s) = &self.surf {
       // Only the null buffer: any other state change in this commit makes
       // the compositor send a configure that arrives after the unmap reset
@@ -946,8 +986,21 @@ impl App {
   // ------------------------------------------------------------- list
 
   fn on_page(&mut self, offset: u32, items: Vec<ItemPreview>, more: bool) {
-    self.has_more = more;
     self.first_answer = true;
+    if let Some(v) = &mut self.versions {
+      // A further page of the list behind the versions view goes there; a
+      // new first page (a search typed before Ctrl+H, a reload) replaces
+      // the list, so the view closes.
+      if offset != 0 {
+        if offset as usize == v.saved.entries.len() {
+          v.saved.entries.extend(items);
+          v.saved.has_more = more;
+        }
+        return;
+      }
+      self.close_versions();
+    }
+    self.has_more = more;
     if offset == 0 {
       // A reload keeps its notice (the error that caused it), the scroll
       // position and the selection; an open tag editor keeps its item.
@@ -1002,6 +1055,21 @@ impl App {
     if !self.query_text.is_empty() {
       return;
     }
+    if let Some(v) = &mut self.versions {
+      // Into the list behind the view, keeping its selection.
+      let list = &mut v.saved;
+      if let Some(i) = list.entries.iter().position(|e| e.id == p.id) {
+        list.entries.remove(i);
+        if list.selected > i {
+          list.selected -= 1;
+        }
+      }
+      list.entries.insert(0, p);
+      if list.entries.len() > 1 {
+        list.selected += 1;
+      }
+      return;
+    }
     if let Some(i) = self.entries.iter().position(|e| e.id == p.id) {
       self.entries.remove(i);
       self.rows.remove(i);
@@ -1038,6 +1106,10 @@ impl App {
         .into(),
       pinned: p.pinned,
       tags: model::tags_label(&p.tags).into(),
+      note: match &self.versions {
+        Some(v) => v.labels.get(i).cloned().unwrap_or_default().into(),
+        None => model::versions_note(p.versions).into(),
+      },
       is_image,
       thumb,
       has_thumb,
@@ -1069,6 +1141,10 @@ impl App {
 
   fn update_status(&mut self) {
     let n = self.entries.len();
+    if self.versions.is_some() {
+      self.ui.set_status(format!("{n} versions").into());
+      return;
+    }
     let mut s = match (n, self.has_more) {
       (_, true) => format!("{n}+ items"),
       (1, false) => "1 item".to_string(),
@@ -1189,6 +1265,108 @@ impl App {
       }
       self.update_status();
     }
+  }
+
+  // ---------------------------------------------------------- versions
+
+  /// Ctrl+H on the list: ask for the selected item's versions (the view
+  /// opens when they arrive).
+  fn open_versions(&mut self) {
+    let Some((id, n)) = self.current_entry().map(|(_, e)| (e.id, e.versions)) else { return };
+    if n == 0 {
+      return self.set_notice("No earlier versions");
+    }
+    // An Enter held on the list must not select once the view is open.
+    self.enter_down = None;
+    let req = self.adapter.versions(id);
+    self.chan.send(req);
+  }
+
+  /// The versions of `id` arrived: open the view (or refresh it).
+  fn on_versions(&mut self, id: WireItemId, versions: Vec<VersionPreview>) {
+    if self.vis == Vis::Hidden {
+      return;
+    }
+    if versions.is_empty() {
+      self.close_versions();
+      return self.set_notice("That item is gone");
+    }
+    let refresh = self.versions.as_ref().is_some_and(|v| v.of == id);
+    let selected = if refresh {
+      self.ui.get_current().max(0) as usize
+    } else {
+      // The version just before the current one (the original, for a
+      // single rewrite): what Ctrl+H is usually for.
+      versions.len().saturating_sub(2)
+    };
+    let mut saved = match self.versions.take() {
+      Some(v) => v.saved,
+      None => SavedList {
+        entries: std::mem::take(&mut self.entries),
+        selected: self.ui.get_current().max(0) as usize,
+        visible: self.visible,
+        has_more: self.has_more,
+      },
+    };
+    // Keep the list's badge in step (a version may have been deleted).
+    if let Some(e) = saved.entries.iter_mut().find(|e| e.id == id) {
+      e.versions = versions.len().saturating_sub(1) as u32;
+    }
+    self.close_tags();
+    self.has_more = false;
+    let title = versions.last().map(|v| model::preview_text(&v.item)).unwrap_or_default();
+    let labels =
+      versions.iter().map(|v| model::version_label(v.revision.as_deref(), v.current)).collect();
+    let current = versions.iter().map(|v| v.current).collect();
+    self.entries = versions.into_iter().map(|v| v.item).collect();
+    self.versions = Some(VersionsView { of: id, labels, current, saved });
+    let rows: Vec<Row> = (0..self.entries.len()).map(|i| self.make_row(i)).collect();
+    self.rows.set_vec(rows);
+    self.ui.set_versions_title(crate::sanitize::sanitize_line(&title, 80).into());
+    self.ui.invoke_scroll_top();
+    self.visible = (0, KEEP_THUMB_ROWS);
+    self.set_current(selected);
+    self.update_status();
+  }
+
+  /// Back to the list (Esc / Ctrl+H in the view, a selection, hide).
+  fn close_versions(&mut self) {
+    let Some(v) = self.versions.take() else { return };
+    self.adapter.cancel_versions();
+    // Notices from the view (e.g. "current version") are about the view.
+    self.set_notice("");
+    let SavedList { entries, selected, visible, has_more } = v.saved;
+    self.entries = entries;
+    self.has_more = has_more;
+    let rows: Vec<Row> = (0..self.entries.len()).map(|i| self.make_row(i)).collect();
+    self.rows.set_vec(rows);
+    self.ui.set_versions_title("".into());
+    self.ui.invoke_scroll_to_row(visible.0 as i32);
+    self.visible = visible;
+    self.set_current(selected);
+    self.update_status();
+  }
+
+  /// Del in the versions view: delete the selected earlier version (the
+  /// current item is deleted from the list, not here), then refresh.
+  fn delete_version(&mut self) {
+    let Some(i) = self.current_entry().map(|(i, _)| i) else { return };
+    let Some(v) = &mut self.versions else { return };
+    if v.current.get(i).copied().unwrap_or(true) {
+      return self.set_notice("The current version is deleted from the list");
+    }
+    v.labels.remove(i);
+    v.current.remove(i);
+    let of = v.of;
+    let id = self.entries.remove(i).id;
+    self.rows.remove(i);
+    self.thumbs.remove(&id);
+    let req = self.adapter.delete(id);
+    self.chan.send(req);
+    self.set_current(i.min(self.entries.len().saturating_sub(1)));
+    let req = self.adapter.versions(of);
+    self.chan.send(req);
+    self.update_status();
   }
 
   // ------------------------------------------------------------- edit
@@ -1372,6 +1550,7 @@ impl App {
     if let Some(k) = crate::edit::edit_key(ev.keysym, &self.mods, repeat)
       && !self.ui.get_secret_focused()
       && self.tags.is_none()
+      && self.versions.is_none()
     {
       return self.on_edit_key(k);
     }
@@ -1382,6 +1561,7 @@ impl App {
       tags_open: self.tags.is_some(),
       secret_field: self.ui.get_secret_focused() && self.ui.get_secret_kind() != 0,
       locked: self.lock.locked,
+      versions_open: self.versions.is_some(),
     };
     let route = route_key(ev.keysym, &self.mods, repeat, cx);
     let mut nav = |delta: i64| {
@@ -1406,7 +1586,10 @@ impl App {
           Move::PageDown => page,
         });
       }
+      Route::DeleteItem if self.versions.is_some() => return self.delete_version(),
       Route::DeleteItem => return self.delete_current(),
+      Route::OpenVersions => return self.open_versions(),
+      Route::CloseVersions => return self.close_versions(),
       Route::TogglePin => return self.toggle_pin(),
       Route::RetryTouch => return self.retry_touch(),
       Route::OpenTags => return self.open_tags(),
@@ -1879,6 +2062,10 @@ enum Route {
   OpenTags,
   /// Esc or Ctrl+T in the tag editor: back to the list, picker stays open.
   CloseTags,
+  /// Ctrl+H on the list.
+  OpenVersions,
+  /// Esc or Ctrl+H in the versions view: back to the list.
+  CloseVersions,
   /// A key the tag editor interprets (see `tags.rs`).
   Tag(TagKey),
   /// Swallowed.
@@ -1901,6 +2088,8 @@ struct KeyCtx {
   /// The unlock panel's secret field has focus.
   secret_field: bool,
   locked: bool,
+  /// The versions view (Ctrl+H) is open.
+  versions_open: bool,
 }
 
 fn route_key(k: Keysym, mods: &Modifiers, repeat: bool, cx: KeyCtx) -> Route {
@@ -1937,6 +2126,21 @@ fn route_key(k: Keysym, mods: &Modifiers, repeat: bool, cx: KeyCtx) -> Route {
       _ => Route::Text,
     };
   }
+  if cx.versions_open {
+    // Navigate, select, delete a version or go back; nothing is typed.
+    return match k {
+      Keysym::Escape if repeat => Route::Ignore,
+      Keysym::Escape => Route::CloseVersions,
+      _ if enter && !repeat => Route::ArmSelect(select_mode(mods)),
+      Keysym::Up | Keysym::KP_Up => Route::Move(Move::Up),
+      Keysym::Down | Keysym::KP_Down => Route::Move(Move::Down),
+      Keysym::Page_Up | Keysym::KP_Page_Up => Route::Move(Move::PageUp),
+      Keysym::Page_Down | Keysym::KP_Page_Down => Route::Move(Move::PageDown),
+      Keysym::Delete | Keysym::KP_Delete if !repeat => Route::DeleteItem,
+      _ if ctrl_key(Keysym::h, Keysym::H) && !repeat => Route::CloseVersions,
+      _ => Route::Ignore,
+    };
+  }
   match k {
     // A held Esc that just closed the tag editor must not close the picker.
     Keysym::Escape if repeat => Route::Ignore,
@@ -1957,6 +2161,7 @@ fn route_key(k: Keysym, mods: &Modifiers, repeat: bool, cx: KeyCtx) -> Route {
     Keysym::Delete | Keysym::KP_Delete => Route::DeleteItem,
     _ if ctrl_key(Keysym::p, Keysym::P) && !repeat => Route::TogglePin,
     _ if ctrl_key(Keysym::t, Keysym::T) && !repeat => Route::OpenTags,
+    _ if ctrl_key(Keysym::h, Keysym::H) && !repeat && !cx.secret_field => Route::OpenVersions,
     _ if ctrl_key(Keysym::r, Keysym::R) && !repeat && cx.locked => Route::RetryTouch,
     _ => Route::Text,
   }
@@ -2455,6 +2660,32 @@ mod tests {
     assert_eq!(route(Keysym::r, ctrl, false, list), Route::Text, "retry only while locked");
     assert_eq!(route(Keysym::r, ctrl, false, secret), Route::RetryTouch);
     assert_eq!(route(Keysym::Page_Down, none, false, list), Route::Move(Move::PageDown));
+    assert_eq!(route(Keysym::h, ctrl, false, list), Route::OpenVersions);
+    assert_eq!(route(Keysym::H, ctrl, false, list), Route::OpenVersions);
+    assert_eq!(route(Keysym::h, ctrl, true, list), Route::Text);
+    assert_eq!(route(Keysym::h, ctrl, false, secret), Route::Text, "not from the secret field");
+  }
+
+  #[test]
+  fn versions_view_keys() {
+    let none = Modifiers::default();
+    let ctrl = Modifiers { ctrl: true, ..Default::default() };
+    let shift = Modifiers { shift: true, ..Default::default() };
+    let v = KeyCtx { versions_open: true, ..Default::default() };
+    assert_eq!(route(Keysym::Escape, none, false, v), Route::CloseVersions, "Esc goes back");
+    assert_eq!(route(Keysym::Escape, none, true, v), Route::Ignore);
+    assert_eq!(route(Keysym::h, ctrl, false, v), Route::CloseVersions);
+    assert_eq!(route(Keysym::Return, none, false, v), Route::ArmSelect(SelectMode::Paste));
+    assert_eq!(route(Keysym::Return, shift, false, v), Route::ArmSelect(SelectMode::Copy));
+    assert_eq!(route(Keysym::Return, ctrl, false, v), Route::ArmSelect(SelectMode::PastePlain));
+    assert_eq!(route(Keysym::Down, none, false, v), Route::Move(Move::Down));
+    assert_eq!(route(Keysym::Delete, none, false, v), Route::DeleteItem);
+    assert_eq!(route(Keysym::Delete, none, true, v), Route::Ignore);
+    // No pin, tags or typing here.
+    for k in [Keysym::p, Keysym::t, Keysym::a] {
+      assert_eq!(route(k, ctrl, false, v), Route::Ignore);
+      assert_eq!(route(k, none, false, v), Route::Ignore);
+    }
   }
 
   #[test]
@@ -2465,7 +2696,8 @@ mod tests {
     let ed = KeyCtx { tags_open: true, ..Default::default() };
     // Enter in the tag field never arms a select (so never pastes), with
     // any modifier, pressed or held; also not while the unlock panel shows.
-    let ed_locked = KeyCtx { tags_open: true, secret_field: true, locked: true };
+    let ed_locked =
+      KeyCtx { tags_open: true, secret_field: true, locked: true, versions_open: false };
     for cx in [ed, ed_locked] {
       for m in [none, ctrl, shift] {
         for k in [Keysym::Return, Keysym::KP_Enter] {

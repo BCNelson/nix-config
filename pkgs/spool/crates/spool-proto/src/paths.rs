@@ -14,6 +14,9 @@ pub const RUNTIME_SUBDIR: &str = "spool";
 /// Socket file name inside [`RUNTIME_SUBDIR`].
 pub const SOCKET_NAME: &str = "sock";
 
+/// Script-host socket file name, next to the public socket.
+pub const SCRIPT_SOCKET_NAME: &str = "scripts.sock";
+
 #[derive(Debug, thiserror::Error)]
 pub enum PathError {
   #[error("XDG_RUNTIME_DIR is not set (and {SOCKET_ENV} is not set)")]
@@ -26,6 +29,17 @@ pub enum PathError {
 /// `$XDG_RUNTIME_DIR/spool/sock`.
 pub fn public_socket_path() -> Result<PathBuf, PathError> {
   socket_path_from(env::var_os(SOCKET_ENV), env::var_os("XDG_RUNTIME_DIR"))
+}
+
+/// Script-host socket: [`SCRIPT_SOCKET_NAME`] in the public socket's
+/// directory (so `$SPOOL_SOCKET` moves both).
+pub fn script_socket_path() -> Result<PathBuf, PathError> {
+  Ok(script_socket_for(&public_socket_path()?))
+}
+
+/// [`script_socket_path`] for a given public socket path.
+pub fn script_socket_for(public: &std::path::Path) -> PathBuf {
+  public.with_file_name(SCRIPT_SOCKET_NAME)
 }
 
 fn socket_path_from(
@@ -58,6 +72,18 @@ mod tests {
   fn override_wins() {
     let p = socket_path_from(Some("/tmp/x.sock".into()), Some("/run/user/1".into())).unwrap();
     assert_eq!(p, PathBuf::from("/tmp/x.sock"));
+  }
+
+  #[test]
+  fn script_socket_is_a_sibling() {
+    assert_eq!(
+      script_socket_for(std::path::Path::new("/run/user/1000/spool/sock")),
+      PathBuf::from("/run/user/1000/spool/scripts.sock")
+    );
+    assert_eq!(
+      script_socket_for(std::path::Path::new("/tmp/x.sock")),
+      PathBuf::from("/tmp/scripts.sock")
+    );
   }
 
   #[test]

@@ -69,6 +69,25 @@ pub fn tags_label(tags: &[String]) -> String {
   out.join(" ")
 }
 
+/// Row note for an item with earlier versions: `⟲N`; empty without.
+pub fn versions_note(n: u32) -> String {
+  if n == 0 { String::new() } else { format!("⟲{n}") }
+}
+
+/// Label of a row in the versions view: what produced the version
+/// (`original`, `script <file>`, `edited`), marked `●` when current.
+pub fn version_label(revision: Option<&str>, current: bool) -> String {
+  let what = match revision {
+    None => "original".to_string(),
+    Some("editor") => "edited".to_string(),
+    Some(r) => match r.strip_prefix("script:") {
+      Some(file) => format!("script {}", sanitize_line(file, 40)),
+      None => sanitize_line(r, 40),
+    },
+  };
+  if current { format!("● {what}") } else { what }
+}
+
 /// Sanitized text of one tag chip in the tag editor.
 pub fn chip_text(tag: &str) -> String {
   sanitize_line(tag, spool_proto::MAX_TAG_CHARS)
@@ -105,7 +124,19 @@ mod tests {
       pinned: false,
       tags: vec![],
       total_size: 2048,
+      versions: 0,
     }
+  }
+
+  #[test]
+  fn version_labels_and_notes() {
+    assert_eq!(versions_note(0), "");
+    assert_eq!(versions_note(2), "⟲2");
+    assert_eq!(version_label(None, false), "original");
+    assert_eq!(version_label(Some("script:10-urls.lua"), false), "script 10-urls.lua");
+    assert_eq!(version_label(Some("editor"), true), "● edited");
+    assert_eq!(version_label(Some("script:a\u{202E}b.lua"), false), "script a⟪RLO⟫b.lua");
+    assert_eq!(version_label(Some("other"), false), "other");
   }
 
   #[test]

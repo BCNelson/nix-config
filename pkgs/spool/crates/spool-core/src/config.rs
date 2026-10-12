@@ -26,6 +26,10 @@
 //! "text/*"    = ["{terminal}", "nvim", "-n", "-i", "NONE", "{file}"]
 //! "text/html" = ["kate", "--block", "{file}"]
 //! "image/*"   = ["krita", "{file}"]
+//!
+//! [scripts]               # Lua filters run by the spool-scripts host
+//! enabled = true
+//! filter_budget_ms = 250  # unanswered after this long: stored unfiltered
 //! ```
 
 use std::collections::BTreeMap;
@@ -80,6 +84,36 @@ pub struct Config {
   pub picker: PickerSettings,
   /// External editors for "edit item" (`[editor]` table).
   pub editor: EditorSettings,
+  /// The Lua script host (`[scripts]` table).
+  pub scripts: ScriptSettings,
+}
+
+/// Shortest and longest [`ScriptSettings::filter_budget_ms`].
+pub const FILTER_BUDGET_RANGE_MS: std::ops::RangeInclusive<u32> = 10..=2000;
+
+/// [`Config::scripts`]: whether spoold listens for the `spool-scripts` host
+/// and how long a copy waits for its filters. The scripts themselves are the
+/// host's business (its own unit and `--scripts` directory).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ScriptSettings {
+  /// Bind `scripts.sock` and send copies to the host's filters.
+  pub enabled: bool,
+  /// How long a copy waits for the filters before it is stored unfiltered
+  /// (also when no host is connected: then it is not held at all).
+  pub filter_budget_ms: u32,
+}
+
+impl Default for ScriptSettings {
+  fn default() -> Self {
+    Self { enabled: false, filter_budget_ms: 250 }
+  }
+}
+
+impl ScriptSettings {
+  pub fn filter_budget(&self) -> Duration {
+    Duration::from_millis(u64::from(self.filter_budget_ms))
+  }
 }
 
 /// Placeholder for the file being edited in an [`EditorSettings::mime`]
@@ -314,6 +348,7 @@ impl Default for Config {
       paste_terminals: None,
       picker: PickerSettings::default(),
       editor: EditorSettings::default(),
+      scripts: ScriptSettings::default(),
     }
   }
 }
@@ -359,6 +394,13 @@ impl Config {
       && let Some(bad) = t.iter().find(|id| id.trim().is_empty() || id.len() > 256)
     {
       return Err(format!("paste_terminals: invalid app id {bad:?}"));
+    }
+    if !FILTER_BUDGET_RANGE_MS.contains(&self.scripts.filter_budget_ms) {
+      return Err(format!(
+        "scripts.filter_budget_ms must be in {}..={}",
+        FILTER_BUDGET_RANGE_MS.start(),
+        FILTER_BUDGET_RANGE_MS.end()
+      ));
     }
     self.editor.validate()
   }
@@ -410,6 +452,24 @@ mod tests {
     let c = Config::from_toml_str("key_provider = \"secret-service\"", Path::new("x")).unwrap();
     assert_eq!(c.key_provider, KeyProviderSetting::SecretService);
     assert!(Config::from_toml_str("key_provider = \"kwallet\"", Path::new("x")).is_err());
+  }
+
+  #[test]
+  fn script_settings() {
+    let c = Config::default();
+    assert!(!c.scripts.enabled);
+    assert_eq!(c.scripts.filter_budget(), Duration::from_millis(250));
+    let c =
+      Config::from_toml_str("[scripts]\nenabled = true\nfilter_budget_ms = 500", Path::new("x"))
+        .unwrap();
+    assert!(c.scripts.enabled);
+    assert_eq!(c.scripts.filter_budget_ms, 500);
+    for bad in ["filter_budget_ms = 5", "filter_budget_ms = 2001", "budget = 1"] {
+      assert!(
+        Config::from_toml_str(&format!("[scripts]\n{bad}"), Path::new("x")).is_err(),
+        "{bad}"
+      );
+    }
   }
 
   #[test]

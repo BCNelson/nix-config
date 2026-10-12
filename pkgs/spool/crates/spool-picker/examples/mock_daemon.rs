@@ -2,8 +2,10 @@
 //! `dev`, never shipped).
 //!
 //! Creates the socketpair, execs `spool-picker` with the picker end on fd 3
-//! (`SPOOL_PICKER_FD=3`), speaks picker protocol v3, answers `Query`/`Thumb`
-//! from fake data and prints what the picker sends (never secrets).
+//! (`SPOOL_PICKER_FD=3`), speaks picker protocol v4, answers `Query`/`Thumb`/
+//! `Versions` from fake data and prints what the picker sends (never
+//! secrets). Two items have earlier versions (a script-rewritten URL, id 12,
+//! and an edited image, id 5).
 //!
 //! Answers are deliberately **out of order**: requests arriving within
 //! 40 ms (`MOCK_REORDER_MS`) are answered newest first, so stale pages and swapped
@@ -122,6 +124,23 @@ fn now_ms() -> u64 {
 struct Item {
   preview: ItemPreview,
   image: Option<Vec<u8>>,
+  /// What produced this content (`VersionPreview::revision`).
+  revision: Option<String>,
+  /// Earlier versions, oldest first.
+  earlier: Vec<Item>,
+}
+
+/// Give `item` earlier versions (and its own revision note).
+fn with_versions(mut item: Item, revision: &str, earlier: Vec<Item>) -> Item {
+  item.revision = Some(revision.into());
+  item.preview.versions = earlier.len() as u32;
+  item.earlier = earlier;
+  item
+}
+
+/// The current item `id` belongs to (itself or the item it is a version of).
+fn current_of(items: &[Item], id: i64) -> Option<&Item> {
+  items.iter().find(|i| i.preview.id == id || i.earlier.iter().any(|e| e.preview.id == id))
 }
 
 fn text_item(id: i64, age_s: u64, text: &str) -> Item {
@@ -137,8 +156,11 @@ fn text_item(id: i64, age_s: u64, text: &str) -> Item {
       pinned: false,
       tags: vec![],
       total_size: text.len() as u64,
+      versions: 0,
     },
     image: None,
+    revision: None,
+    earlier: Vec::new(),
   }
 }
 
@@ -155,8 +177,11 @@ fn image_item(id: i64, age_s: u64, mime: &str, bytes: Vec<u8>) -> Item {
       pinned: false,
       tags: vec![],
       total_size: bytes.len() as u64,
+      versions: 0,
     },
     image: Some(bytes),
+    revision: None,
+    earlier: Vec::new(),
   }
 }
 
@@ -214,6 +239,20 @@ fn fake_items() -> Vec<Item> {
     text_item(10, 9000, "Ünïcödé façade — 東京 — emoji 😀"),
   ];
   v[0].preview.pinned = true;
+  // A script-rewritten URL: the copy as it came in, then the rewrite.
+  let url = with_versions(
+    text_item(12, 20, "https://example.com/b?id=2"),
+    "script:10-urls.lua",
+    vec![text_item(2001, 20, "https://example.com/b?id=2&utm_source=mail&fbclid=x")],
+  );
+  v.insert(1, url);
+  // An edited image (Krita): the original is a smaller gradient.
+  let pos = v.iter().position(|i| i.preview.id == 5).unwrap();
+  let img = v.remove(pos);
+  v.insert(
+    pos,
+    with_versions(img, "editor", vec![image_item(2003, 260, "image/png", gradient_png(160, 100))]),
+  );
   if let Ok(j) = {
     let img = image::RgbImage::from_fn(200, 300, |x, y| {
       image::Rgb([(x % 256) as u8, (y % 256) as u8, 128])
@@ -620,7 +659,9 @@ fn answer(req: PickerReq, items: &Mutex<Vec<Item>>, lock: &Mutex<LockState>) -> 
       Some(PickerEvt::Page { seq, offset, items: page, more })
     }
     PickerReq::Thumb { seq, id, mime } => {
-      let bytes = items.iter().find(|i| i.preview.id == id).and_then(|i| i.image.clone());
+      let bytes = current_of(&items, id)
+        .and_then(|c| std::iter::once(c).chain(&c.earlier).find(|i| i.preview.id == id))
+        .and_then(|i| i.image.clone());
       match bytes {
         Some(bytes) => {
           println!("THUMB seq={seq} id={id} mime={mime} bytes={}", bytes.len());
@@ -656,7 +697,30 @@ fn answer(req: PickerReq, items: &Mutex<Vec<Item>>, lock: &Mutex<LockState>) -> 
         return edit_failed(seq);
       }
       items.retain(|i| i.preview.id != id);
+      for i in items.iter_mut() {
+        i.earlier.retain(|e| e.preview.id != id);
+        i.preview.versions = i.earlier.len() as u32;
+      }
       None
+    }
+    PickerReq::Versions { seq, id } => {
+      let Some(cur) = current_of(&items, id) else {
+        println!("VERSIONS seq={seq} id={id} -> NotFound");
+        return Some(PickerEvt::Error {
+          seq: Some(seq),
+          code: PickerErrorCode::NotFound,
+          message: "That item is gone".into(),
+        });
+      };
+      let version = |i: &Item, current| spool_proto::VersionPreview {
+        item: ItemPreview { versions: 0, ..i.preview.clone() },
+        revision: i.revision.clone(),
+        current,
+      };
+      let mut versions: Vec<_> = cur.earlier.iter().map(|e| version(e, false)).collect();
+      versions.push(version(cur, true));
+      println!("VERSIONS seq={seq} id={id} -> {}", versions.len());
+      Some(PickerEvt::Versions { seq, id: cur.preview.id, versions })
     }
     PickerReq::Tag { id, tag, on, seq } => {
       // The tag itself is never printed (user content).

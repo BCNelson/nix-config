@@ -291,10 +291,16 @@ async fn text_edit_creates_a_new_item_updates_it_and_publishes_on_exit() {
   assert_eq!(text_of(new, UTF8), "edit one");
   assert_eq!(text_of(new, "UTF8_STRING"), "edit one", "text aliases like a normal copy");
   assert_eq!(h.db.derived_from(new.id).unwrap(), Some(orig.id));
-  assert!(!new.flags.contains(ItemFlags::PINNED), "the pin is not copied");
+  assert!(new.flags.contains(ItemFlags::PINNED), "the pin moves to the edit");
   let tags = h.db.summaries(&[new.id]).unwrap().pop().unwrap().tags;
   assert_eq!(tags, ["work"]);
-  assert_eq!(h.db.get(orig.id).unwrap().unwrap(), orig, "the original is never modified");
+  // The original is now a hidden earlier version, its content untouched.
+  let kept = h.db.get(orig.id).unwrap().unwrap();
+  assert_eq!((kept.hash, &kept.reps), (orig.hash, &orig.reps), "the original's content is kept");
+  let versions = h.db.versions(new.id).unwrap();
+  assert_eq!(versions.iter().map(|v| v.id).collect::<Vec<_>>(), [orig.id, new.id]);
+  assert_eq!(versions[1].revision.as_deref(), Some("editor"));
+  assert!(h.db.summaries(&[orig.id]).unwrap().is_empty(), "no longer listed");
 
   // A later save rewrites that item in place.
   std::fs::write(&file, b"edit two").unwrap();
@@ -314,7 +320,8 @@ async fn text_edit_creates_a_new_item_updates_it_and_publishes_on_exit() {
   assert!(set.iter().any(|(m, d)| m == "UTF8_STRING" && d == b"edit two"));
   h.wait_no_sessions_on_disk().await;
   assert!(h.notes.0.lock().unwrap().is_empty());
-  assert_eq!(h.db.count().unwrap(), 2);
+  assert_eq!(h.db.count().unwrap(), 1, "one current item; the original is a version");
+  assert_eq!(h.db.versions(new.id).unwrap().len(), 2, "in-session saves are not versions");
   h.stop().await;
 }
 

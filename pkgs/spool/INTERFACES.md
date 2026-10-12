@@ -12,7 +12,7 @@ or a launch contract.
 3. Processes, launch contracts and locks
 4. State directory
 5. Public socket (`spool-proto`)
-6. Picker channel (protocol v3) and `spool-picker`
+6. Picker channel (protocol v4) and `spool-picker`
 7. Paste helper channel (`spool-paster`)
 8. Library crates: `spool-core`, `spool-crypto`, `spool-keys`,
    `spool-search`, `spool-wayland`, `spool-kwin`, `spool-paste`,
@@ -72,6 +72,7 @@ together. The picker depends on `spool-proto` only.
 | `spoold` | bin | daemon: orchestrator, socket server, key flow, picker host, desktop integration, hardening |
 | `spoolctl` | bin | CLI client |
 | `spool-keyctl` | bin + lib | offline, interactive key-slot management |
+| `spool-scripts` | bin | Lua script host (mlua, Lua 5.4 vendored): loads `*.lua`, answers spoold's filter requests |
 | `spool-picker` | bin (GPL-3.0-only via Slint) | resident Slint layer-shell picker; separate Nix package |
 
 Feature flags: `spool-proto/tokio` (async framing), `spool-keys/fido2`
@@ -89,6 +90,7 @@ never shipped).
 | `spool-paster` | spoold (only with `auto_paste` and a focus source) | spoold over its stdin socketpair; Wayland | none |
 | `spoolctl` | user | spoold's public socket | none |
 | `spool-keyctl` | user, while spoold is stopped | state directory, Secret Service, FIDO2 keys, `/dev/tty` | data key during an operation |
+| `spool-scripts` | its own systemd user unit (home-manager `services.spool.scripts`), `WantedBy=` / `PartOf=spool.service` | spoold over `<runtime>/spool/scripts.sock`; whatever the scripts reach | each copy the policy would store, while its filters run |
 | external editor (`spool-edit-<hex>.service`) | systemd user manager, on spoold's `StartTransientUnit` (section 9, `editor`) | its temp file in `<runtime>/spool/edit/` | the one item being edited (plaintext, while open) |
 
 **spoold startup order** (security relevant): umask 077 and
@@ -161,11 +163,14 @@ works, whatever socket path either was started with.
   clean close on a frame boundary.
 - Handshake: `Hello { proto: u16 }`, `PROTO_VERSION = 1`; client first,
   server answers with its own and closes on mismatch.
-- `PublicReq { Show, Pick, Copy{mime, data}, Current, Pause{secs: Option<u32>}, Resume, Status, Edit, New{mime} }`
-  (`Edit`, `New` appended for the external editor; `PROTO_VERSION` unchanged
-  since nothing was reordered).
-- `PublicResp { Ok, Current{mime, data}, Empty, Status(StatusInfo), Error{code: ErrorCode, message}, NotYetImplemented, Picked{mime, data}, Cancelled }`
-  (`NotYetImplemented` = no picker on this install).
+- `PublicReq { Show, Pick, Copy{mime, data}, Current, Pause{secs: Option<u32>}, Resume, Status, Edit, New{mime}, Versions, CurrentVersion{index: u32} }`
+  (`Edit`, `New` appended for the external editor, `Versions`,
+  `CurrentVersion` for item versions; `PROTO_VERSION` unchanged since
+  nothing was reordered).
+- `PublicResp { Ok, Current{mime, data}, Empty, Status(StatusInfo), Error{code: ErrorCode, message}, NotYetImplemented, Picked{mime, data}, Cancelled, Versions(Vec<VersionInfo>) }`
+  (`NotYetImplemented` = no picker on this install). `VersionInfo {
+  created_unix_ms, revision: Option<String>, mimes, total_size, preview,
+  current }`.
 - `ErrorCode { BadRequest, TooLarge, RateLimited, Forbidden, Unavailable, Locked, Internal }`.
 - `StatusInfo { version, paused: PauseState, item_count, compositor:
   Option<String>, primary_enabled, encrypted, unlocked, key_state: String,
@@ -192,13 +197,41 @@ works, whatever socket path either was started with.
   editor for the type, too many sessions, ...). There is deliberately no
   `Edit{id}`: the public socket cannot name or read history. `New{mime}`
   starts a session on an empty file (`Ok` once the editor runs).
+  `Versions`: the versions of the item `Current` returns (oldest first, it
+  last; empty without one); `CurrentVersion{index}`: `Current` for one of
+  them (`Empty`: no such index). Only that item's earlier contents, which
+  is no more than `Current` exposes.
 
-## 6. Picker channel (protocol v3) and `spool-picker`
+### Script socket (`spool_proto::script`)
+
+- `paths::script_socket_path()` = `scripts.sock` next to the public socket
+  (`script_socket_for(public)`), bound (0600) by spoold only with
+  `[scripts] enabled` and `spool-scripts` on the audited PATH.
+- Server rules (`spoold::scripts`): `check_peer` **and**
+  `/proc/<pid>/exe` (canonical) == the audited `spool-scripts` (so the host
+  must stay dumpable); one host at a time (a second is closed); handshake
+  within 5 s.
+- Handshake: host sends `Hello::script()` (`SCRIPT_PROTO_VERSION = 2`),
+  spoold answers its own and closes on a mismatch; host sends
+  `ScriptReq::Register { filters: bool }`.
+- `ScriptEvt::Filter { seq, budget_ms, item: ScriptItem }` (spoold -> host);
+  `ScriptReq::FilterDone { seq, verdict: Verdict }` (host -> spoold, in
+  order). `ScriptItem { id: Option<i64> (None: not stored yet), selection:
+  WireSelection { Clipboard, Primary }, source_app, created_at_ms, tags,
+  reps: Vec<WireRep { mime, data }> (canonical, canonical first), aliases:
+  Vec<(alias, canonical)> }` (`WireRep`'s `Debug` omits the data).
+  `Verdict { Keep { tags, reps: Option<Vec<WireRep>>, original: bool, by:
+  Vec<String> }, Drop }`, no reason text (rule 3). With a rewrite,
+  `original` keeps the copy as it came in as a hidden earlier version
+  (`false`: a redacting rewrite) and `by` names the rewriting scripts
+  (file names; v2).
+
+## 6. Picker channel (protocol v4) and `spool-picker`
 
 Types in `spool_proto::picker`; served by `spoold::picker::ResidentPicker`
 with `spoold::unlock` for the unlock panel.
 
-- Handshake: the picker sends `Hello { proto: PICKER_PROTO_VERSION (3) }`
+- Handshake: the picker sends `Hello { proto: PICKER_PROTO_VERSION (4) }`
   first; spoold answers `Hello::picker()` and closes after it on a mismatch
   (`is_picker_compatible`). EOF = the picker exits 0. Requests are read into
   zeroize-on-drop buffers (they may carry a passphrase).
@@ -206,17 +239,21 @@ with `spoold::unlock` for the unlock panel.
   filters: QueryFilters, offset, limit}`, `Thumb{seq, id, mime}`,
   `Select{id, mode}`, `Pin{id, on, seq}`, `Delete{id, seq}`, `Tag{id, tag,
   on, seq}`, `Unlock{provider, secret: Option<UnlockSecret>}`,
-  `Hidden{reason}`, `Edit{id, mime}`. v3 appended `Edit`, and `seq` to the
-  three edits (v2 had none, so their errors could not be told apart from
-  others).
+  `Hidden{reason}`, `Edit{id, mime}`, `Versions{seq, id}`. v3 appended
+  `Edit`, and `seq` to the three edits (v2 had none, so their errors could
+  not be told apart from others); v4 appended `Versions` and
+  `ItemPreview::versions`.
 - `PickerEvt`: `Show{cursor, output, target_window, scale_hint: Option<f64>}`,
   `Hide`, `Page{seq, offset, items, more}`, `Thumb{seq, id, bytes}`,
   `Error{seq: Option<u32>, code: PickerErrorCode, message}`,
   `Locked{providers: Vec<UnlockPrompt>}`, `Unlocked`, `UnlockFailed{provider,
-  reason}`, `IndexProgress{done, total}`, `NewItem{preview}`. `PartialEq`,
-  not `Eq`.
-- `seq`: one picker counter for `Query`, `Thumb` and the edits. Every
-  `Query`/`Thumb` gets exactly one answer with its `seq` (page/thumb or
+  reason}`, `IndexProgress{done, total}`, `NewItem{preview}`,
+  `Versions{seq, id, versions: Vec<VersionPreview { item: ItemPreview,
+  revision: Option<String>, current }>}` (oldest first, the current item
+  `id` last; a version's id works with `Select`, `Thumb`, `Delete`).
+  `PartialEq`, not `Eq`.
+- `seq`: one picker counter for `Query`, `Thumb`, `Versions` and the edits.
+  Every `Query`/`Thumb`/`Versions` gets exactly one answer with its `seq` (page/thumb or
   `Error`), in any order; the picker keeps only the latest query's page.
   An edit is answered only when it fails (`Error` with its `seq`). An
   `Error{seq: None}` is a channel-level notice (e.g. a failed `Select`).
@@ -353,7 +390,8 @@ press paste chords with it.
   { SecretService (default), Session }, auto_paste = true, paste_terminals:
   Option<Vec<String>>, picker: PickerSettings { renderer: PickerRenderer {
   Software (default), Gpu }, prerender = true }, editor: EditorSettings {
-  terminal: Vec<String>, mime: BTreeMap<pattern, argv> } }`,
+  terminal: Vec<String>, mime: BTreeMap<pattern, argv> }, scripts:
+  ScriptSettings { enabled = false, filter_budget_ms = 250 (10..=2000) } }`,
   `deny_unknown_fields` everywhere. `load`, `from_toml_str`, `default_path`,
   `retention()`, `fetch_timeout()`. `EditorSettings::command_for(mime, file)
   -> Result<argv, EditorCommandError { NoEditor(mime), Invalid(mime) }>`:
@@ -400,11 +438,31 @@ press paste chords with it.
     app matches only NULL; the bump ORs in the new flags and keeps pin, tags
     and `created_at`; at most one row per `(selection, hash, source_app)`), `get`, `latest`, `recent(limit)`
     (never reads blobs), `touch`, `set_pinned`, `set_tag`, `delete`
-    (tombstone), `retention_sweep(now, RetentionLimits)` (pinned exempt),
-    `count`, `hash_key()`.
+    (tombstones; with its versions), `retention_sweep(now,
+    RetentionLimits)` (pinned exempt; counts and ages current items, sweeps
+    their versions with them), `count` (current items), `hash_key()`.
+  - Versions: rows with `items.version_of` = a current item are its hidden
+    earlier versions: not listed (`latest`, `recent`, `recent_page`,
+    `summaries`), searched (`items_for_index`), deduped against or counted.
+    `items.revision` notes what produced a row (`script:<file>[,..]`,
+    `editor` = `REVISION_EDITOR`; NULL = captured as is).
+    `insert_with_original(item, original: Option<NewItem>, revision)`
+    (script rewrite: `item` inserted / bumped with `revision`; `original`,
+    unless equal, becomes a version of the result, an equal version bumped
+    instead of duplicated), `insert_revision(item, previous:
+    Option<ItemId>, revision)` (edit: = `insert_derived`, plus `revision`
+    and `previous` superseded: it and its versions become versions of the
+    result, its pin moves to the result, a tombstone takes it out of the
+    index; no-op if the result is `previous` or `previous` is not current),
+    `versions(id) -> Vec<VersionSummary { id, created_at, last_used_at,
+    revision, preview, total_size, mimes, current }>` (oldest first, the
+    current item last; any member's id works), `current_of(id)`,
+    `version_count(id)`; `TaggedSummary::versions`. `replace_content`'s
+    merge moves the replaced row's versions to the surviving row.
   - Edited items: `insert_derived(NewItem, derived_from: Option<ItemId>)`
     (= `insert`, plus `items.derived_from` on a new row and the original's
-    tags on the result; never its pin; the original is not touched),
+    tags on the result; never its pin; the original is not touched; spoold
+    uses `insert_revision` instead),
     `replace_content(id, NewItem) -> Option<ReplaceOutcome { Replaced(id),
     Merged(other) }>` (new reps / hash / preview / size / `change_seq`,
     keeps id, selection, app, tags, pin, `created_at`; content equal to
@@ -418,7 +476,8 @@ press paste chords with it.
     after commit + checkpoint; `gc_orphan_blobs` at open.
   - `merge_from_session(&Store) -> MergeReport { inserted, bumped,
     blob_files, ids }` (one transaction, oldest first, re-hashed; a bump
-    also adds the session item's tags).
+    also adds the session item's tags; `revision` kept; versions follow
+    their item, under what it became, and are not in `ids`).
   - `rekey(&DataKey)`: crash-safe (`meta.rekey_in_progress` + `rekey_blobs`);
     after any crash exactly one of old/new key opens the store and
     `open_encrypted` completes or undoes it. Recompile `Policy` afterwards.
@@ -434,7 +493,11 @@ press paste chords with it.
     open); migration 4 collapses existing `(selection, hash, source_app)` duplicates
     (pinned, else most recent survives, merged tags/flags/timestamps,
     tombstones for the rest; their blob files go to `gc_orphan_blobs`);
-    migration 5 adds `items.derived_from INTEGER`.
+    migration 5 adds `items.derived_from INTEGER`; migration 6 adds
+    `items.version_of INTEGER`, `items.revision TEXT`, makes
+    `items_sel_recent` / `items_pin_recent` / `items_dedupe` partial (`WHERE
+    version_of IS NULL`; queries repeat `CURRENT` textually) and adds
+    `items_versions`.
 
 ### spool-crypto
 
@@ -628,7 +691,10 @@ them).
   offer per selection is tracked; stale `Fetched` results are discarded.
   The tracker's app id is the offer's `source_app` (makes `excluded_apps`
   work). `SelectionCleared` -> keep-alive re-publishes the candidate unless
-  `SENSITIVE`.
+  `SENSITIVE`, after `KEEP_ALIVE_GRACE = 250 ms`; a `NewSelection` of that
+  selection meanwhile cancels it (an owner switching sources, e.g. Firefox
+  on every Ctrl+C, reports "cleared" in between; re-publishing at once
+  could replace its new copy with the previous item).
 - Search (`index`): in-memory index from the start (session / locked),
   back-filled; every store change is pumped to the single-writer
   `IndexActor`. On unlock the RAM index is dropped and `$STATE/index` opened
@@ -677,10 +743,12 @@ them).
      (in-tree converter) as `text/plain;charset=utf-8`; images are sniffed
      (PNG / JPEG / WebP, or the edited type) and stored as what they are;
      then `Policy::manual_reps` (caps, secret patterns), `source_app =
-     "spool.editor"`, first accepted save `insert_derived` (tags,
-     `derived_from`), later ones `replace_content` on that item (a fresh
-     `insert_derived` if a save had deduped onto an item the session did
-     not create, or the item was deleted). Refused -> previous version kept
+     "spool.editor"`, first accepted save `insert_revision(.., original,
+     "editor")` (tags, `derived_from`; the original and its versions
+     become versions of the edit, its pin moves), later ones
+     `replace_content` on that item (a fresh `insert_revision` if a save
+     had deduped onto an item the session did not create, or the item was
+     deleted). Refused -> previous version kept
      + a content-free notification (`org.freedesktop.Notifications`, e.g.
      "Spool: edit not saved" / "Looks like a GitHub token. The previous
      version is kept.").
@@ -691,6 +759,26 @@ them).
      `Failed` -> nothing published (notified if something was stored). The
      directory is deleted either way. Shutdown stops the watches and deletes
      every session directory but leaves the editor units running.
+- `scripts` (+ the orchestrator's filter step): `setup(public_socket,
+  budget) -> Option<(Scripts, UnixListener, ScriptServer)>`, `serve`.
+  `Scripts::send_filter(seq, item) -> bool` (false: no host with filters).
+  On `Decision::Store` the orchestrator calls `filter_or_store`: sent ->
+  parked in a FIFO (`Filtering { seq, item, at, deadline, finish,
+  keep_alive }`); finished from the front in copy order on `FilterDone`,
+  the deadline (`filter_budget_ms`), `ScriptEvent::HostGone` or shutdown.
+  Fail open: no verdict -> stored as is (`Policy::rehash`: the store may
+  have switched keys). `Drop` -> `record_dropped` (reason `ScriptFilter`).
+  `Keep` -> tags checked with `check_tag` (invalid ones ignored) and added
+  in the insert's store job (`store_item_with`); `reps = Some` ->
+  `Policy::manual_reps` (caps, secret patterns, text aliases), keeping
+  `source_app`, flags, `created_at`, stored with
+  `insert_with_original` (the copy as it came in, re-hashed, as a hidden
+  version with revision `script:<by>`) unless `original = false`; refused
+  -> dropped (the original is not stored either). A
+  `SelectionCleared` while a copy of that selection is parked defers
+  keep-alive until it is finished (cancelled by a newer `NewSelection`).
+  A copy no host took still queues behind parked ones. `spoolctl copy`
+  and editor saves are not filtered.
 - `desktop::start(&Config) -> (Desktop, DesktopLink)` (never fails): session
   bus (5 s) -> `org.kde.KWin` present -> `KwinService` + `KwinScript`
   (`$SPOOL_KWIN_SCRIPT_DIR` or `<exe>/../../share/spool/kwin-script`); else
@@ -720,13 +808,14 @@ them).
 
 ## 10. spoolctl and spool-keyctl
 
-- `spoolctl`: `copy [--mime M] [FILE|-]`, `current [--raw]`, `show`,
+- `spoolctl`: `copy [--mime M] [FILE|-]`, `current [--raw] [--version N |
+  --original]`, `versions`, `show`,
   `pick [--raw]` (no reply timeout), `edit` (picker in "pick to edit" mode,
   no reply timeout, no item argument by design), `new [--mime M]` (default
   `text/plain;charset=utf-8`), `status [--json]`, `pause [--for SECS]`,
   `resume`. Exit codes: 0 ok, 1 error (daemon error / unreachable / no
-  picker), 2 usage, 3 nothing (`current`: empty; `pick` / `edit`:
-  cancelled).
+  picker), 2 usage, 3 nothing (`current` / `versions`: empty or no such
+  version; `pick` / `edit`: cancelled).
   Raw bytes unless stdout is a TTY (then `escape::escape_for_tty`).
   `client::Client` is also compiled into spoold's tests via `#[path]`.
 - `spool-keyctl` (`status`/`list`, `add passphrase|fido2|secret-service`,
@@ -779,6 +868,18 @@ them).
   process of the user can do anyway, so this grants nothing new. Logs show
   the program name, unit name, mime, sizes and hash prefixes, never the
   content or the file path.
+- **Script host**: `spool-scripts` sees every copy the policy would store
+  (never what it dropped), and nothing else: no key, no history. It is
+  admitted by its executable (audited, `/nix/store`) and loads scripts only
+  from `/nix/store` (`SPOOL_INSECURE_SCRIPTS_OK=1` for development), so a
+  same-uid process cannot become a clipboard reader by writing a file.
+  Scripts are not sandboxed (full Lua standard library minus `debug`; a
+  heap cap and an instruction-count deadline only keep a buggy script from
+  wedging the host). What they write back goes through `manual_reps`.
+  Host-side errors are logged as kind + `file:line` (full text only with
+  `SPOOL_SCRIPTS_DEBUG=1`); `spool.log` / `print` log what the script gives.
+  The host is dumpable (required by the exe check), so a same-uid process
+  can read copies in flight from its memory.
 - **Known limits**: Slint keeps internal copies of the typed passphrase that
   cannot be wiped; the FIDO2 / passphrase slots have no external secret, so
   an old `keyslots.json` copy plus the passphrase / key still opens an old

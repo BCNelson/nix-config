@@ -23,6 +23,9 @@ export struct Row {
     pinned: bool,
     // Compact tag label ("#work #todo +2"), "" without tags.
     tags: string,
+    // List: "⟲N" for an item with N earlier versions; versions view: what
+    // produced the version ("original", "script x.lua", "● edited").
+    note: string,
     is-image: bool,
     thumb: image,
     has-thumb: bool,
@@ -65,6 +68,11 @@ export component PickerWindow inherits Window {
     in property <int> touch-state;
     in property <string> touch-text;
     in property <string> unlock-error;
+
+    // ---- versions view (Ctrl+H): non-empty = open; the item's preview
+    in property <string> versions-title;
+    // The selected list row has earlier versions (hint line only).
+    property <bool> current-has-versions: root.versions-title == "" && root.current >= 0 && root.current < root.rows.length && root.rows[root.current].note != "";
 
     // ---- Ctrl+Shift+E format chooser (labels only; never content)
     in property <bool> edit-open;
@@ -427,6 +435,25 @@ export component PickerWindow inherits Window {
                 }
             }
 
+            if root.versions-title != "": Rectangle {
+                vertical-stretch: 0;
+                height: 26px;
+                background: Theme.surface;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Theme.border;
+                Text {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    text: "Versions · " + root.versions-title;
+                    color: Theme.dim;
+                    font-size: Theme.font-size * 0.9;
+                    overflow: elide;
+                }
+            }
+
             Rectangle {
               vertical-stretch: 1;
               list := Flickable {
@@ -493,6 +520,16 @@ export component PickerWindow inherits Window {
                             overflow: elide;
                             wrap: no-wrap;
                             color: i == root.current ? Theme.sel-fg : Theme.fg;
+                        }
+
+                        if row.note != "": Text {
+                            max-width: 200px;
+                            vertical-alignment: center;
+                            text: row.note;
+                            font-size: Theme.font-size * 0.8;
+                            overflow: elide;
+                            wrap: no-wrap;
+                            color: i == root.current ? Theme.sel-fg : Theme.accent;
                         }
 
                         if row.tags != "": Text {
@@ -563,7 +600,7 @@ export component PickerWindow inherits Window {
                 }
                 Text {
                     horizontal-alignment: right;
-                    text: root.tag-editing ? "Enter add · Backspace/Del remove · Left/Right choose · Esc back" : root.secret-focused ? "Enter unlock · Tab search · Esc close" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Ctrl+T tags · Ctrl+E edit · Del delete";
+                    text: root.tag-editing ? "Enter add · Backspace/Del remove · Left/Right choose · Esc back" : root.secret-focused ? "Enter unlock · Tab search · Esc close" : root.versions-title != "" ? "Enter paste · Shift+Enter copy · Del delete version · Esc back" : root.current-has-versions ? "Enter paste · Ctrl+H versions · Ctrl+P pin · Ctrl+T tags · Ctrl+E edit · Del delete" : "Enter paste · Shift+Enter copy · Ctrl+P pin · Ctrl+T tags · Ctrl+E edit · Del delete";
                     color: Theme.dim;
                     font-size: Theme.font-size * 0.8;
                 }

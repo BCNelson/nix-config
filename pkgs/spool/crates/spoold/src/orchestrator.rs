@@ -9,12 +9,25 @@
 //!   `PolicyState` (`record_outcome` / `record_dropped` / `record_purged`).
 //!   Only the newest pending offer per selection matters; stale `Fetched`
 //!   results are discarded.
-//! * `SelectionCleared` -> keep-alive: re-publish
+//! * `SelectionCleared` -> keep-alive after [`KEEP_ALIVE_GRACE`] (cancelled
+//!   by any `NewSelection` of that selection meanwhile): re-publish
 //!   `PolicyState::keepalive_candidate` via `WaylandHandle::set_selection`
 //!   unless missing or `SENSITIVE`.
 //! * `Fatal` -> return `Err` (daemon exits; systemd restarts it).
 //!
 //! Hourly: `Store::retention_sweep(now, config.retention())`.
+//!
+//! # Script filters
+//!
+//! With [`Orchestrator::with_scripts`] and a `spool-scripts` host connected
+//! ([`crate::scripts`]), a `Decision::Store` item is not stored at once: it
+//! is sent to the host and parked in a FIFO ([`Filtering`]) until its
+//! verdict, its deadline (`[scripts] filter_budget_ms`) or the host's
+//! disconnect, then finished in copy order. Every failure stores the item
+//! unfiltered (fail open). A rewrite goes through `Policy::manual_reps`
+//! (caps, secret patterns); a refused rewrite drops the copy. A
+//! `SelectionCleared` for a parked selection defers keep-alive until that
+//! item is finished.
 //!
 //! # Stores and the key state (M2)
 //!
@@ -49,7 +62,7 @@
 //! Never log clipboard content: only hash prefixes, lengths, mimes and
 //! decision reasons. App ids only at debug level; never window titles.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -69,7 +82,7 @@ use spool_core::store::{InsertOutcome, MergeReport, Store, StoreKind};
 use spool_crypto::DataKey;
 use spool_proto::{
   ErrorCode, HideReason, ItemPreview, PauseState, PickerErrorCode, PublicReq, PublicResp,
-  QueryFilters, SelectMode, StatusInfo,
+  QueryFilters, ScriptItem, SelectMode, StatusInfo, Verdict, WireRep, WireSelection,
 };
 use spool_search::{IndexIdentity, Opened, SearchIndex};
 use spool_wayland::{
@@ -87,10 +100,18 @@ use crate::editor::{EditReply, EditorDeps, Editors};
 use crate::index::{self, IndexActor, IndexEvent, IndexStatus, SearchError};
 use crate::ipc::RateLimiter;
 use crate::keyflow::{KeyEvent, OpenedStore};
+use crate::scripts::{ScriptEvent, Scripts};
 use crate::security::PeerCred;
 
 /// Bound of the IPC -> orchestrator request queue.
 pub const REQUEST_QUEUE: usize = 64;
+
+/// How long keep-alive waits after a selection was cleared before it
+/// re-publishes. Apps that already own the clipboard often drop their old
+/// source before setting the new one (Firefox does on every Ctrl+C), so the
+/// compositor reports "cleared" for a moment; re-publishing at once raced
+/// the app's new copy and could replace it with the previous item.
+pub const KEEP_ALIVE_GRACE: Duration = Duration::from_millis(250);
 
 /// Interval between retention sweeps.
 pub const RETENTION_INTERVAL: Duration = Duration::from_secs(3600);
@@ -156,6 +177,9 @@ pub enum Request {
   /// While a `spoolctl pick` waits, the item goes back to it instead
   /// ([`PublicResp::Picked`], [`SelectOutcome::Returned`]).
   Select { id: ItemId, mode: SelectMode, reply: SelectReply },
+  /// The versions of item `id` (or of the item it is a version of), oldest
+  /// first, plus that current item's id (picker channel only).
+  Versions { id: ItemId, reply: PickerReply<(ItemId, Vec<spool_proto::VersionPreview>)> },
   /// Thumbnail source bytes of item `id`'s `mime` (picker channel only;
   /// [`THUMB_MIMES`], at most `MAX_THUMB_BYTES`).
   Thumb { id: ItemId, mime: String, reply: PickerReply<Vec<u8>> },
@@ -190,6 +214,9 @@ impl std::fmt::Debug for Request {
       }
       Request::Thumb { id, mime, .. } => {
         f.debug_struct("Thumb").field("id", id).field("mime", mime).finish_non_exhaustive()
+      }
+      Request::Versions { id, .. } => {
+        f.debug_struct("Versions").field("id", id).finish_non_exhaustive()
       }
       Request::Edit { id, op, .. } => {
         let op = match op {
@@ -453,6 +480,26 @@ enum Stage {
   Fetch(FetchSpec),
 }
 
+/// A copy held for the script host's filters.
+struct Filtering {
+  seq: u64,
+  item: NewItem,
+  at: SystemTime,
+  deadline: tokio::time::Instant,
+  /// `None` while waiting for the host.
+  finish: Option<Finish>,
+  /// The selection was cleared while this item was parked: run keep-alive
+  /// once it is finished.
+  keep_alive: bool,
+}
+
+/// How a parked copy ends.
+enum Finish {
+  /// No verdict (no host, timeout, host gone, shutdown): store as is.
+  Unfiltered(&'static str),
+  Verdict(Verdict),
+}
+
 /// The search index the orchestrator currently feeds and queries.
 struct IndexState {
   /// Bumped on every switch (RAM -> disk, rekey); stale background work
@@ -523,6 +570,13 @@ pub struct Orchestrator<W: WaylandSide = WaylandHandle> {
   key_task: Option<tokio::task::AbortHandle>,
   /// The lock state last reported to the picker.
   last_lock: Option<LockView>,
+  /// The script host link ([`crate::scripts`]).
+  scripts: Scripts,
+  /// Copies parked for script filters, in copy order.
+  filtering: VecDeque<Filtering>,
+  /// Keep-alives waiting out [`KEEP_ALIVE_GRACE`], per selection.
+  keep_alive_due: HashMap<Selection, tokio::time::Instant>,
+  filter_seq: u64,
 }
 
 impl<W: WaylandSide> Orchestrator<W> {
@@ -572,6 +626,10 @@ impl<W: WaylandSide> Orchestrator<W> {
       editors: Editors::new(None),
       key_task: None,
       last_lock: None,
+      scripts: Scripts::disabled(),
+      filtering: VecDeque::new(),
+      keep_alive_due: HashMap::new(),
+      filter_seq: 0,
     })
   }
 
@@ -588,6 +646,12 @@ impl<W: WaylandSide> Orchestrator<W> {
   /// Enable "edit in external editor" (default: unavailable).
   pub fn with_editor(mut self, deps: EditorDeps) -> Self {
     self.editors = Editors::new(Some(deps));
+    self
+  }
+
+  /// Send copies to the script host's filters (default: disabled).
+  pub fn with_scripts(mut self, scripts: Scripts) -> Self {
+    self.scripts = scripts;
     self
   }
 
@@ -648,12 +712,16 @@ impl<W: WaylandSide> Orchestrator<W> {
     let mut index_events = self.index.events_rx.take().expect("run() called once");
     let mut desktop_events = self.desktop_events.take();
     let mut editor_events = self.editors.take_events().expect("run() called once");
+    let mut script_events = self.scripts.take_events();
     if self.index.actor.is_none() {
       self.start_ram_index().await;
     }
     self.notify_lock();
     let result = loop {
       let ack_deadline = self.pending_paste.as_ref().map(|p| p.deadline);
+      // FIFO with one budget: the front has the earliest deadline.
+      let filter_deadline = self.filtering.front().map(|f| f.deadline);
+      let keep_alive_deadline = self.keep_alive_due.values().min().copied();
       // Biased: Wayland events before requests, so a request sent after an
       // event observes its effect.
       tokio::select! {
@@ -674,6 +742,9 @@ impl<W: WaylandSide> Orchestrator<W> {
         Some(ev) = index_events.recv() => self.handle_index_event(ev).await,
         Some(ev) = recv_opt(&mut desktop_events) => self.handle_desktop(ev),
         Some(ev) = editor_events.recv() => self.on_editor_event(ev).await,
+        Some(ev) = recv_unbounded_opt(&mut script_events) => self.on_script_event(ev).await,
+        () = sleep_until_opt(filter_deadline) => self.filters_expired().await,
+        () = sleep_until_opt(keep_alive_deadline) => self.keep_alives_due().await,
         () = sleep_until_opt(ack_deadline) => self.paste_not_confirmed(),
         req = requests.recv() => match req {
           Some(Request::Public { req: PublicReq::Pick, peer, reply }) => {
@@ -699,6 +770,7 @@ impl<W: WaylandSide> Orchestrator<W> {
           }
           Some(Request::Select { id, mode, reply }) => self.handle_select(id, mode, reply).await,
           Some(Request::Thumb { id, mime, reply }) => self.spawn_thumb(id, mime, reply),
+          Some(Request::Versions { id, reply }) => self.spawn_versions(id, reply),
           Some(Request::Edit { id, op, reply }) => {
             let r = self.handle_edit(id, op).await;
             let _ = reply.send(r);
@@ -715,6 +787,8 @@ impl<W: WaylandSide> Orchestrator<W> {
     if let Some(pick) = self.pick.take() {
       let _ = pick.send(PublicResp::Cancelled);
     }
+    // Copies still waiting for the script host are real copies: store them.
+    self.finish_waiting_filters("shutdown").await;
     // Stop watching and delete the plaintext temp files; the editors
     // themselves (separate units) are left alone.
     self.editors.shutdown();
@@ -999,6 +1073,16 @@ impl<W: WaylandSide> Orchestrator<W> {
         self.primary_supported = Some(info.primary_supported);
       }
       WaylandEvent::NewSelection { selection, mimes, offer, ours } => {
+        // The selection has an owner again: no deferred keep-alive.
+        if self.keep_alive_due.remove(&selection).is_some() {
+          tracing::debug!(
+            sel = selection.as_str(),
+            "new selection within the grace; no keep-alive"
+          );
+        }
+        for f in self.filtering.iter_mut().filter(|f| f.item.selection == selection) {
+          f.keep_alive = false;
+        }
         if ours {
           tracing::debug!(sel = selection.as_str(), "own selection; ignored");
           self.pending.remove(&selection);
@@ -1029,7 +1113,12 @@ impl<W: WaylandSide> Orchestrator<W> {
       }
       WaylandEvent::SelectionCleared { selection } => {
         self.pending.remove(&selection);
-        self.keep_alive(selection).await;
+        // A copy of this selection still waiting for the filters is the one
+        // to keep alive: defer until it is finished.
+        match self.filtering.iter_mut().rev().find(|f| f.item.selection == selection) {
+          Some(f) => f.keep_alive = true,
+          None => self.schedule_keep_alive(selection),
+        }
       }
       WaylandEvent::Fetched { offer, result } => self.on_fetched(offer, result).await,
       WaylandEvent::Fatal(msg) => anyhow::bail!("wayland: {msg}"),
@@ -1129,9 +1218,7 @@ impl<W: WaylandSide> Orchestrator<W> {
     let sizes: Vec<(String, usize)> = fetched.iter().map(|(m, d)| (m.clone(), d.len())).collect();
     let reps = fetched.into_iter().map(|(m, d)| Representation::new(m, d)).collect();
     match self.policy.evaluate(&mut self.state, &info, &spec, reps) {
-      Decision::Store(item) => {
-        self.store_item(item, info.at).await;
-      }
+      Decision::Store(item) => self.filter_or_store(item, info.at).await,
       Decision::Drop(reason) => {
         tracing::info!(sel = sel.as_str(), ?reason, reps = ?sizes, "offer dropped");
         self.state.record_dropped(sel);
@@ -1149,8 +1236,166 @@ impl<W: WaylandSide> Orchestrator<W> {
     }
   }
 
+  /// Hold `item` for the script host's filters ([`Filtering`]), or store it
+  /// now when no host with filters takes it. Either way copies are finished
+  /// in order: an item the host did not take queues behind parked ones.
+  async fn filter_or_store(&mut self, item: NewItem, at: SystemTime) {
+    self.filter_seq += 1;
+    let seq = self.filter_seq;
+    let sent = self.scripts.send_filter(seq, script_item(&item));
+    if !sent && self.filtering.is_empty() {
+      self.store_item(item, at).await;
+      return;
+    }
+    if sent {
+      tracing::debug!(
+        sel = item.selection.as_str(),
+        hash = %hash_prefix(&item.hash),
+        seq,
+        "held for script filters"
+      );
+    }
+    self.filtering.push_back(Filtering {
+      seq,
+      item,
+      at,
+      deadline: tokio::time::Instant::now() + self.scripts.budget(),
+      finish: (!sent).then_some(Finish::Unfiltered("no script host")),
+      keep_alive: false,
+    });
+    self.drain_filters().await;
+  }
+
+  async fn on_script_event(&mut self, ev: ScriptEvent) {
+    match ev {
+      ScriptEvent::FilterDone { seq, verdict } => {
+        match self.filtering.iter_mut().find(|f| f.seq == seq && f.finish.is_none()) {
+          Some(f) => f.finish = Some(Finish::Verdict(verdict)),
+          None => tracing::debug!(seq, "late script verdict ignored"),
+        }
+        self.drain_filters().await;
+      }
+      ScriptEvent::HostGone => self.finish_waiting_filters("script host gone").await,
+    }
+  }
+
+  /// Fail open every parked copy whose deadline passed.
+  async fn filters_expired(&mut self) {
+    let now = tokio::time::Instant::now();
+    for f in self.filtering.iter_mut().filter(|f| f.finish.is_none() && f.deadline <= now) {
+      f.finish = Some(Finish::Unfiltered("script filters timed out"));
+    }
+    self.drain_filters().await;
+  }
+
+  /// Fail open every parked copy still waiting.
+  async fn finish_waiting_filters(&mut self, why: &'static str) {
+    for f in self.filtering.iter_mut().filter(|f| f.finish.is_none()) {
+      f.finish = Some(Finish::Unfiltered(why));
+    }
+    self.drain_filters().await;
+  }
+
+  /// Finish parked copies from the front while they have an outcome.
+  async fn drain_filters(&mut self) {
+    while self.filtering.front().is_some_and(|f| f.finish.is_some()) {
+      let f = self.filtering.pop_front().expect("front checked");
+      self.finish_filtered(f).await;
+    }
+  }
+
+  async fn finish_filtered(&mut self, f: Filtering) {
+    let Filtering { mut item, at, finish, keep_alive, seq, .. } = f;
+    let sel = item.selection;
+    let hp = hash_prefix(&item.hash);
+    let mut tags = Vec::new();
+    // A rewrite's copy as it came in, kept as a hidden earlier version.
+    let mut original: Option<(NewItem, String)> = None;
+    let store = match finish.expect("finished") {
+      Finish::Unfiltered(why) => {
+        tracing::info!(sel = sel.as_str(), hash = %hp, seq, "{why}; stored unfiltered");
+        // Built by the policy of the time; the store may have switched keys.
+        self.policy.rehash(&mut item);
+        true
+      }
+      Finish::Verdict(Verdict::Drop) => {
+        tracing::info!(sel = sel.as_str(), hash = %hp, reason = "ScriptFilter", "offer dropped");
+        false
+      }
+      Finish::Verdict(Verdict::Keep { tags: t, reps, original: keep_original, by }) => {
+        let given = t.len();
+        tags = t
+          .iter()
+          .filter_map(|t| spool_proto::check_tag(t).ok().map(str::to_owned))
+          .collect::<Vec<_>>();
+        if tags.len() < given {
+          tracing::info!(hash = %hp, invalid = given - tags.len(), "script tags ignored");
+        }
+        match reps {
+          None => {
+            self.policy.rehash(&mut item);
+            true
+          }
+          Some(reps) => {
+            let reps = reps.into_iter().map(|r| (r.mime, Bytes::from(r.data))).collect();
+            match self.policy.manual_reps(sel, reps, item.created_at) {
+              Ok(mut new) => {
+                new.source_app = item.source_app.clone();
+                new.flags = item.flags;
+                tracing::debug!(
+                  hash = %hp,
+                  new = %hash_prefix(&new.hash),
+                  keep_original,
+                  "rewritten by scripts"
+                );
+                let old = std::mem::replace(&mut item, new);
+                if keep_original {
+                  let mut old = old;
+                  self.policy.rehash(&mut old);
+                  original = Some((old, script_revision(&by)));
+                }
+                true
+              }
+              Err(reason) => {
+                tracing::info!(
+                  sel = sel.as_str(),
+                  hash = %hp,
+                  ?reason,
+                  "script rewrite refused; offer dropped"
+                );
+                false
+              }
+            }
+          }
+        }
+      }
+    };
+    if store {
+      self.store_item_with(item, at, tags, original).await;
+    } else {
+      self.state.record_dropped(sel);
+    }
+    if keep_alive {
+      self.schedule_keep_alive(sel);
+    }
+  }
+
   /// Insert `item` and record it in the policy state. Returns the outcome.
   async fn store_item(&mut self, item: NewItem, at: SystemTime) -> Option<InsertOutcome> {
+    self.store_item_with(item, at, Vec::new(), None).await
+  }
+
+  /// [`Self::store_item`] that also adds `tags` (valid picker tags) in the
+  /// same store job, so the picker's live item already has them, and keeps
+  /// `original` (content, revision note) as a hidden earlier version
+  /// ([`Store::insert_with_original`]).
+  async fn store_item_with(
+    &mut self,
+    item: NewItem,
+    at: SystemTime,
+    tags: Vec<String>,
+    original: Option<(NewItem, String)>,
+  ) -> Option<InsertOutcome> {
     let sel = item.selection;
     let hp = hash_prefix(&item.hash);
     let size = item.total_size();
@@ -1161,7 +1406,13 @@ impl<W: WaylandSide> Orchestrator<W> {
     let res = self
       .store
       .call(move |s| {
-        let outcome = s.insert(item)?;
+        let outcome = match original {
+          Some((orig, revision)) => s.insert_with_original(item, Some(orig), &revision)?,
+          None => s.insert(item)?,
+        };
+        for tag in &tags {
+          s.set_tag(outcome.id(), tag, true)?;
+        }
         let preview = if want_preview {
           s.summaries(&[outcome.id()]).ok().and_then(|mut v| v.pop())
         } else {
@@ -1198,6 +1449,24 @@ impl<W: WaylandSide> Orchestrator<W> {
 
   /// Re-publish the keep-alive candidate after the compositor cleared
   /// `selection` (source app exited).
+  /// Keep `selection` alive after [`KEEP_ALIVE_GRACE`] unless it gets a new
+  /// owner first.
+  fn schedule_keep_alive(&mut self, selection: Selection) {
+    let due = tokio::time::Instant::now() + KEEP_ALIVE_GRACE;
+    self.keep_alive_due.insert(selection, due);
+  }
+
+  /// Run the keep-alives whose grace has passed.
+  async fn keep_alives_due(&mut self) {
+    let now = tokio::time::Instant::now();
+    let due: Vec<Selection> =
+      self.keep_alive_due.iter().filter(|(_, at)| **at <= now).map(|(s, _)| *s).collect();
+    for selection in due {
+      self.keep_alive_due.remove(&selection);
+      self.keep_alive(selection).await;
+    }
+  }
+
   async fn keep_alive(&mut self, selection: Selection) {
     let Some(id) = self.state.keepalive_candidate(selection) else {
       tracing::debug!(sel = selection.as_str(), "selection cleared; nothing to keep alive");
@@ -1276,6 +1545,58 @@ impl<W: WaylandSide> Orchestrator<W> {
         Ok(Err(e)) => internal(format!("store: {e}")),
         Err(e) => internal(e.to_string()),
       },
+      // The newest item's earlier contents: no more than `Current` exposes.
+      PublicReq::Versions => {
+        let r = self
+          .store
+          .call(|s| -> spool_core::Result<_> {
+            match s.latest(Selection::Clipboard)? {
+              Some(item) => s.versions(item.id),
+              None => Ok(Vec::new()),
+            }
+          })
+          .await;
+        match r {
+          Ok(Ok(v)) => PublicResp::Versions(
+            v.into_iter()
+              .map(|v| spool_proto::VersionInfo {
+                created_unix_ms: spool_core::store::to_millis(v.created_at).max(0) as u64,
+                revision: v.revision,
+                mimes: v.mimes,
+                total_size: v.total_size,
+                preview: v.preview.unwrap_or_default(),
+                current: v.current,
+              })
+              .collect(),
+          ),
+          Ok(Err(e)) => internal(format!("store: {e}")),
+          Err(e) => internal(e.to_string()),
+        }
+      }
+      PublicReq::CurrentVersion { index } => {
+        let r = self
+          .store
+          .call(move |s| -> spool_core::Result<_> {
+            let Some(item) = s.latest(Selection::Clipboard)? else { return Ok(None) };
+            let versions = s.versions(item.id)?;
+            match versions.get(index as usize) {
+              Some(v) => s.get(v.id),
+              None => Ok(None),
+            }
+          })
+          .await;
+        match r {
+          Ok(Ok(Some(item))) => match item.preferred() {
+            Some((mime, data)) => {
+              PublicResp::Current { mime: mime.to_owned(), data: data.to_vec() }
+            }
+            None => PublicResp::Empty,
+          },
+          Ok(Ok(None)) => PublicResp::Empty,
+          Ok(Err(e)) => internal(format!("store: {e}")),
+          Err(e) => internal(e.to_string()),
+        }
+      }
       PublicReq::Pause { secs } => {
         self.state.pause(now, secs.map(|s| Duration::from_secs(u64::from(s))));
         tracing::info!(secs = ?secs, "recording paused");
@@ -1456,6 +1777,32 @@ impl<W: WaylandSide> Orchestrator<W> {
             tracing::warn!(%id, "thumbnail: {e}");
             Err((PickerErrorCode::Unavailable, "store unavailable"))
           }
+        }
+      };
+      let _ = reply.send(r);
+    });
+  }
+
+  /// Answer a picker `Versions` on its own task (summaries only, no blobs).
+  fn spawn_versions(
+    &self,
+    id: ItemId,
+    reply: PickerReply<(ItemId, Vec<spool_proto::VersionPreview>)>,
+  ) {
+    let store = self.store.handle();
+    tokio::spawn(async move {
+      let r = match store.call(move |s| s.versions(id)).await {
+        Ok(Ok(v)) => match v.iter().find(|v| v.current).map(|v| v.id) {
+          Some(cur) => Ok((cur, v.into_iter().map(index::to_version_preview).collect())),
+          None => Err((PickerErrorCode::NotFound, "item is gone")),
+        },
+        Ok(Err(e)) => {
+          tracing::warn!(%id, "versions: {e}");
+          Err((PickerErrorCode::Internal, "could not read the versions"))
+        }
+        Err(e) => {
+          tracing::warn!(%id, "versions: {e}");
+          Err((PickerErrorCode::Unavailable, "store unavailable"))
         }
       };
       let _ = reply.send(r);
@@ -1755,6 +2102,61 @@ async fn recv_opt<T>(rx: &mut Option<mpsc::Receiver<T>>) -> Option<T> {
 }
 
 /// Sleeps until `at`; pending forever for `None`.
+/// Revision note for a script rewrite: `script:<file>[,<file>...]`. The
+/// names come from the host; only plain script file names are kept.
+fn script_revision(by: &[String]) -> String {
+  let names: Vec<&str> = by
+    .iter()
+    .map(String::as_str)
+    .filter(|n| {
+      !n.is_empty()
+        && n.len() <= 64
+        && n.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+    })
+    .take(8)
+    .collect();
+  if names.is_empty() { "script".to_owned() } else { format!("script:{}", names.join(",")) }
+}
+
+/// Next script event; pending forever without a script link.
+async fn recv_unbounded_opt<T>(rx: &mut Option<mpsc::UnboundedReceiver<T>>) -> Option<T> {
+  let Some(r) = rx.as_mut() else { return std::future::pending().await };
+  match r.recv().await {
+    Some(ev) => Some(ev),
+    None => {
+      *rx = None;
+      std::future::pending().await
+    }
+  }
+}
+
+/// `item` as the script host sees it (canonical reps with data, aliases by
+/// name).
+fn script_item(item: &NewItem) -> ScriptItem {
+  let (aliases, reps): (Vec<_>, Vec<_>) = item.reps.iter().partition(|r| r.is_alias());
+  ScriptItem {
+    id: None,
+    selection: match item.selection {
+      Selection::Clipboard => WireSelection::Clipboard,
+      Selection::Primary => WireSelection::Primary,
+    },
+    source_app: item.source_app.clone(),
+    created_at_ms: item
+      .created_at
+      .duration_since(SystemTime::UNIX_EPOCH)
+      .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX)),
+    tags: Vec::new(),
+    reps: reps
+      .into_iter()
+      .map(|r| WireRep { mime: r.mime.clone(), data: r.data.to_vec() })
+      .collect(),
+    aliases: aliases
+      .into_iter()
+      .filter_map(|r| r.alias_of.clone().map(|c| (r.mime.clone(), c)))
+      .collect(),
+  }
+}
+
 async fn sleep_until_opt(at: Option<tokio::time::Instant>) {
   match at {
     Some(at) => tokio::time::sleep_until(at).await,
@@ -1811,6 +2213,10 @@ mod select_tests;
 #[cfg(test)]
 #[path = "picker_tests.rs"]
 mod picker_tests;
+
+#[cfg(test)]
+#[path = "script_tests.rs"]
+mod script_tests;
 
 #[cfg(test)]
 mod tests {
@@ -2070,6 +2476,41 @@ mod tests {
       took >= INDEX_SHUTDOWN_WAIT && took < INDEX_SHUTDOWN_WAIT + Duration::from_secs(3),
       "{took:?}"
     );
+  }
+
+  /// Firefox re-copying while it owns the clipboard: its old source goes
+  /// first ("cleared"), its new one follows. Keep-alive must not answer the
+  /// gap with the previous item (that replaced the new copy: "Ctrl+C only
+  /// works the second time").
+  #[tokio::test]
+  async fn keep_alive_waits_out_an_owner_switching_sources() {
+    let mut h = Harness::start();
+    h.offer(1, &[UTF8], false);
+    let Call::Fetch { .. } = h.next_call().await else { panic!("expected fetch") };
+    h.fetched(1, Ok(vec![(UTF8.into(), b"first copy".to_vec())]));
+    assert_eq!(h.sync().await.item_count, 1);
+
+    // Ctrl+C again: cleared, then the new offer a moment later (the app
+    // is another process).
+    h.wl.send(WaylandEvent::SelectionCleared { selection: Selection::Clipboard }).unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    h.offer(2, &[UTF8], false);
+    let Call::Fetch { offer, .. } = h.next_call().await else {
+      panic!("expected fetch, not a re-publish")
+    };
+    assert_eq!(offer.raw(), 2);
+    h.fetched(2, Ok(vec![(UTF8.into(), b"second copy".to_vec())]));
+    assert_eq!(h.sync().await.item_count, 2);
+    tokio::time::sleep(KEEP_ALIVE_GRACE * 2).await;
+    h.sync().await;
+    h.no_calls();
+
+    // The owner really went away: re-published after the grace.
+    let cleared = std::time::Instant::now();
+    h.wl.send(WaylandEvent::SelectionCleared { selection: Selection::Clipboard }).unwrap();
+    let Call::Set { reps, .. } = h.next_call().await else { panic!("expected keep-alive") };
+    assert!(cleared.elapsed() >= KEEP_ALIVE_GRACE);
+    assert!(reps.iter().any(|(m, d)| m == UTF8 && d == b"second copy"));
   }
 
   #[tokio::test]

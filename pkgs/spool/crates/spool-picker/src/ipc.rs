@@ -4,10 +4,11 @@
 //!   then starts a reader thread (frames -> calloop channel) and a writer
 //!   thread (so a slow daemon never blocks the UI thread).
 //! * `Correlator` numbers `Query`/`Thumb`/edit requests (`seq`, picker
-//!   protocol v3) and matches the daemon's answers by `seq`, in any order: a
+//!   protocol v4) and matches the daemon's answers by `seq`, in any order: a
 //!   page whose `seq` is not the latest query is stale and dropped; an error
 //!   for an edit (`Pin`/`Delete`/`Tag`, answered only on failure) names the
-//!   item it was for.
+//!   item it was for. `Versions` (v4) is matched like a query: only the
+//!   latest request's answer counts.
 
 use std::collections::{HashMap, VecDeque};
 use std::io::{BufReader, BufWriter, Write};
@@ -19,7 +20,8 @@ use anyhow::{Context, bail};
 use smithay_client_toolkit::reexports::calloop::channel as cchan;
 use spool_proto::{
   CursorPos, FrameError, Hello, ItemPreview, PickerErrorCode, PickerEvt, PickerReq, QueryFilters,
-  UnlockFailReason, UnlockPrompt, UnlockProvider, WireItemId, read_frame, write_frame,
+  UnlockFailReason, UnlockPrompt, UnlockProvider, VersionPreview, WireItemId, read_frame,
+  write_frame,
 };
 
 /// Rows requested per `Query`.
@@ -152,6 +154,16 @@ pub enum Event {
     done: u64,
     total: u64,
   },
+  /// The versions of item `id` (the current item), oldest first.
+  Versions {
+    id: WireItemId,
+    versions: Vec<VersionPreview>,
+  },
+  /// The latest `Versions` request failed.
+  VersionsFailed {
+    code: PickerErrorCode,
+    message: String,
+  },
   /// Answer to an outdated query or an unknown `seq`; ignore.
   Stale,
 }
@@ -162,7 +174,7 @@ struct PendingQuery {
   offset: u32,
 }
 
-/// Request numbering and answer matching (picker protocol v3).
+/// Request numbering and answer matching (picker protocol v4).
 #[derive(Debug, Default)]
 pub struct Correlator {
   next_seq: u32,
@@ -173,6 +185,8 @@ pub struct Correlator {
   /// Recent edits (`seq`, item). Successes are never answered, so this is
   /// a bounded window rather than a set of pending requests.
   edits: VecDeque<(u32, WireItemId)>,
+  /// The latest `Versions` request, while unanswered.
+  versions: Option<u32>,
 }
 
 impl Correlator {
@@ -252,6 +266,28 @@ impl Correlator {
     PickerReq::Thumb { seq, id, mime: mime.to_string() }
   }
 
+  /// List the versions of `id`. An earlier unanswered request becomes
+  /// stale.
+  pub fn versions(&mut self, id: WireItemId) -> PickerReq {
+    let seq = self.seq();
+    self.versions = Some(seq);
+    PickerReq::Versions { seq, id }
+  }
+
+  /// Forget an unanswered `Versions` request (the view was closed).
+  pub fn cancel_versions(&mut self) {
+    self.versions = None;
+  }
+
+  fn take_versions(&mut self, seq: u32) -> bool {
+    if self.versions == Some(seq) {
+      self.versions = None;
+      true
+    } else {
+      false
+    }
+  }
+
   pub fn thumbs_in_flight(&self) -> usize {
     self.thumbs.len()
   }
@@ -282,6 +318,8 @@ impl Correlator {
       PickerEvt::Error { seq: Some(seq), code, message } => {
         if self.take_latest(seq).is_some() {
           Event::QueryFailed { code, message }
+        } else if self.take_versions(seq) {
+          Event::VersionsFailed { code, message }
         } else if let Some(id) = self.thumbs.remove(&seq) {
           Event::ThumbFailed { id }
         } else if let Some(id) = self.take_edit(seq) {
@@ -296,6 +334,13 @@ impl Correlator {
       PickerEvt::Unlocked => Event::Unlocked,
       PickerEvt::UnlockFailed { provider, reason } => Event::UnlockFailed { provider, reason },
       PickerEvt::IndexProgress { done, total } => Event::IndexProgress { done, total },
+      PickerEvt::Versions { seq, id, versions } => {
+        if self.take_versions(seq) {
+          Event::Versions { id, versions }
+        } else {
+          Event::Stale
+        }
+      }
     }
   }
 }
@@ -317,12 +362,15 @@ mod tests {
       pinned: false,
       tags: vec![],
       total_size: 1,
+      versions: 0,
     }
   }
 
   fn seq_of(r: &PickerReq) -> u32 {
     match r {
-      PickerReq::Query { seq, .. } | PickerReq::Thumb { seq, .. } => *seq,
+      PickerReq::Query { seq, .. }
+      | PickerReq::Thumb { seq, .. }
+      | PickerReq::Versions { seq, .. } => *seq,
       other => panic!("{other:?}"),
     }
   }
@@ -360,6 +408,52 @@ mod tests {
     );
     // Unsolicited / future seq.
     assert_eq!(a.on_event(page(999, 0, vec![], false)), Event::Stale);
+  }
+
+  fn version(id: i64, revision: Option<&str>, current: bool) -> VersionPreview {
+    VersionPreview { item: item(id), revision: revision.map(str::to_owned), current }
+  }
+
+  #[test]
+  fn versions_match_the_latest_request_only() {
+    let mut a = Correlator::default();
+    let old = a.versions(5);
+    let new = a.versions(6);
+    assert!(matches!(new, PickerReq::Versions { id: 6, .. }));
+    let list = vec![version(1, None, false), version(6, Some("script:a.lua"), true)];
+    assert_eq!(
+      a.on_event(PickerEvt::Versions { seq: seq_of(&old), id: 5, versions: list.clone() }),
+      Event::Stale,
+      "superseded"
+    );
+    assert_eq!(
+      a.on_event(PickerEvt::Versions { seq: seq_of(&new), id: 6, versions: list.clone() }),
+      Event::Versions { id: 6, versions: list.clone() }
+    );
+    assert_eq!(
+      a.on_event(PickerEvt::Versions { seq: seq_of(&new), id: 6, versions: list }),
+      Event::Stale,
+      "answered once"
+    );
+    // An error for the pending request fails it; after a cancel it is stale.
+    let r = a.versions(7);
+    let err = |seq| PickerEvt::Error {
+      seq: Some(seq),
+      code: PickerErrorCode::NotFound,
+      message: "gone".into(),
+    };
+    assert_eq!(
+      a.on_event(err(seq_of(&r))),
+      Event::VersionsFailed { code: PickerErrorCode::NotFound, message: "gone".into() }
+    );
+    let r = a.versions(8);
+    a.cancel_versions();
+    assert_eq!(a.on_event(err(seq_of(&r))), Event::Stale);
+    // Versions requests never disturb a query in flight.
+    let q = a.new_query("x");
+    let _ = a.versions(9);
+    assert!(a.query_in_flight());
+    assert!(matches!(a.on_event(page(seq_of(&q), 0, vec![], false)), Event::Page { .. }));
   }
 
   #[test]

@@ -46,7 +46,38 @@
     editor = {
       inherit (cfg.editor) terminal mime;
     };
+    # [scripts]: only whether spoold listens and how long a copy waits; the
+    # host binary comes from the unit's PATH, the scripts are the host's.
+    scripts = {
+      enabled = cfg.scripts.enable;
+      filter_budget_ms = cfg.scripts.filterBudgetMs;
+    };
   };
+
+  # Lua scripts for the spool-scripts host, as one /nix/store directory (the
+  # host refuses a script directory outside the store: a writable one would
+  # let any program of this user install a clipboard logger).
+  scriptFiles =
+    lib.mapAttrsToList (name: v: {
+      inherit name;
+      path =
+        if builtins.isAttrs v && v ? text
+        then pkgs.writeText name v.text
+        else v;
+    })
+    cfg.scripts.files;
+  scriptDirRaw = pkgs.linkFarm "spool-scripts" scriptFiles;
+  # Load every script once at build time (syntax errors, failing top-level
+  # code) so a broken script fails the switch instead of the session.
+  scriptDir =
+    if cfg.scripts.check
+    then
+      pkgs.runCommand "spool-scripts-checked" {} ''
+        ${cfg.package}/bin/spool-scripts --check --scripts ${scriptDirRaw}
+        ln -s ${scriptDirRaw} $out
+      ''
+    else scriptDirRaw;
+  badScriptNames = lib.filter (n: builtins.match "[A-Za-z0-9._-]+\\.lua" n == null) (lib.attrNames cfg.scripts.files);
 
   # The user unit does not see the shell's $EDITOR, so the default text
   # editor comes from home.sessionVariables (VISUAL, then EDITOR), else
@@ -282,6 +313,61 @@ in {
       };
     };
 
+    scripts = {
+      enable = lib.mkEnableOption ''
+        Lua filters for new copies, run by the `spool-scripts` host (its own
+        user unit, outside spoold's sandbox: scripts may use `io` and `os`).
+        See pkgs/spool/SCRIPTING.md for the API
+      '';
+
+      files = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.either lib.types.path (lib.types.submodule {
+          options.text = lib.mkOption {
+            type = lib.types.lines;
+            description = "Script source.";
+          };
+        }));
+        default = {};
+        example = lib.literalExpression ''
+          {
+            "10-urls.lua" = ./spool/urls.lua;
+            "20-tag.lua".text = '''
+              spool.filter(function(item)
+                if item.source_app == "org.kde.konsole" then
+                  return spool.keep{ tags = { "terminal" } }
+                end
+              end)
+            ''';
+          }
+        '';
+        description = ''
+          Scripts by file name (`*.lua`), loaded in name order: a path or
+          `{ text = ...; }`. They register filters with `spool.filter(fn)`;
+          each filter gets the copy and returns `spool.keep{ tags, text |
+          reps }`, `spool.drop()` or `nil`.
+        '';
+      };
+
+      filterBudgetMs = lib.mkOption {
+        type = lib.types.ints.between 10 2000;
+        default = 250;
+        description = ''
+          How long a copy waits for the filters. Without an answer in time (or
+          with the host down, or a script error) the copy is stored unfiltered.
+        '';
+      };
+
+      check = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Load the scripts once at build time and fail the build if one does
+          not load. Turn off for scripts whose top level needs the session
+          (files in $HOME, the network) to load.
+        '';
+      };
+    };
+
     disableKlipperShortcut = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -324,6 +410,10 @@ in {
     {
       assertions = [
         {
+          assertion = badScriptNames == [];
+          message = "services.spool.scripts.files: names must be plain `*.lua` file names: ${lib.concatStringsSep ", " badScriptNames}";
+        }
+        {
           assertion = pathLikeKeys == [];
           message = "services.spool: config.toml is policy only; remove path-like keys: ${lib.concatStringsSep ", " pathLikeKeys}";
         }
@@ -364,6 +454,32 @@ in {
         Install.WantedBy = ["graphical-session.target"];
       };
     }
+
+    (lib.mkIf cfg.scripts.enable {
+      # Not spoold's child: scripts may need the network and to start
+      # programs, which spoold's sandbox forbids. It connects to spoold's
+      # scripts.sock; spoold admits it only if /proc/<pid>/exe is the
+      # spool-scripts on its own PATH, i.e. this same store path (so the host
+      # must stay dumpable).
+      systemd.user.services.spool-scripts = {
+        Unit = {
+          Description = "Spool Lua script host";
+          PartOf = ["spool.service"];
+          After = ["spool.service"];
+          X-Restart-Triggers = ["${scriptDir}"];
+        };
+        Service = {
+          Type = "simple";
+          ExecStart = "${cfg.package}/bin/spool-scripts --scripts ${scriptDir}";
+          Restart = "on-failure";
+          RestartSec = "2s";
+          Slice = "session.slice";
+          UMask = "0077";
+          LimitCORE = "0";
+        };
+        Install.WantedBy = ["spool.service"];
+      };
+    })
 
     (lib.mkIf (cfg.disableKlipperHistory && hasPlasmaManager) {
       # Klipper otherwise records every copy too (persisting it unencrypted

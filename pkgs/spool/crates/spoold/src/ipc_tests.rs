@@ -50,7 +50,8 @@ async fn fake_backend(mut rx: mpsc::Receiver<Request>) {
       PublicReq::Show | PublicReq::Pick | PublicReq::Edit | PublicReq::New { .. } => {
         PublicResp::NotYetImplemented
       }
-      PublicReq::Current => PublicResp::Empty,
+      PublicReq::Current | PublicReq::CurrentVersion { .. } => PublicResp::Empty,
+      PublicReq::Versions => PublicResp::Versions(Vec::new()),
       PublicReq::Copy { .. } => PublicResp::Ok,
     };
     let _ = reply.send(resp);

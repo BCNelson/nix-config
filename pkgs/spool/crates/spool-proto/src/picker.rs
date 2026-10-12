@@ -44,7 +44,7 @@ use crate::{Hello, WireItemId};
 /// any incompatible change to the types in this module. v1 was the id-less
 /// M4 draft (never shipped to spoold); v3 added [`PickerReq::Edit`] and
 /// `seq` to `Pin`, `Delete` and `Tag` so their errors can be matched.
-pub const PICKER_PROTO_VERSION: u16 = 3;
+pub const PICKER_PROTO_VERSION: u16 = 4;
 
 impl Hello {
   /// `Hello` for the picker channel ([`PICKER_PROTO_VERSION`]).
@@ -133,6 +133,13 @@ pub enum PickerReq {
     id: WireItemId,
     mime: String,
   },
+  /// List the versions of item `id` (or of the item `id` is a version of).
+  /// Answered by [`PickerEvt::Versions`] or [`PickerEvt::Error`] with the
+  /// same `seq`. Appended in v4.
+  Versions {
+    seq: u32,
+    id: WireItemId,
+  },
 }
 
 /// Daemon -> picker.
@@ -196,6 +203,13 @@ pub enum PickerEvt {
   /// A new item was stored while the picker is open.
   NewItem {
     preview: ItemPreview,
+  },
+  /// Answer to `Versions{seq, ..}`: oldest first, the current item last.
+  /// `id` is the current item. Appended in v4.
+  Versions {
+    seq: u32,
+    id: WireItemId,
+    versions: Vec<VersionPreview>,
   },
 }
 
@@ -406,6 +420,21 @@ pub struct ItemPreview {
   pub pinned: bool,
   pub tags: Vec<String>,
   pub total_size: u64,
+  /// Number of earlier versions (a script rewrite's original, edits);
+  /// [`PickerReq::Versions`] lists them. Appended in v4.
+  pub versions: u32,
+}
+
+/// One version in [`PickerEvt::Versions`]. `item.id` can be selected,
+/// thumbnailed or deleted like any item; `item.versions` is 0.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VersionPreview {
+  pub item: ItemPreview,
+  /// What produced it (`script:<file>`, `editor`); `None`: captured as is
+  /// (the original).
+  pub revision: Option<String>,
+  /// The current item (the one in the list).
+  pub current: bool,
 }
 
 #[cfg(test)]
@@ -430,7 +459,23 @@ mod tests {
       pinned: true,
       tags: vec!["t".into()],
       total_size: 42,
+      versions: 2,
     }
+  }
+
+  #[test]
+  fn versions_round_trip() {
+    let req = PickerReq::Versions { seq: 9, id: 4 };
+    assert_eq!(rt(&req), req);
+    let evt = PickerEvt::Versions {
+      seq: 9,
+      id: 4,
+      versions: vec![
+        VersionPreview { item: item(3), revision: None, current: false },
+        VersionPreview { item: item(4), revision: Some("script:urls.lua".into()), current: true },
+      ],
+    };
+    assert_eq!(rt(&evt), evt);
   }
 
   fn secret(s: &str) -> Option<UnlockSecret> {

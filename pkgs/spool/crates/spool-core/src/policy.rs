@@ -824,6 +824,15 @@ impl Policy {
     Ok(self.build_item(selection, None, at, canon))
   }
 
+  /// Recompute `item.hash` with this policy's hash key. For an item built
+  /// by an earlier `Policy` (the session key) that is stored after the
+  /// switch to the persistent store's key, e.g. one held for script filters.
+  pub fn rehash(&self, item: &mut NewItem) {
+    if let Some(canon) = item.reps.first() {
+      item.hash = dedupe_hash(&self.hash_key, canon);
+    }
+  }
+
   /// Classify text against the secret patterns. Exposed for tests and for
   /// future re-scans.
   pub fn detect_secret(&self, text: &str) -> Option<SecretKind> {

@@ -3,9 +3,11 @@
 //! through the manual-copy ingest policy, publishing on exit.
 //!
 //! Rules (INTERFACES.md "Editing"):
-//! - The original item is never modified. The first accepted save is
-//!   stored with [`Store::insert_derived`] (`source_app = spool.editor`,
-//!   the original's tags, `derived_from`); later saves of the same session
+//! - The first accepted save is stored with [`Store::insert_revision`]
+//!   (`source_app = spool.editor`, revision `editor`, the original's tags,
+//!   `derived_from`): it becomes the current item and the original (with
+//!   its own earlier versions, and its pin) a hidden earlier version of it.
+//!   The original's content is never modified. Later saves of the same session
 //!   go through [`Store::replace_content`] on that item, unless that save
 //!   deduped onto an item the session did not create (then a new insert).
 //! - A save the policy refuses (secret pattern, size, empty, not UTF-8 /
@@ -20,7 +22,7 @@ use std::path::Path;
 
 use spool_core::item::Item;
 use spool_core::policy::SecretKind;
-use spool_core::store::ReplaceOutcome;
+use spool_core::store::{REVISION_EDITOR, ReplaceOutcome};
 
 use super::*;
 use crate::editor::content::{
@@ -378,12 +380,12 @@ impl<W: WaylandSide> Orchestrator<W> {
             Some(ReplaceOutcome::Replaced(id)) => (id, true, "replaced"),
             Some(ReplaceOutcome::Merged(other)) => (other, false, "merged"),
             // Deleted meanwhile (picker, retention): start over.
-            None => match s.insert_derived(item, original)? {
+            None => match s.insert_revision(item, original, REVISION_EDITOR)? {
               InsertOutcome::Inserted(id) => (id, true, "inserted"),
               InsertOutcome::Bumped(id) => (id, false, "bumped"),
             },
           },
-          _ => match s.insert_derived(item, original)? {
+          _ => match s.insert_revision(item, original, REVISION_EDITOR)? {
             InsertOutcome::Inserted(id) => (id, true, "inserted"),
             InsertOutcome::Bumped(id) => (id, false, "bumped"),
           },

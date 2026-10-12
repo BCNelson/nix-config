@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use rusqlite::params;
 use spool_crypto::Zeroizing;
 
-use super::{InsertOutcome, RowData, Store, blobs, insert_row, to_millis};
-use crate::item::{ItemId, dedupe_hash};
+use super::{InsertOutcome, RowData, Store, blobs, insert_row, insert_version, to_millis};
+use crate::item::{ItemId, NewItem, dedupe_hash};
 use crate::{Error, Result};
 
 /// What [`Store::merge_from_session`] did.
@@ -42,15 +42,19 @@ impl Store {
   ///   stores);
   /// - fresh `change_seq`s. Session tombstones are ignored;
   /// - `derived_from` (edited items) is remapped to the merged original's
-  ///   new id, or left empty when the original is not in the session.
+  ///   new id, or left empty when the original is not in the session;
+  /// - `revision` is kept on new rows; earlier versions follow their item
+  ///   (as versions of what it became here: inserted or bumped). They are
+  ///   not in `ids`.
   ///
   /// On error nothing is committed and blob files written so far are
   /// removed. `session` is not modified; drop it only after `Ok`.
   pub fn merge_from_session(&mut self, session: &Store) -> Result<MergeReport> {
     let hash_key = Zeroizing::new(self.hash_key()?);
     let ids: Vec<i64> = {
-      let mut stmt =
-        session.conn.prepare("SELECT id FROM items ORDER BY last_used_at ASC, id ASC")?;
+      let mut stmt = session.conn.prepare(
+        "SELECT id FROM items WHERE version_of IS NULL ORDER BY last_used_at ASC, id ASC",
+      )?;
       stmt.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?
     };
     let mut report = MergeReport::default();
@@ -58,7 +62,8 @@ impl Store {
     let mut pending = blobs::Pending::new(mode);
     let tx = conn.transaction()?;
     let mut tags_stmt = session.conn.prepare("SELECT tag FROM tags WHERE item_id = ?1")?;
-    let mut derived_stmt = session.conn.prepare("SELECT derived_from FROM items WHERE id = ?1")?;
+    let mut derived_stmt =
+      session.conn.prepare("SELECT derived_from, revision FROM items WHERE id = ?1")?;
     let mut new_ids: HashMap<i64, i64> = HashMap::new();
     // (new row, session id it was edited from)
     let mut derived: Vec<(i64, i64)> = Vec::new();
@@ -87,9 +92,13 @@ impl Store {
       }
       new_ids.insert(sid, out.id().0);
       if let InsertOutcome::Inserted(id) = out {
-        let from: Option<i64> = derived_stmt.query_row(params![sid], |r| r.get(0))?;
+        let (from, revision): (Option<i64>, Option<String>) =
+          derived_stmt.query_row(params![sid], |r| Ok((r.get(0)?, r.get(1)?)))?;
         if let Some(from) = from {
           derived.push((id.0, from));
+        }
+        if revision.is_some() {
+          tx.execute("UPDATE items SET revision = ?1 WHERE id = ?2", params![revision, id.0])?;
         }
       }
       let tags: Vec<Option<String>> =
@@ -102,6 +111,38 @@ impl Store {
         )?;
       }
       report.ids.push((item.id, out));
+    }
+    // Earlier versions, under what their item became here.
+    let versions: Vec<(i64, i64, Option<String>)> = {
+      let mut stmt = session.conn.prepare(
+        "SELECT id, version_of, revision FROM items WHERE version_of IS NOT NULL
+         ORDER BY created_at ASC, id ASC",
+      )?;
+      stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?
+    };
+    for (sid, of, revision) in versions {
+      let Some(&to) = new_ids.get(&of) else { continue };
+      let Some(item) = session.get(ItemId(sid))? else { continue };
+      let canonical = item.reps.iter().find(|r| !r.is_alias()).ok_or_else(|| {
+        Error::Corrupt(format!("session item {sid}: no canonical representation"))
+      })?;
+      let version = NewItem {
+        selection: item.selection,
+        source_app: item.source_app.clone(),
+        created_at: item.created_at,
+        flags: item.flags,
+        hash: dedupe_hash(&hash_key, canonical),
+        preview: item.preview.clone(),
+        reps: item.reps,
+      };
+      let before = pending.len();
+      let vid = insert_version(&tx, mode, to, &version, &mut pending)?;
+      report.blob_files += pending.len() - before;
+      tx.execute(
+        "UPDATE items SET revision = ?1, last_used_at = max(coalesce(last_used_at, 0), ?2)
+         WHERE id = ?3",
+        params![revision, to_millis(item.last_used_at), vid],
+      )?;
     }
     // `derived_from` names a session id: point it at the merged original
     // (after the loop: the original may be newer by `last_used_at`).

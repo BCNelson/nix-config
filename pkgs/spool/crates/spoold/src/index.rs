@@ -499,6 +499,30 @@ pub(crate) fn to_preview(t: TaggedSummary) -> ItemPreview {
     pinned: s.flags.contains(ItemFlags::PINNED),
     tags: t.tags,
     total_size: s.total_size,
+    versions: t.versions,
+  }
+}
+
+/// A version row for the picker ([`spool_proto::VersionPreview`]).
+pub(crate) fn to_version_preview(
+  v: spool_core::store::VersionSummary,
+) -> spool_proto::VersionPreview {
+  spool_proto::VersionPreview {
+    item: ItemPreview {
+      id: v.id.0,
+      kind: preview_kind(&v.mimes),
+      preview: v.preview.unwrap_or_default(),
+      mimes: v.mimes,
+      source_app: None,
+      created_unix_ms: to_millis(v.created_at).max(0) as u64,
+      last_used_unix_ms: to_millis(v.last_used_at).max(0) as u64,
+      pinned: false,
+      tags: Vec::new(),
+      total_size: v.total_size,
+      versions: 0,
+    },
+    revision: v.revision,
+    current: v.current,
   }
 }
 

@@ -710,6 +710,22 @@ impl Host {
           let _ = out.send(evt);
         });
       }
+      PickerReq::Versions { seq, id } => {
+        let (reply, rx) = oneshot::channel();
+        if !self.forward(Request::Versions { id: ItemId(id), reply }).await {
+          let _ = out.send(err(Some(seq), PickerErrorCode::Unavailable, "spoold is shutting down"));
+          return;
+        }
+        let out = out.clone();
+        tokio::spawn(async move {
+          let evt = match rx.await {
+            Ok(Ok((cur, versions))) => PickerEvt::Versions { seq, id: cur.0, versions },
+            Ok(Err((code, m))) => err(Some(seq), code, m),
+            Err(_) => err(Some(seq), PickerErrorCode::Unavailable, "versions were dropped"),
+          };
+          let _ = out.send(evt);
+        });
+      }
       PickerReq::Select { id, mode } => {
         let (reply, rx) = oneshot::channel();
         if !self.forward(Request::Select { id: ItemId(id), mode, reply }).await {
