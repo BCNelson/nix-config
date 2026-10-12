@@ -1,4 +1,37 @@
 { config, inputs, lib, pkgs, ... }:
+let
+  # Spool (programs/spool.nix) replaces Klipper. In Plasma 6 Klipper lives
+  # only in the tray's Clipboard entry (org.kde.plasma.clipboard loads
+  # libklipperplugin), so disabling that entry, as "System Tray Settings ->
+  # Entries -> Clipboard: Disabled" does, stops Klipper entirely: no second
+  # clipboard manager touching the selection (e.g. its empty
+  # x-kde-onlyReplaceEmpty offer after unlocking).
+  spoolEnabled = (config.services.spool or { }).enable or false;
+  # Plasma's default tray entries (its extraItems on this setup, 2026-10).
+  # Listing them in knownItems keeps plasmashell from re-enabling the
+  # default-on Clipboard entry; a new default entry Plasma ships later is
+  # still added by plasmashell itself (it is not "known").
+  defaultTrayItems = [
+    "org.kde.plasma.manage-inputmethod"
+    "org.kde.plasma.clipboard"
+    "org.kde.plasma.cameraindicator"
+    "org.kde.merkuro.contact.applet"
+    "org.kde.kdeconnect"
+    "org.kde.plasma.keyboardlayout"
+    "org.kde.plasma.bluetooth"
+    "org.kde.plasma.devicenotifier"
+    "org.kde.plasma.notifications"
+    "org.kde.plasma.mediacontroller"
+    "org.kde.plasma.brightness"
+    "org.kde.plasma.battery"
+    "org.kde.plasma.keyboardindicator"
+    "org.kde.kscreen"
+    "org.kde.plasma.weather"
+    "org.kde.plasma.volume"
+    "org.kde.plasma.printmanager"
+    "org.kde.plasma.networkmanagement"
+  ];
+in
 {
   imports = [
     inputs.plasma-manager.homeModules.plasma-manager
@@ -81,9 +114,16 @@
             };
           }
           "org.kde.plasma.marginsseparator"
+          # The system tray as a raw widget: plasma-manager's `systemTray`
+          # wrapper has no way to set knownItems (its `settings` land outside
+          # the config group). Without Spool this is what `systemTray` wrote.
           {
-            systemTray = {
-              items.hidden = [ "Yakuake" ];
+            name = "org.kde.plasma.systemtray";
+            config.General = {
+              hiddenItems = [ "Yakuake" ];
+            } // lib.optionalAttrs spoolEnabled {
+              extraItems = lib.remove "org.kde.plasma.clipboard" defaultTrayItems;
+              knownItems = defaultTrayItems;
             };
           }
           {
