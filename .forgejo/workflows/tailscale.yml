@@ -1,0 +1,52 @@
+name: Sync Tailscale ACLs
+
+# Forgejo port of .github/workflows/tailscale.yml. Authenticates with a
+# Tailscale OAuth client scoped to the policy file (TAILSCALE_CLIENT_ID /
+# TAILSCALE_CLIENT_SECRET), which doesn't expire like an API key. The tailnet
+# defaults to "-", the OAuth client's own tailnet.
+
+concurrency:
+  group: ${{ forgejo.workflow }}-${{ forgejo.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "tailscale-acl.hujson"
+      - ".forgejo/workflows/tailscale.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "tailscale-acl.hujson"
+      - ".forgejo/workflows/tailscale.yml"
+
+jobs:
+  acls:
+    runs-on: docker
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy ACL
+        if: forgejo.event_name == 'push'
+        id: deploy-acl
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
+          tailnet: ${{ secrets.TS_TAILNET || '-' }}
+          action: apply
+          policy-file: tailscale-acl.hujson
+
+      - name: Test ACL
+        if: forgejo.event_name == 'pull_request'
+        id: test-acl
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_CLIENT_SECRET }}
+          tailnet: ${{ secrets.TS_TAILNET || '-' }}
+          action: test
+          policy-file: tailscale-acl.hujson

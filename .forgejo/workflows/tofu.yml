@@ -1,0 +1,64 @@
+name: Apply OpenTofu
+
+# Forgejo port of .github/workflows/tofu.yml. The state backend (B2) has no
+# lock, so the concurrency group is what keeps applies from overlapping.
+
+concurrency:
+  group: ${{ forgejo.workflow }}
+  cancel-in-progress: false
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "*.tf"
+      - ".forgejo/workflows/tofu.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "*.tf"
+      - ".forgejo/workflows/tofu.yml"
+
+env:
+  TF_VAR_porkbun_api_key: ${{ secrets.PORKBUN_API_KEY }}
+  TF_VAR_porkbun_secret_key: ${{ secrets.PORKBUN_SECRET_KEY }}
+  TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.B2_TERRAFORM_STATE_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_TERRAFORM_STATE_APPLICATION_KEY }}
+
+jobs:
+  validate:
+    runs-on: docker
+    timeout-minutes: 10
+    if: forgejo.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.12.6"
+      - name: OpenTofu fmt
+        run: tofu fmt -check
+      - name: OpenTofu Init
+        run: tofu init
+      - name: OpenTofu Validate
+        run: tofu validate
+      - name: OpenTofu Plan
+        run: tofu plan
+
+  apply:
+    runs-on: docker
+    timeout-minutes: 30
+    if: forgejo.event_name == 'push' && forgejo.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.12.6"
+      - name: OpenTofu Init
+        run: tofu init
+      - name: OpenTofu Plan
+        run: tofu plan -out=tfplan
+      - name: OpenTofu Apply
+        run: tofu apply tfplan

@@ -1,0 +1,82 @@
+name: Bump flake.lock
+
+# Forgejo port of .github/workflows/update.yml, minus the Copilot fix-up:
+# bump flake.lock, check every host against it, then commit to main, advance
+# auto-update and ping ntfy. A failed bump just fails the run; it is retried
+# the next day.
+#
+# One job instead of GitHub's artifact-passing chain. It also has to advance
+# auto-update itself: pushes made with the Actions token don't trigger other
+# workflows, so check.yml never sees this commit.
+#
+# While this repo is still a pull mirror the bump and checks run, but the
+# commit, push and ping are skipped (see .forgejo/scripts/is-mirror.sh).
+
+concurrency:
+  group: ${{ forgejo.workflow }}
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+    timeout-minutes: 180
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" main
+          git checkout -q -B main FETCH_HEAD
+          git log --oneline -1
+
+      - name: Update flake.lock
+        id: lock
+        run: |
+          nix flake update
+          if git diff --quiet -- flake.lock; then
+            echo "flake.lock unchanged"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check hosts
+        if: steps.lock.outputs.changed == 'true'
+        run: .forgejo/scripts/check-hosts.sh
+
+      - name: Check whether this repo is still a mirror
+        id: mirror
+        if: steps.lock.outputs.changed == 'true'
+        run: echo "mirror=$(.forgejo/scripts/is-mirror.sh '${{ forgejo.server_url }}' '${{ forgejo.repository }}')" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and update auto-update branch
+        if: steps.mirror.outputs.mirror == 'false'
+        env:
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          remote="${{ forgejo.server_url }}/${{ forgejo.repository }}.git"
+          remote="${remote/:\/\//://forgejo-actions:$TOKEN@}"
+          git -c user.name="Flake Bot" -c user.email="actions@git.bcnelson.dev" \
+            commit --no-verify --signoff -m "Bump flake.lock" -- flake.lock
+          git push "$remote" HEAD:main && git push "$remote" HEAD:auto-update -f || {
+            echo "Failed to push flake.lock bump"
+            exit 1
+          }
+
+      - name: Send notification
+        if: steps.mirror.outputs.mirror == 'false'
+        run: |
+          curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
+            echo "Failed to send notification"
+            exit 1
+          }

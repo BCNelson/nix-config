@@ -1,15 +1,34 @@
-name: Check hosts (shadow)
+name: Nix Flake Check
 
-# Shadow run of GitHub's check-hosts on romeo's Forgejo runner, triggered by
-# the pull mirror syncing main. It gates nothing yet: the mirror rejects
-# pushes, so GitHub CI still advances auto-update. Its job is to prove this
-# runner can evaluate every host before the gate moves here.
+# Forgejo port of .github/workflows/check.yml: check every host, then advance
+# the auto-update branch and ping ntfy.
 #
-# Deliberately simpler than the GitHub version: one job in a nixos/nix
-# container that dry-runs each host in turn, so flake inputs are fetched once
-# and evaluations don't run eight at a time on romeo.
+# While this repo is still a pull mirror of GitHub, the checks run but the
+# push and ping are skipped (see .forgejo/scripts/is-mirror.sh): GitHub CI
+# owns auto-update and notify.yml sends the ping. Converting the repo to a
+# regular repository makes this the gate with no further commit.
+#
+# The ping has to live here, not in notify.yml: pushes made with the Actions
+# token don't trigger other workflows, so notify.yml would never see this
+# job's push to auto-update.
 
 on:
+  pull_request:
+    paths:
+      - "**.nix"
+      - "**.age"
+      # Blueprints and other data files are part of a host's configuration, but
+      # they are not .nix, so a change to one used to reach main without ever
+      # running check-hosts -- which meant the auto-update branch never advanced
+      # and the change simply never deployed. Found when the authentik blueprint
+      # fix in e6933a4 sat on main doing nothing.
+      - "nixos/**/*.yaml"
+      - "nixos/**/*.yml"
+      - "nixos/**/*.py"
+      - "nixos/**/*.cjs"
+      - ".forgejo/workflows/check.yml"
+      - ".forgejo/scripts/**"
+      - "flake.lock"
   push:
     branches:
       - main
@@ -21,6 +40,7 @@ on:
       - "nixos/**/*.py"
       - "nixos/**/*.cjs"
       - ".forgejo/workflows/check.yml"
+      - ".forgejo/scripts/**"
       - "flake.lock"
   workflow_dispatch:
 
@@ -43,21 +63,43 @@ jobs:
           git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
           git checkout -q FETCH_HEAD
           git log --oneline -1
-
-      # path: rather than the git checkout, since the clone is shallow.
       - name: Check hosts
+        run: .forgejo/scripts/check-hosts.sh
+
+  check-peertube:
+    runs-on: docker
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PeerTube provisioning and role mapping
         run: |
-          hosts=$(nix eval --raw "path:$PWD#nixosConfigurations" --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)')
-          failed=""
-          for host in $hosts; do
-            echo "::group::$host"
-            if ! nix build "path:$PWD#nixosConfigurations.$host.config.system.build.toplevel" --dry-run --show-trace; then
-              failed="$failed $host"
-            fi
-            echo "::endgroup::"
-          done
-          if [ -n "$failed" ]; then
-            echo "Failed hosts:$failed"
+          python3 -m unittest discover -s test -p test_peertube_provision.py
+          node test/peertube_oidc_role_sync.test.cjs
+
+  auto-update:
+    runs-on: docker
+    timeout-minutes: 5
+    needs: [check-hosts, check-peertube]
+    if: forgejo.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check whether this repo is still a mirror
+        id: mirror
+        run: echo "mirror=$(.forgejo/scripts/is-mirror.sh '${{ forgejo.server_url }}' '${{ forgejo.repository }}')" >> "$GITHUB_OUTPUT"
+      - name: Update auto-update branch
+        if: steps.mirror.outputs.mirror == 'false'
+        run: |
+          git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f || {
+            echo "Failed to update auto-update branch"
             exit 1
-          fi
-          echo "All hosts evaluated: $hosts"
+          }
+      - name: Send notification
+        if: steps.mirror.outputs.mirror == 'false'
+        run: |
+          curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
+            echo "Failed to send notification"
+            exit 1
+          }
