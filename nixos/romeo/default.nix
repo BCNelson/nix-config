@@ -33,6 +33,7 @@ in
       ./unbound.nix
       ./remote-builder.nix
       ./backups.nix
+      ./ha-backup.nix
       ./nfs.nix
       ./nixarr.nix
       ./gamestream.nix
