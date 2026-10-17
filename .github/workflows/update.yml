@@ -249,9 +249,5 @@ jobs:
             echo "Failed to update auto-update branch"
             exit 1
           }
-      - name: Send notification
-        run: |
-          curl -d "Github Actions Update" ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }} || {
-            echo "Failed to send notification"
-            exit 1
-          }
+      # No ntfy ping here: hosts fetch from Forgejo first, so the ping is sent
+      # by .forgejo/workflows/notify.yml once the pull mirror has this commit.

@@ -96,14 +96,64 @@ if ! git config --local --get filter.git-crypt.smudge > /dev/null; then
     cleanup_and_exit 1
 fi
 
-# Pull changes. Run git directly under sudo instead of through a heredoc: the
-# heredoc body ran in a child shell where log() is undefined, so a failed pull
-# printed "log: command not found" and the real reason never reached $tempfile
-# — leaving the failure ping with no explanation. `set -o pipefail` makes the
-# pipe report git's status, and `if !` keeps `set -e` from aborting first.
-if ! sudo -u "$USER" git pull --rebase |& tee -a "$tempfile"; then
-    log "Failed to pull changes"
+# Remote self-migration: origin's *fetch* URL is forced to the primary
+# (Forgejo) and a `github` remote points at the mirror. Push URLs are left
+# alone so dev checkouts keep pushing wherever they were configured to. Run as
+# the checkout's owner: set-url replaces .git/config via a lockfile rename,
+# which would leave it root-owned.
+if [ -n "${PRIMARY_REMOTE_URL-}" ] && [ "$(git remote get-url origin)" != "$PRIMARY_REMOTE_URL" ]; then
+    log "Pointing origin at $PRIMARY_REMOTE_URL (was $(git remote get-url origin))"
+    sudo -u "$USER" git remote set-url origin "$PRIMARY_REMOTE_URL"
+fi
+if [ -n "${FALLBACK_REMOTE_URL-}" ]; then
+    if ! git remote get-url github > /dev/null 2>&1; then
+        log "Adding github fallback remote $FALLBACK_REMOTE_URL"
+        sudo -u "$USER" git remote add github "$FALLBACK_REMOTE_URL"
+    elif [ "$(git remote get-url github)" != "$FALLBACK_REMOTE_URL" ]; then
+        sudo -u "$USER" git remote set-url github "$FALLBACK_REMOTE_URL"
+    fi
+fi
+
+branch=$(git symbolic-ref --short HEAD) || {
+    log "Detached HEAD; refusing to update"
     cleanup_and_exit 1
+}
+branchRemote=$(git config --get "branch.$branch.remote" || true)
+branchMerge=$(git config --get "branch.$branch.merge" || true)
+branchMerge="${branchMerge#refs/heads/}"
+
+# Fetch then rebase, instead of `git pull --rebase`, so an unreachable server
+# and a rebase failure are told apart and only the former falls back. `timeout`
+# keeps a hung Forgejo from stalling the run. Output goes through tee into
+# $tempfile so the failure ping carries git's actual error.
+if [ "$branchRemote" == "origin" ] && [ -n "$branchMerge" ]; then
+    if timeout 120 sudo -u "$USER" git fetch origin "$branchMerge" |& tee -a "$tempfile"; then
+        upstream="origin/$branchMerge"
+    elif git remote get-url github > /dev/null 2>&1 &&
+         timeout 120 sudo -u "$USER" git fetch github "$branchMerge" |& tee -a "$tempfile"; then
+        log "WARN: origin ($(git remote get-url origin)) unreachable; using github mirror"
+        upstream="github/$branchMerge"
+        if [ -n "${HEALTHCHECK_UUID-}" ] && [ -n "${HEALTHCHECK_URL-}" ]; then
+            curl --silent --show-error --retry 5 "$HEALTHCHECK_URL/ping/$HEALTHCHECK_UUID/log" \
+                --data-raw "origin unreachable; updated from github mirror" || true
+        fi
+    else
+        log "Failed to fetch from origin and github"
+        cleanup_and_exit 1
+    fi
+    # A stale mirror can't move us backwards: if HEAD already contains
+    # $upstream, the rebase is a no-op.
+    if ! sudo -u "$USER" git rebase "$upstream" |& tee -a "$tempfile"; then
+        log "Failed to rebase onto $upstream"
+        cleanup_and_exit 1
+    fi
+else
+    # Branch tracks something other than origin (e.g. a fork on a dev
+    # checkout): keep the old behaviour, no fallback.
+    if ! sudo -u "$USER" git pull --rebase |& tee -a "$tempfile"; then
+        log "Failed to pull changes"
+        cleanup_and_exit 1
+    fi
 fi
 
 targetCommit=$(git rev-parse HEAD) || {

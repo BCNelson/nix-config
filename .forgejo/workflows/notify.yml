@@ -1,0 +1,29 @@
+name: Notify auto-update hosts
+
+# Fires when Forgejo's pull mirror syncs a new auto-update tip from GitHub (a
+# mirror sync is a regular `push` event). Pinging from here rather than from
+# GitHub CI means hosts, which fetch from Forgejo first, are only woken once
+# the commit is actually here.
+#
+# Note: once .forgejo/workflows/ exists, Forgejo ignores .github/workflows/.
+
+on:
+  push:
+    branches:
+      - auto-update
+
+jobs:
+  notify:
+    runs-on: docker
+    timeout-minutes: 5
+    steps:
+      - name: Send notification
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_UPDATE_TOPIC }}
+          SHA: ${{ forgejo.sha }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then
+            echo "NTFY_UPDATE_TOPIC secret is not set"
+            exit 1
+          fi
+          curl -fsS --retry 3 -d "Forgejo auto-update at ${SHA:0:7}" "https://ntfy.sh/$NTFY_TOPIC"

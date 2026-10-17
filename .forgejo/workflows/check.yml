@@ -1,0 +1,63 @@
+name: Check hosts (shadow)
+
+# Shadow run of GitHub's check-hosts on romeo's Forgejo runner, triggered by
+# the pull mirror syncing main. It gates nothing yet: the mirror rejects
+# pushes, so GitHub CI still advances auto-update. Its job is to prove this
+# runner can evaluate every host before the gate moves here.
+#
+# Deliberately simpler than the GitHub version: one job in a nixos/nix
+# container that dry-runs each host in turn, so flake inputs are fetched once
+# and evaluations don't run eight at a time on romeo.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.nix"
+      - "**.age"
+      - "nixos/**/*.yaml"
+      - "nixos/**/*.yml"
+      - "nixos/**/*.py"
+      - "nixos/**/*.cjs"
+      - ".forgejo/workflows/check.yml"
+      - "flake.lock"
+  workflow_dispatch:
+
+jobs:
+  check-hosts:
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+    timeout-minutes: 180
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+    steps:
+      # No actions/checkout: the nixos/nix image has no node. The repo is
+      # public, so a plain shallow fetch of the triggering commit is enough.
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
+          git checkout -q FETCH_HEAD
+          git log --oneline -1
+
+      # path: rather than the git checkout, since the clone is shallow.
+      - name: Check hosts
+        run: |
+          hosts=$(nix eval --raw "path:$PWD#nixosConfigurations" --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)')
+          failed=""
+          for host in $hosts; do
+            echo "::group::$host"
+            if ! nix build "path:$PWD#nixosConfigurations.$host.config.system.build.toplevel" --dry-run --show-trace; then
+              failed="$failed $host"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "Failed hosts:$failed"
+            exit 1
+          fi
+          echo "All hosts evaluated: $hosts"

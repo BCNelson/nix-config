@@ -40,6 +40,25 @@ in
         default = null;
         description = "Path to the git repository";
       };
+      remotes = {
+        primary = lib.mkOption {
+          type = lib.types.str;
+          default = "https://git.bcnelson.dev/bcnelson/nix-config.git";
+          description = ''
+            Fetch URL for the `origin` remote. The script rewrites origin's
+            fetch URL to this on every run (push URL is left alone), so
+            changing it migrates every checkout on its next update.
+          '';
+        };
+        fallback = lib.mkOption {
+          type = lib.types.str;
+          default = "https://github.com/BCNelson/nix-config.git";
+          description = ''
+            Fetch URL for the `github` remote, used only when fetching from
+            the primary fails (e.g. Forgejo on whiskey is down).
+          '';
+        };
+      };
       healthCheck = {
         enable = lib.mkEnableOption "Enable health check";
         url = lib.mkOption {
@@ -146,6 +165,8 @@ in
         REBOOT = if cfg.reboot then "true" else "false";
         MAX_RETRIES = toString cfg.maxRetries;
         CONFIG_PATH = cfg.path;
+        PRIMARY_REMOTE_URL = cfg.remotes.primary;
+        FALLBACK_REMOTE_URL = cfg.remotes.fallback;
         GIT_COMMITTER_EMAIL = "admin@nel.family";
         GIT_COMMITTER_NAME = "Admin";
         USER = cfg.user;
