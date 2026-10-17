@@ -63,7 +63,7 @@
     nix-darwin.url = "github:LnL7/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs-unstable";
 
-    nixarr.url = "github:rasmus-kirk/nixarr/dev";
+    nixarr.url = "github:rasmus-kirk/nixarr";
 
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";

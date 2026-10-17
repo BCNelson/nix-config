@@ -5,35 +5,6 @@ let
   wgConfig = libx.getSecret ./sensitive.nix "airdnsWGConfig";
   wgConfigText = pkgs.writeTextDir "wg.conf" wgConfig;
   peerPort = libx.getSecretWithDefault ./sensitive.nix "airdnsPeerPort" 0;
-  # nixarr pins Jellyfin's OpenAPI spec hash in an attrset with no fallback, so
-  # every nixpkgs Jellyfin bump that outruns nixarr is a hard eval error
-  # (`attribute '"12.0"' missing`) rather than a refetch. That error fails
-  # check-hosts, which gates the flake.lock bump, so one missing hash freezes
-  # every input for every host.
-  #
-  # The nixpkgs bump also added pythonMetadataCheckHook, which rejects the
-  # upstream pname/metadata mismatch ("nixarr" vs "nixarr_py").
-  #
-  # Drop these once the nixarr input tracks a branch that carries them itself.
-  # It still points at the dormant `dev` branch (last commit 2026-04-29);
-  # nixarr's `main` already has 10.11.9-10.11.11 and the pname fix, and
-  # upstream PR #181 adds the 12.0 hash.
-  patchedNixarrSource = pkgs.runCommandLocal "nixarr-jellyfin-openapi-hash-fix" {} ''
-    cp -r ${inputs.nixarr} $out
-    chmod -R u+w $out
-    substituteInPlace $out/nixarr/lib/nixarr-py/python-deps.nix \
-      --replace-fail \
-      '"10.11.8" = "sha256-Fqzv/r1ntNn9/wPSD1wRvH9rUyjjBV0lrxw3hdBgrtA=";' \
-      '"10.11.8" = "sha256-Fqzv/r1ntNn9/wPSD1wRvH9rUyjjBV0lrxw3hdBgrtA=";
-          "10.11.9" = "sha256-3+QrbX658CN46/qfAh3Yj7sRDn50fMlLQvckSHTVuFk=";
-          "10.11.10" = "sha256-3FfqhqQfuQdM/02NyhAWDW7H6OaTynWtaUBoSIxk4AQ=";
-          "10.11.11" = "sha256-4p/DaeyuVGdsrrUMu8AGtcTulZkGwA8eAvb4PbnCJ/s=";
-          "12.0" = "sha256-hu9rbOp+R0tbsjT0Tl639uj0WM5tfYT6uZ6NH0p1zjk=";
-          "12.1" = "sha256-bMc4br+KUqcmSWn6Y6eG3HRunjevVzur+LNbz6G1Ah0=";'
-    substituteInPlace $out/nixarr/lib/nixarr-py/default.nix \
-      --replace-fail 'pname = "nixarr";' 'pname = "nixarr_py";'
-  '';
-
   # nixarr's <arr>-api units wait for their service by curling its *root* with
   # `curl --fail` (waitForService in nixarr/lib/utils.nix). That assumes the
   # root answers <400. Sonarr with AuthenticationMethod=Basic answers 401, so
@@ -62,6 +33,76 @@ let
       done
       echo "${name} is available at '${url}'"
     '';
+
+  # Forward auth against authentik on whiskey (provider + embedded outpost in
+  # nixos/whiskey/services/authentik/blueprints/arr.yaml, which also limits
+  # access to service_admins). Every request to "/" is checked with an
+  # auth_request to the outpost; a 401 bounces the browser to the outpost's
+  # /start, which runs the authentik login and returns here.
+  #
+  # The outpost is reached by name at request time (resolver + variable) rather
+  # than resolved at config load, so nginx still starts if unbound is not up yet
+  # or whiskey is unreachable; only the arr vhosts fail until it is.
+  arrPorts = {
+    prowlarr = 9696;
+    radarr = 7878;
+    sonarr = 8989;
+    lidarr = 8686;
+  };
+  authentikHost = "auth.nel.family";
+  mkArrVhost = port: {
+    forceSSL = true;
+    enableACME = true;
+    acmeRoot = null;
+    extraConfig = ''
+      client_max_body_size 0;
+    '';
+    locations = {
+      "/" = {
+        proxyPass = "http://localhost:${toString port}";
+        extraConfig = ''
+          proxy_max_temp_file_size 2048m;
+
+          auth_request /outpost.goauthentik.io/auth/nginx;
+          error_page 401 = @goauthentik_proxy_signin;
+          auth_request_set $auth_cookie $upstream_http_set_cookie;
+          add_header Set-Cookie $auth_cookie;
+        '';
+      };
+      # API calls skip SSO: the apps still require their API key here, and this
+      # keeps mobile clients and API-key integrations working. The apps' own
+      # traffic to each other goes over localhost and never touches nginx.
+      "~ ^/api(/|$)" = {
+        proxyPass = "http://localhost:${toString port}";
+        extraConfig = ''
+          proxy_max_temp_file_size 2048m;
+        '';
+      };
+      "/outpost.goauthentik.io" = {
+        # recommendedProxySettings is included after extraConfig and would
+        # re-set Host to the arr vhost, which whiskey's nginx would route to
+        # the wrong server block.
+        recommendedProxySettings = false;
+        extraConfig = ''
+          resolver 127.0.0.1 valid=300s;
+          set $authentik https://${authentikHost};
+          proxy_pass $authentik;
+          proxy_ssl_server_name on;
+          proxy_set_header Host ${authentikHost};
+          proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+          proxy_pass_request_body off;
+          proxy_set_header Content-Length "";
+          auth_request_set $auth_cookie $upstream_http_set_cookie;
+          add_header Set-Cookie $auth_cookie;
+        '';
+      };
+      "@goauthentik_proxy_signin".extraConfig = ''
+        internal;
+        add_header Set-Cookie $auth_cookie;
+        return 302 /outpost.goauthentik.io/start?rd=$scheme://$http_host$request_uri;
+      '';
+    };
+  };
 in
 {
   imports =
@@ -76,7 +117,6 @@ in
 
   nixarr = {
     enable = true;
-    nixarr-py.package = pkgs.callPackage "${patchedNixarrSource}/nixarr/lib/nixarr-py" {};
 
     vpn = {
       enable = true;
@@ -102,7 +142,6 @@ in
       };
     };
 
-    bazarr.enable = true;
     prowlarr.enable = true;
     radarr.enable = true;
     sonarr.enable = true;
@@ -120,90 +159,19 @@ in
 
   services.flaresolverr.enable = true;
 
+  # The apps trust nginx's forward auth (below) instead of running their own
+  # login, so authentik is the only prompt. Their ports are not in the firewall,
+  # so nginx is the only way in from off-host.
+  services.sonarr.settings.auth.method = "External";
+  services.radarr.settings.auth.method = "External";
+  services.lidarr.settings.auth.method = "External";
+  services.prowlarr.settings.auth.method = "External";
+
   services.nginx = {
     enable = true;
-    virtualHosts = {
-      "bazarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:6767";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-      "prowlarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:9696";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-      "radarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:7878";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-      "sonarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:8989";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-      "lidarr.arr.b.nel.family" = {
-        forceSSL = true;
-        enableACME = true;
-        acmeRoot = null;
-        extraConfig = ''
-          client_max_body_size 0;
-        '';
-        locations = {
-          "/" = {
-            proxyPass = "http://localhost:8686";
-            extraConfig = ''
-              proxy_max_temp_file_size 2048m;
-            '';
-          };
-        };
-      };
-    };
+    virtualHosts = lib.mapAttrs' (name: port:
+      lib.nameValuePair "${name}.arr.b.nel.family" (mkArrVhost port)
+    ) arrPorts;
   };
 
   services.jackett = {

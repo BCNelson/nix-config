@@ -1,0 +1,60 @@
+version: 1
+metadata:
+  name: arr
+entries:
+  # Domain-level forward auth for the *arr apps on romeo (sonarr, radarr,
+  # lidarr, prowlarr under *.arr.b.nel.family). None of them speak
+  # OIDC, so romeo's nginx asks this provider via auth_request on every request
+  # and the apps run with AuthenticationMethod=External (see
+  # nixos/romeo/nixarr.nix).
+  #
+  # One provider covers every vhost: the session cookie is set on nel.family,
+  # which spans both auth.nel.family (where the callback lands) and the app
+  # hosts. A narrower cookie_domain like arr.b.nel.family would not cover the
+  # authentication URL, and the login would never stick.
+  - model: authentik_providers_proxy.proxyprovider
+    id: provider-arr
+    identifiers:
+      name: arr
+    attrs:
+      name: arr
+      mode: forward_domain
+      external_host: https://auth.nel.family
+      cookie_domain: nel.family
+      authorization_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    id: app-arr
+    identifiers:
+      slug: arr
+    attrs:
+      name: Media Automation
+      slug: arr
+      provider: !KeyOf provider-arr
+      meta_launch_url: https://sonarr.arr.b.nel.family/
+      policy_engine_mode: any
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf app-arr
+      group: !Find [authentik_core.group, [name, service_admins]]
+      order: 0
+    attrs:
+      enabled: true
+
+  # Forward auth is answered by an outpost. The embedded one inside authentik
+  # on whiskey serves /outpost.goauthentik.io on auth.nel.family, so romeo just
+  # proxies there; no separate outpost service or API token to manage.
+  #
+  # Blueprints replace many-to-many fields wholesale: this list is the complete
+  # set of providers on the embedded outpost. Add any future proxy provider here
+  # rather than in the UI, or the next blueprint apply will drop it.
+  - model: authentik_outposts.outpost
+    identifiers:
+      managed: goauthentik.io/outposts/embedded
+    attrs:
+      providers:
+        - !KeyOf provider-arr
