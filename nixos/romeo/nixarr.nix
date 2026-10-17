@@ -84,11 +84,11 @@ let
         # the wrong server block.
         recommendedProxySettings = false;
         extraConfig = ''
-          # auth.nel.family has an AAAA, but romeo has no IPv6 route to
-          # whiskey. nginx tried it first and sat out the 60s connect timeout
-          # on every auth subrequest -- every asset on the page -- before
-          # falling back to v4, so logins took minutes.
-          resolver 127.0.0.1 valid=300s ipv6=off;
+          resolver 127.0.0.1 valid=300s;
+          # Every asset on the page triggers an auth subrequest, so an
+          # unreachable address family (whiskey once published an AAAA it had
+          # not configured) cost the default 60s per request before fallback.
+          # Fail over fast instead.
           proxy_connect_timeout 5s;
           set $authentik https://${authentikHost};
           proxy_pass $authentik;
