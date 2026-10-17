@@ -31,5 +31,33 @@
   networking.useDHCP = lib.mkDefault true;
   # networking.interfaces.ens3.useDHCP = lib.mkDefault true;
 
+  # OVH Public Cloud assigns IPv6 statically: no router advertisements, no
+  # DHCPv6. With NetworkManager's default ipv6.method=auto, ens3 only ever had a
+  # link-local address while DNS published this AAAA, so v6-first clients
+  # stalled on a connect timeout before falling back to v4. Address and gateway
+  # are this instance's, from the OVH panel and the OpenStack metadata service
+  # (169.254.169.254/openstack/latest/network_data.json); a rebuilt instance
+  # gets new ones, and the AAAA records in main.tf must move with them. The
+  # gateway is outside the /128, hence the explicit on-link route to it.
+  #
+  # This profile outranks the auto-created "Wired connection 1" but does not
+  # take over an already-active connection: it applies at the next boot (or
+  # `nmcli con up ens3`), so the deploy itself never drops the network.
+  networking.networkmanager.ensureProfiles.profiles.ens3 = {
+    connection = {
+      id = "ens3";
+      type = "ethernet";
+      interface-name = "ens3";
+      autoconnect-priority = 10;
+    };
+    ipv4.method = "auto";
+    ipv6 = {
+      method = "manual";
+      address1 = "2604:2dc0:202:300::b6a/128";
+      gateway = "2604:2dc0:202:300::1";
+      route1 = "2604:2dc0:202:300::1/128";
+    };
+  };
+
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }
