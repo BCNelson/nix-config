@@ -18,10 +18,10 @@ let
 
   # sshd refuses to chroot unless every path component is root-owned and not
   # group/world-writable. /mnt/vault/** is 0777, so chroot into a root-owned
-  # stub under /srv and bind the real (snapshotted, borg'd, syncoid'd) level2
+  # stub under /srv and bind the real (sanoid-snapshotted) level4
   # directory into it.
   chroot = "/srv/ha-backup";
-  storage = "${config.data.dirs.level2}/homeassistant-backups";
+  storage = "${config.data.dirs.level4}/homeassistant-backups";
 
   # Only the SFTP requests the sftp_storage integration issues: chdir
   # (realpath/stat), listdir, open/read/write for upload+download, remove for
@@ -81,7 +81,7 @@ in
     options = [
       "bind"
       "nofail"
-      "x-systemd.requires-mounts-for=${config.data.dirs.level2}"
+      "x-systemd.requires-mounts-for=${config.data.dirs.level4}"
     ];
   };
 
