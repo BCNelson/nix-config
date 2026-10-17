@@ -1,4 +1,5 @@
-// This tailnet's ACLs are maintained in https://github.com/BCNelson/nix-config
+// This tailnet's ACLs are maintained in https://git.bcnelson.dev/bcnelson/nix-config
+// (applied by .forgejo/workflows/tailscale.yml).
 
 // Example/default ACLs for unrestricted connections.
 {

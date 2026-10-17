@@ -9,7 +9,10 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 if [ ! -d "$HOME/nix-config/.git" ]; then
-    git clone https://github.com/bcnelson/nix-config.git "$HOME/nix-config"
+    # Forgejo is the primary; GitHub is a push mirror of it. Either checkout
+    # works: auto-update repoints origin at Forgejo on its first run.
+    git clone https://git.bcnelson.dev/bcnelson/nix-config.git "$HOME/nix-config" ||
+        git clone https://github.com/BCNelson/nix-config.git "$HOME/nix-config"
 fi
 
 echo "Changeing directory to $HOME/nix-config"

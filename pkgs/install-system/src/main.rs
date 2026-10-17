@@ -354,7 +354,11 @@ fn main() -> Result<()> {
     let nix_config = PathBuf::from(&home).join("nix-config");
 
     if !nix_config.join(".git").is_dir() {
-        run_cmd!(git clone "https://github.com/bcnelson/nix-config.git" $nix_config)?;
+        // Forgejo is the primary; GitHub is a push mirror of it. Either checkout
+        // works: auto-update repoints origin at Forgejo on its first run.
+        if run_cmd!(git clone "https://git.bcnelson.dev/bcnelson/nix-config.git" $nix_config).is_err() {
+            run_cmd!(git clone "https://github.com/BCNelson/nix-config.git" $nix_config)?;
+        }
     }
 
     std::env::set_current_dir(&nix_config)?;
