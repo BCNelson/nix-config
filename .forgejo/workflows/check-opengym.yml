@@ -1,0 +1,79 @@
+name: Check openGym
+
+# Forgejo port of .github/workflows/check-opengym.yml. Runs ONLY when openGym's
+# own code changes: the packages, the OIDC patch, the NixOS module or the VM
+# test. Deliberately NOT triggered on flake.lock, so routine nixpkgs bumps
+# don't re-run a ~15 minute VM test that has nothing to say about them.
+#
+# The VM test needs /dev/kvm on romeo, so it only runs when the repo variable
+# KVM_RUNNER is "true" (set it once SVM is enabled in romeo's BIOS; kvm-amd is
+# already in boot.kernelModules but refuses to load without it).
+concurrency:
+  group: ${{ forgejo.workflow }}-${{ forgejo.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    # Duplicated below rather than shared with a YAML anchor: the Actions
+    # workflow parser does not support anchors or aliases.
+    paths:
+      - "pkgs/opengym/**"
+      - "modules/nixos/opengym.nix"
+      - "nixos/romeo/services/opengym.nix"
+      - ".forgejo/workflows/check-opengym.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "pkgs/opengym/**"
+      - "modules/nixos/opengym.nix"
+      - "nixos/romeo/services/opengym.nix"
+      - ".forgejo/workflows/check-opengym.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+    timeout-minutes: 30
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
+          git checkout -q FETCH_HEAD
+      # Proves ./oidc.patch still applies and that both halves still build. The
+      # frontend build is also where a bad patch to Login.jsx or the locale packs
+      # surfaces, since vite fails on a broken import.
+      - name: Build openGym packages
+        run: nix build "path:$PWD#opengym-api" "path:$PWD#opengym-web" -L --show-trace
+
+  vm-test:
+    if: vars.KVM_RUNNER == 'true'
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+      options: --device=/dev/kvm
+    timeout-minutes: 60
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+        system-features = kvm nixos-test benchmark big-parallel
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
+          git checkout -q FETCH_HEAD
+      # End-to-end: a real OIDC sign-in against a stub provider that checks PKCE
+      # and the client secret, a real passkey registration and assertion, the
+      # systemd hardening score, and the nginx header scrubbing. Fully hermetic —
+      # no identity provider outside the VM is contacted.
+      - name: Run openGym VM test
+        run: nix build "path:$PWD#opengym-test" -L --show-trace

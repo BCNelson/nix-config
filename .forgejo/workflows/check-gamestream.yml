@@ -1,0 +1,67 @@
+name: Check gamestream-agent
+
+# Forgejo port of .github/workflows/check-gamestream.yml. Runs ONLY when the
+# agent's own code changes. Deliberately NOT triggered on flake.lock, so
+# routine nixpkgs bumps don't re-run the Go build or the VM test.
+#
+# The VM test needs /dev/kvm on romeo, so it only runs when the repo variable
+# KVM_RUNNER is "true" (set it once SVM is enabled in romeo's BIOS; kvm-amd is
+# already in boot.kernelModules but refuses to load without it).
+concurrency:
+  group: ${{ forgejo.workflow }}-${{ forgejo.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "pkgs/gamestream-agent/**"
+      - ".forgejo/workflows/check-gamestream.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "pkgs/gamestream-agent/**"
+      - ".forgejo/workflows/check-gamestream.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+    timeout-minutes: 30
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
+          git checkout -q FETCH_HEAD
+      # Building the package runs the Go test suite in checkPhase.
+      - name: Build gamestream-agent (runs Go tests)
+        run: nix build "path:$PWD#gamestream-agent" -L --show-trace
+
+  vm-test:
+    if: vars.KVM_RUNNER == 'true'
+    runs-on: docker
+    container:
+      image: nixos/nix:latest
+      options: --device=/dev/kvm
+    timeout-minutes: 45
+    env:
+      NIX_CONFIG: |
+        experimental-features = nix-command flakes
+        accept-flake-config = true
+        system-features = kvm nixos-test benchmark big-parallel
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "${{ forgejo.server_url }}/${{ forgejo.repository }}.git" "${{ forgejo.sha }}"
+          git checkout -q FETCH_HEAD
+      # End-to-end control-plane test: MQTT <-> agent <-> systemd + polkit.
+      - name: Run gamestream-agent VM test
+        run: nix build "path:$PWD#gamestream-agent-test" -L --show-trace
