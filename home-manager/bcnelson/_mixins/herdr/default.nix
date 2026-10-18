@@ -159,6 +159,8 @@ in
     # Project-local .mcp.json launches these outside `nix develop` as well.
     pkgs.devenv
     pkgs.ssh-mcp
+    # nix-config's agent tooling; its guard hook must work outside the dev shell.
+    pkgs.nixcfg-mcp
   ];
 
   home.file."${claudeHook}".source = hookAsset "claude";

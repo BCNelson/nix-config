@@ -1,0 +1,28 @@
+{
+  "_comment": "Hosts as nixcfg sees them. `ssh` makes a host observable (nixcfg probes it to see whether a commit applied); hosts without it are reported as unobservable. The auto-update fields mirror services.bcnelson.autoUpdate and are only a fallback: a live probe reads the real values from the host. `nixcfg hosts --check` compares them with the flake.",
+  "forgejo": {
+    "url": "https://git.bcnelson.dev",
+    "repo": "bcnelson/nix-config",
+    "workflow": "check.yml"
+  },
+  "builder": "bcnelson@romeo.b.nel.family",
+  "hosts": {
+    "romeo-2": { "ssh": "bcnelson@romeo.b.nel.family", "checkout": "/config", "interval": "1h", "ntfy": true, "reboot": true, "preseed": true },
+    "whiskey-1": { "ssh": "bcnelson@whiskey.b.nel.family", "checkout": "/config", "interval": "1h", "ntfy": true, "reboot": true, "preseed": true },
+    "vor-2": { "ssh": "bcnelson@vor.ck.nel.family", "checkout": "/config", "interval": "1h", "ntfy": true, "reboot": true },
+    "charlie-1": { "ssh": "bcnelson@charlie.b.nel.family", "checkout": "/config", "interval": "1h", "ntfy": true, "reboot": true },
+    "ryuu-2": { "ssh": "bcnelson@ryuu.llp.nel.family", "checkout": "/config", "interval": "5m", "ntfy": false, "reboot": true },
+    "sierra-2": { "checkout": "/home/bcnelson/nix-config", "interval": "6h", "ntfy": true, "reboot": false },
+    "golf-2": { "checkout": "/home/bcnelson/nix-config", "interval": "6h", "ntfy": true, "reboot": false },
+    "golf-3": { "checkout": "/home/bcnelson/nix-config", "interval": "6h", "ntfy": true, "reboot": false },
+    "golf-4": { "checkout": "/home/bcnelson/nix-config", "interval": "6h", "ntfy": true, "reboot": false },
+    "bravo-1": { "checkout": "/config", "interval": "6h", "ntfy": true, "reboot": false },
+    "xray-2": { "checkout": "/home/config", "interval": "1h", "ntfy": false, "reboot": false },
+    "xray-3": { "checkout": "/config", "interval": "1h", "ntfy": false, "reboot": false },
+    "qilin-1": { "checkout": "/config", "interval": "24h", "ntfy": false, "reboot": false },
+    "berg-1": { "checkout": "/config", "interval": "24h", "ntfy": false, "reboot": true },
+    "wyse-1": { "auto_update": false, "note": "thin client: romeo's thin-client-build publishes its closure; it pulls every 15m" },
+    "iso_console": { "auto_update": false, "note": "installer image" },
+    "iso_desktop": { "auto_update": false, "note": "installer image" }
+  }
+}

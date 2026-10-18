@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Grep|mcp__ssh__ssh_exec|mcp__ssh__ssh_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/agent-guard claude",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Read(**/sensitive.nix)"
+    ],
+    "allow": [
+      "mcp__nixcfg__wait_for",
+      "mcp__nixcfg__wait_status",
+      "mcp__nixcfg__waits_list",
+      "mcp__nixcfg__deploy_status",
+      "mcp__nixcfg__hosts_list",
+      "mcp__nixcfg__host_status",
+      "mcp__nixcfg__explain_change",
+      "mcp__nixcfg__job_wait",
+      "mcp__nixcfg__job_status",
+      "mcp__nixcfg__jobs_list",
+      "mcp__nixcfg__secrets_status",
+      "mcp__nixcfg__human_command",
+      "Bash(nixcfg wait:*)",
+      "Bash(nixcfg status:*)",
+      "Bash(nixcfg hosts:*)",
+      "Bash(nixcfg host-status:*)",
+      "Bash(nixcfg explain:*)",
+      "Bash(nixcfg jobs:*)",
+      "Bash(nixcfg secrets-status:*)",
+      "Bash(nixcfg human:*)"
+    ]
+  }
+}

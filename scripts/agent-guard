@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Pre-tool-call guard shared by every agent's hook (.claude/settings.json,
+# .codex/hooks.json, .opencode/plugins/agent-guard.js, .pi/extensions/
+# agent-guard.ts). The rules live in `nixcfg guard`
+# (pkgs/nixcfg-mcp/internal/guard); this only finds the binary.
+#
+# Usage: agent-guard <claude|codex|opencode|pi|plain>  < hook-payload.json
+set -uo pipefail
+
+agent=${1:-plain}
+payload=$(cat)
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+deny() {
+  case $agent in
+  claude | codex)
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
+    exit 0
+    ;;
+  *)
+    echo "$1" >&2
+    exit 2
+    ;;
+  esac
+}
+
+guard=$(command -v nixcfg || true)
+if [ -z "$guard" ]; then
+  # Not installed (no dev shell, home-manager not rebuilt yet). Anything that
+  # can't be guarded passes untouched; for anything that might be, build it.
+  if ! printf '%s' "$payload" | grep -Eq 'commit|push|agenix|age |sensitive|just |git-crypt|ntfy|auto-update|gpg|bw |/run/agenix|nixos-rebuild|switch|reboot|tofu|curl|systemctl'; then
+    exit 0
+  fi
+  out=$(nix build "$root#nixcfg-mcp" --no-link --print-out-paths 2>/dev/null) || out=""
+  [ -n "$out" ] && guard="$out/bin/nixcfg"
+fi
+if [ -z "$guard" ]; then
+  deny "agent-guard: nixcfg is not installed, so this command can't be checked against the repo's guardrails. Enter the dev shell (nix develop) or ask the human to rebuild home-manager."
+fi
+
+want=$(cat "$root/.agents/guard-version" 2>/dev/null || true)
+have=$("$guard" guard --rules-version 2>/dev/null || true)
+if [ -n "$want" ] && [ "$have" != "$want" ]; then
+  echo "agent-guard: the installed nixcfg has guard rules v$have but the repo expects v$want; rebuild home-manager or use nix develop" >&2
+fi
+
+printf '%s' "$payload" | exec "$guard" guard --agent "$agent"

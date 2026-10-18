@@ -1,0 +1,3 @@
+# Read by ripgrep (and so by agent grep tools): keep git-crypt plaintext out of
+# search results. This checkout is usually unlocked.
+**/sensitive.nix

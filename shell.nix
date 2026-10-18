@@ -51,6 +51,8 @@ in
 
       # Local SSH MCP server, consumed by .mcp.json as a bare `ssh-mcp` command
       outputs.packages.${system}.ssh-mcp
+      # Agent tooling (`nixcfg`, and `nixcfg-mcp serve` for .mcp.json); see AGENTS.md
+      outputs.packages.${system}.nixcfg-mcp
     ] ++ lib.optionals (lib.hasInfix "linux" system) [
       pkgs.quickemu
       pkgs.qemu

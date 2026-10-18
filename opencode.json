@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "nixcfg": {
+      "type": "local",
+      "command": ["nixcfg-mcp", "serve"],
+      "enabled": true,
+      "timeout": 600000
+    },
+    "ssh": {
+      "type": "local",
+      "command": [
+        "ssh-mcp",
+        "--host", "romeo=bcnelson@romeo.b.nel.family",
+        "--host", "whiskey=bcnelson@whiskey.b.nel.family",
+        "--host", "charlie=bcnelson@charlie.b.nel.family",
+        "--host", "ryuu=bcnelson@ryuu.llp.nel.family",
+        "--host", "vor=bcnelson@vor.ck.nel.family"
+      ],
+      "enabled": true
+    }
+  },
+  "permission": {
+    "bash": {
+      "git push*": "deny",
+      "agenix rekey*": "deny",
+      "agenix edit*": "deny",
+      "just rekey*": "deny",
+      "just unlock*": "deny",
+      "nixos-rebuild switch*": "deny"
+    }
+  }
+}

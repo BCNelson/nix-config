@@ -1,0 +1,46 @@
+2026-10-18T05:01:37.1142503Z Runner 54f6999c-067c-4ce5-93d7-0f7b97cce5ab (version:v13.2.0) received task 497 of job check-hosts, triggered by event: push
+2026-10-18T05:01:37.1161098Z workflow prepared
+2026-10-18T05:01:37.1223463Z 🚀  Start image=nixos/nix:latest
+2026-10-18T05:01:37.1330545Z Cleaning up network for job check-hosts, and network name is: WORKFLOW-8d26ebf5870c7178ac915b0f13cb3f33
+2026-10-18T05:01:37.2268099Z   🐳  docker create image=nixos/nix:latest platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="WORKFLOW-8d26ebf5870c7178ac915b0f13cb3f33"
+2026-10-18T05:01:37.2661924Z   🐳  docker run image=nixos/nix:latest platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="WORKFLOW-8d26ebf5870c7178ac915b0f13cb3f33"
+2026-10-18T05:01:37.4754845Z ⭐ Run Main Checkout
+2026-10-18T05:01:37.4807565Z   🐳  docker exec cmd=[sh /var/run/act/d4412acff63bc93a.sh] user= workdir=
+2026-10-18T05:01:37.5197954Z   🐳  docker exec cmd=[bash --noprofile --norc -e -o pipefail /var/run/act/workflow/0.sh] user= workdir=
+2026-10-18T05:01:38.5373962Z cc7d7e8 fix(romeo): feed homepage the arr API keys as HOMEPAGE_VAR_*
+2026-10-18T05:01:39.1718461Z unpacking 'github:gytis-ivaskevicius/flake-utils-plus/a00f6f51907b5c74d2fde086b10b19d446d15717?narHash=sha256-%2BrEagECcF6BhWfLs8VCkPqsBuxxSSIRxMlgjXj6G8UQ%3D' into the Git cache...
+2026-10-18T05:01:40.0115657Z unpacking 'github:numtide/flake-utils/ff7b65b44d01cf9ba6a71320833626af21126384?narHash=sha256-zsNZZGTGnMOf9YpHKJqMSsa0dXbfmxeoJ7xHlrt%2BxmY%3D' into the Git cache...
+2026-10-18T05:02:51.9611174Z charlie-1: ok (71s)
+2026-10-18T05:03:04.4778500Z berg-1: ok (84s)
+2026-10-18T05:03:06.3874491Z golf-3: FAILED (86s)
+2026-10-18T05:03:06.6671497Z bravo-1: ok (86s)
+2026-10-18T05:03:07.9057880Z golf-2: ok (87s)
+2026-10-18T05:03:11.2622679Z golf-4: ok (20s)
+2026-10-18T05:03:19.7814316Z ryuu-2: ok (12s)
+2026-10-18T05:03:29.5188508Z qilin-1: ok (23s)
+2026-10-18T05:03:41.2775570Z sierra-2: ok (30s)
+2026-10-18T05:03:43.1596180Z vor-2: ok (24s)
+2026-10-18T05:03:45.7734817Z iso_desktop: ok (41s)
+2026-10-18T05:03:49.9953850Z wyse-1: ok (8s)
+2026-10-18T05:03:51.8669785Z iso_console: ok (131s)
+2026-10-18T05:03:54.2100518Z devShell: ok (4s)
+2026-10-18T05:03:55.8966883Z whiskey-1: ok (26s)
+2026-10-18T05:03:56.3284800Z romeo-2: ok (50s)
+2026-10-18T05:04:07.0883551Z xray-2: ok (24s)
+2026-10-18T05:04:08.0497440Z xray-3: ok (23s)
+2026-10-18T05:04:08.0502172Z ##[group]golf-3
+2026-10-18T05:04:08.0502173Z error: attribute 'frobnicate' missing
+2026-10-18T05:04:08.0502174Z        at /nix/store/x-source/nixos/golf/default.nix:12:5:
+2026-10-18T05:04:08.0641933Z ##[endgroup]
+2026-10-18T05:04:08.0502172Z ##[group]iso_console
+2026-10-18T05:04:08.0535291Z unpacking 'github:ryantm/agenix/3daa710894355fa2fad8243380af373a2b4046ef?narHash=sha256-n7wew722m1OTBT9DOIMxNX/NF4zfsSUABAO5eW3wikE%3D' into the Git cache...
+2026-10-18T05:04:08.0535622Z unpacking 'github:oddlama/agenix-rekey/8b9c179bc1300ab130c90f2d25426bf0e7a2b58d?narHash=sha256-GvINrdGznE7mGlDNjW0/PMgOJlC%2BNl9MkfxALB4QvWs%3D' into the Git cache...
+2026-10-18T05:04:08.0535716Z unpacking 'github:hercules-ci/flake-parts/205b12d8b7cd4802fbcb8e8ef6a0f1408781a4f9?narHash=sha256-4pDvzqnegAfRkPwO3wmwBhVi/Sye1mzps0zHWYnP88c%3D' into the Git cache...
+2026-10-18T05:04:08.0535803Z copying path '/nix/store/fd5qgysvbfx27wj651swlr899w6jnbwd-source' from 'https://cache.nixos.org'...
+2026-10-18T05:04:08.0535879Z waiting for another Nix process to finish fetching input 'github:numtide/devshell/dd6b80932022cea34a019e2bb32f6fa9e494dfef?narHash=sha256-xRJ2nPOXb//u1jaBnDP56M7v5ldavjbtR6lfGqSvcKg%3D'...
+2026-10-18T05:04:08.0535969Z waiting for another Nix process to finish fetching input 'github:numtide/devshell/dd6b80932022cea34a019e2bb32f6fa9e494dfef?narHash=sha256-xRJ2nPOXb//u1jaBnDP56M7v5ldavjbtR6lfGqSvcKg%3D'...
+2026-10-18T05:04:08.0536090Z waiting for another Nix process to finish fetching input 'github:cachix/pre-commit-hooks.nix/a5a961387e75ae44cc20f0a57ae463da5e959656?narHash=sha256-3FZAG%2BpGt3OElQjesCAWeMkQ7C/nB1oTHLRQ8ceP110%3D'...
+2026-10-18T05:04:08.0536187Z waiting for another Nix process to finish fetching input 'github:cachix/pre-commit-hooks.nix/a5a961387e75ae44cc20f0a57ae463da5e959656?narHash=sha256-3FZAG%2BpGt3OElQjesCAWeMkQ7C/nB1oTHLRQ8ceP110%3D'...
+2026-10-18T05:04:08.0536297Z waiting for another Nix process to finish fetching input 'github:cachix/pre-commit-hooks.nix/a5a961387e75ae44cc20f0a57ae463da5e959656?narHash=sha256-3FZAG%2BpGt3OElQjesCAWeMkQ7C/nB1oTHLRQ8ceP110%3D'...
+2026-10-18T05:04:08.0641933Z ##[endgroup]
+2026-10-18T05:04:08.3652817Z Failed: golf-3

@@ -137,6 +137,43 @@ alias check := check-host
 check-host host *additionalArgs:
     nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel --dry-run {{ additionalArgs }}
 
+# Build a host's system for real (no activation)
+build-host host *additionalArgs:
+    nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel --no-link --print-out-paths {{ additionalArgs }}
+
+# Agent tooling (pkgs/nixcfg-mcp, see AGENTS.md); falls back to building it
+# when it isn't installed.
+nixcfg := `command -v nixcfg || echo "nix run .#nixcfg-mcp --"`
+
+# Where a commit is on the deploy timeline (default HEAD)
+status *args:
+    {{ nixcfg }} status {{ args }}
+
+# Wait for a commit to reach a milestone: just wait <rev> --until live
+wait *args:
+    {{ nixcfg }} wait {{ args }}
+
+# A host's auto-update state, with a diagnosis
+host-status host *args:
+    {{ nixcfg }} host-status {{ host }} {{ args }}
+
+# Declared agenix secrets vs rekeyed files (no decryption)
+secrets-status *args:
+    {{ nixcfg }} secrets-status {{ args }}
+
+# Build romeo-2/whiskey-1 here and copy it into romeo's store
+preseed host *args:
+    {{ nixcfg }} preseed {{ host }} {{ args }}
+
+# Will pushing these commits run CI (and so deploy)?
+explain *args:
+    {{ nixcfg }} explain {{ args }}
+
+# Tests for nixcfg (guard rules, pipeline, parsers) and the auto-update advance script
+agent-tools-test:
+    cd pkgs/nixcfg-mcp && go test ./...
+    .forgejo/scripts/test-advance-auto-update.sh
+
 alias fmt := format
 
 [unix]

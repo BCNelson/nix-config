@@ -1,0 +1,18 @@
+# Project layer for Codex (loaded once this checkout is trusted). User-wide
+# settings come from home-manager (_mixins/codex).
+
+[mcp_servers.nixcfg]
+command = "nixcfg-mcp"
+args = ["serve"]
+# wait_for / job_wait block for up to 9 minutes by design.
+tool_timeout_sec = 600
+
+[mcp_servers.ssh]
+command = "ssh-mcp"
+args = [
+  "--host", "romeo=bcnelson@romeo.b.nel.family",
+  "--host", "whiskey=bcnelson@whiskey.b.nel.family",
+  "--host", "charlie=bcnelson@charlie.b.nel.family",
+  "--host", "ryuu=bcnelson@ryuu.llp.nel.family",
+  "--host", "vor=bcnelson@vor.ck.nel.family",
+]
