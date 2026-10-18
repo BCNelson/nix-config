@@ -79,12 +79,20 @@ jobs:
     if: forgejo.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # Advance auto-update to the commit check-hosts just checked, not to
+      # whatever main is now: a push that lands mid-check would otherwise
+      # deploy unchecked. The server already has every object, so a depth-1
+      # fetch of that one commit is enough to push it -- a full-history
+      # checkout of every branch took ~85s.
       - name: Update auto-update branch
+        env:
+          TOKEN: ${{ forgejo.token }}
         run: |
-          git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f || {
+          remote="${{ forgejo.server_url }}/${{ forgejo.repository }}.git"
+          remote="${remote/:\/\//://forgejo-actions:$TOKEN@}"
+          git init -q .
+          git fetch -q --depth 1 "$remote" "${{ forgejo.sha }}"
+          git push "$remote" FETCH_HEAD:refs/heads/auto-update -f || {
             echo "Failed to update auto-update branch"
             exit 1
           }
