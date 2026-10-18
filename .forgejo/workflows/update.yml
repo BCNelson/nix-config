@@ -49,7 +49,11 @@ jobs:
         if: steps.lock.outputs.changed == 'true'
         run: .forgejo/scripts/check-hosts.sh
 
-      - name: Commit and update auto-update branch
+      # The main push is a plain fast-forward; auto-update goes through the
+      # same forward-only script check.yml uses, so a bump can never roll
+      # hosts back past a commit check.yml has already shipped.
+      - name: Commit and advance auto-update branch
+        id: advance
         if: steps.lock.outputs.changed == 'true'
         env:
           TOKEN: ${{ forgejo.token }}
@@ -58,13 +62,14 @@ jobs:
           remote="${remote/:\/\//://forgejo-actions:$TOKEN@}"
           git -c user.name="Flake Bot" -c user.email="actions@git.bcnelson.dev" \
             commit --no-verify --signoff -m "Bump flake.lock" -- flake.lock
-          git push "$remote" HEAD:main && git push "$remote" HEAD:auto-update -f || {
+          git push "$remote" HEAD:main || {
             echo "Failed to push flake.lock bump"
             exit 1
           }
+          REMOTE="$remote" .forgejo/scripts/advance-auto-update.sh "$(git rev-parse HEAD)"
 
       - name: Send notification
-        if: steps.lock.outputs.changed == 'true'
+        if: steps.advance.outputs.advanced == 'true'
         run: |
           curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
             echo "Failed to send notification"

@@ -11,10 +11,13 @@
 # kept and printed in host order once all are done (a one-line status as each
 # finishes), so parallel output never interleaves.
 #
-# path: rather than the git checkout, since the clone is shallow.
+# path: rather than the git checkout, since the clone is shallow. Locally
+# (`nixcfg check-host --all`) CHECK_FLAKE=. evaluates the git checkout instead,
+# including uncommitted changes to tracked files, without copying untracked
+# clutter (VM images, build results) into the store.
 set -uo pipefail
 
-flake="path:$PWD"
+flake="${CHECK_FLAKE:-path:$PWD}"
 parallel="${CHECK_JOBS:-6}"
 logs=$(mktemp -d)
 

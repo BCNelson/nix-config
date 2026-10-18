@@ -62,11 +62,13 @@ jobs:
       - name: Check hosts
         run: .forgejo/scripts/check-hosts.sh
 
-  check-peertube:
+  check-scripts:
     runs-on: docker
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Check auto-update only moves forward
+        run: .forgejo/scripts/test-advance-auto-update.sh
       - name: Check PeerTube provisioning and role mapping
         run: |
           python3 -m unittest discover -s test -p test_peertube_provision.py
@@ -75,28 +77,28 @@ jobs:
   auto-update:
     runs-on: docker
     timeout-minutes: 5
-    needs: [check-hosts, check-peertube]
+    needs: [check-hosts, check-scripts]
     if: forgejo.ref == 'refs/heads/main'
 
     steps:
+      # Only the script is needed from the checkout; it does its own
+      # commits-only fetch to compare ancestry.
+      - uses: actions/checkout@v4
       # Advance auto-update to the commit check-hosts just checked, not to
       # whatever main is now: a push that lands mid-check would otherwise
-      # deploy unchecked. The server already has every object, so a depth-1
-      # fetch of that one commit is enough to push it -- a full-history
-      # checkout of every branch took ~85s.
-      - name: Update auto-update branch
+      # deploy unchecked. Forward only -- runs are not serialised, so an older
+      # commit's run can finish last; the script turns that into a no-op
+      # instead of rolling every host back.
+      - name: Advance auto-update branch
+        id: advance
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
           remote="${{ forgejo.server_url }}/${{ forgejo.repository }}.git"
-          remote="${remote/:\/\//://forgejo-actions:$TOKEN@}"
-          git init -q .
-          git fetch -q --depth 1 "$remote" "${{ forgejo.sha }}"
-          git push "$remote" FETCH_HEAD:refs/heads/auto-update -f || {
-            echo "Failed to update auto-update branch"
-            exit 1
-          }
+          REMOTE="${remote/:\/\//://forgejo-actions:$TOKEN@}" \
+            .forgejo/scripts/advance-auto-update.sh "${{ forgejo.sha }}"
       - name: Send notification
+        if: steps.advance.outputs.advanced == 'true'
         run: |
           curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
             echo "Failed to send notification"
