@@ -1,8 +1,7 @@
 name: Check gamestream-agent
 
-# Forgejo port of .github/workflows/check-gamestream.yml. Runs ONLY when the
-# agent's own code changes. Deliberately NOT triggered on flake.lock, so
-# routine nixpkgs bumps don't re-run the Go build or the VM test.
+# Runs ONLY when the agent's own code changes. Deliberately NOT triggered on
+# flake.lock, so routine nixpkgs bumps don't re-run the Go build or the VM test.
 #
 # The VM test needs /dev/kvm on romeo, so it only runs when the repo variable
 # KVM_RUNNER is "true" (set it once SVM is enabled in romeo's BIOS; kvm-amd is

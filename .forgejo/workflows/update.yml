@@ -1,16 +1,11 @@
 name: Bump flake.lock
 
-# Forgejo port of .github/workflows/update.yml, minus the Copilot fix-up:
-# bump flake.lock, check every host against it, then commit to main, advance
-# auto-update and ping ntfy. A failed bump just fails the run; it is retried
-# the next day.
+# Daily flake bump: update flake.lock, check every host against it, then
+# commit to main, advance auto-update and ping ntfy. A failed bump just fails
+# the run; it is retried the next day.
 #
-# One job instead of GitHub's artifact-passing chain. It also has to advance
-# auto-update itself: pushes made with the Actions token don't trigger other
-# workflows, so check.yml never sees this commit.
-#
-# While this repo is still a pull mirror the bump and checks run, but the
-# commit, push and ping are skipped (see .forgejo/scripts/is-mirror.sh).
+# It has to advance auto-update itself: pushes made with the Actions token
+# don't trigger other workflows, so check.yml never sees this commit.
 
 concurrency:
   group: ${{ forgejo.workflow }}
@@ -54,13 +49,8 @@ jobs:
         if: steps.lock.outputs.changed == 'true'
         run: .forgejo/scripts/check-hosts.sh
 
-      - name: Check whether this repo is still a mirror
-        id: mirror
-        if: steps.lock.outputs.changed == 'true'
-        run: echo "mirror=$(.forgejo/scripts/is-mirror.sh '${{ forgejo.server_url }}' '${{ forgejo.repository }}')" >> "$GITHUB_OUTPUT"
-
       - name: Commit and update auto-update branch
-        if: steps.mirror.outputs.mirror == 'false'
+        if: steps.lock.outputs.changed == 'true'
         env:
           TOKEN: ${{ forgejo.token }}
         run: |
@@ -74,7 +64,7 @@ jobs:
           }
 
       - name: Send notification
-        if: steps.mirror.outputs.mirror == 'false'
+        if: steps.lock.outputs.changed == 'true'
         run: |
           curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
             echo "Failed to send notification"

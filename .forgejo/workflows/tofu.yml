@@ -1,6 +1,6 @@
 name: Apply OpenTofu
 
-# Forgejo port of .github/workflows/tofu.yml. The state backend (B2) has no
+# Applies main.tf (DNS at Porkbun/Cloudflare). The state backend (B2) has no
 # lock, so the concurrency group is what keeps applies from overlapping.
 
 concurrency:

@@ -1,16 +1,12 @@
 name: Nix Flake Check
 
-# Forgejo port of .github/workflows/check.yml: check every host, then advance
-# the auto-update branch and ping ntfy.
+# The deploy gate: check every host, then advance the auto-update branch
+# (which every auto-updating host builds) and ping ntfy to wake them. The push
+# mirror carries auto-update on to GitHub, where hosts that haven't switched to
+# Forgejo yet pick it up.
 #
-# While this repo is still a pull mirror of GitHub, the checks run but the
-# push and ping are skipped (see .forgejo/scripts/is-mirror.sh): GitHub CI
-# owns auto-update and notify.yml sends the ping. Converting the repo to a
-# regular repository makes this the gate with no further commit.
-#
-# The ping has to live here, not in notify.yml: pushes made with the Actions
-# token don't trigger other workflows, so notify.yml would never see this
-# job's push to auto-update.
+# The ping has to be a step here rather than a workflow triggered by the push:
+# pushes made with the Actions token don't trigger other workflows.
 
 on:
   pull_request:
@@ -86,18 +82,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check whether this repo is still a mirror
-        id: mirror
-        run: echo "mirror=$(.forgejo/scripts/is-mirror.sh '${{ forgejo.server_url }}' '${{ forgejo.repository }}')" >> "$GITHUB_OUTPUT"
       - name: Update auto-update branch
-        if: steps.mirror.outputs.mirror == 'false'
         run: |
           git checkout -b auto-update && git reset --hard origin/main && git push origin auto-update -f || {
             echo "Failed to update auto-update branch"
             exit 1
           }
       - name: Send notification
-        if: steps.mirror.outputs.mirror == 'false'
         run: |
           curl -fsS -d "Forgejo Actions Update" "https://ntfy.sh/${{ secrets.NTFY_UPDATE_TOPIC }}" || {
             echo "Failed to send notification"

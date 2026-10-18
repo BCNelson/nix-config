@@ -1,6 +1,6 @@
 name: Sync Tailscale ACLs
 
-# Forgejo port of .github/workflows/tailscale.yml. Authenticates with a
+# Applies tailscale-acl.hujson to the tailnet. Authenticates with a
 # Tailscale OAuth client scoped to the policy file (TAILSCALE_CLIENT_ID /
 # TAILSCALE_CLIENT_SECRET), which doesn't expire like an API key. The tailnet
 # defaults to "-", the OAuth client's own tailnet.

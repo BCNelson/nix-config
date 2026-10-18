@@ -191,8 +191,8 @@ you unlock with GPG instead.
 Then, at the console: `install-system --thin <host>`.
 
 Two things have to be true before the rehearsal can get past the polling step,
-because the installer clones `main` from GitHub rather than using your working
-tree:
+because the installer clones `main` from Forgejo (git.bcnelson.dev, falling
+back to the GitHub mirror) rather than using your working tree:
 
 1. The thin-client work is merged. The ISO carries an `install-system` built
    from your local flake, so `--thin` exists — but the *clone* needs

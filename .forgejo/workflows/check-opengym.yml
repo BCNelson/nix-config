@@ -1,9 +1,9 @@
 name: Check openGym
 
-# Forgejo port of .github/workflows/check-opengym.yml. Runs ONLY when openGym's
-# own code changes: the packages, the OIDC patch, the NixOS module or the VM
-# test. Deliberately NOT triggered on flake.lock, so routine nixpkgs bumps
-# don't re-run a ~15 minute VM test that has nothing to say about them.
+# Runs ONLY when openGym's own code changes: the packages, the OIDC patch, the
+# NixOS module or the VM test. Deliberately NOT triggered on flake.lock, so
+# routine nixpkgs bumps don't re-run a ~15 minute VM test that has nothing to
+# say about them.
 #
 # The VM test needs /dev/kvm on romeo, so it only runs when the repo variable
 # KVM_RUNNER is "true" (set it once SVM is enabled in romeo's BIOS; kvm-amd is
