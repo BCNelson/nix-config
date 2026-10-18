@@ -34,7 +34,7 @@ entries:
       name: Media Automation
       slug: arr
       provider: !KeyOf provider-arr
-      meta_launch_url: https://sonarr.arr.b.nel.family/
+      meta_launch_url: https://arr.b.nel.family/
       policy_engine_mode: any
 
   - model: authentik_policies.policybinding

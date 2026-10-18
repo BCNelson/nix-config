@@ -50,14 +50,24 @@ let
     lidarr = 8686;
   };
   authentikHost = "auth.nel.family";
-  mkArrVhost = port: {
+  mkArrVhost = { port, apiBypass ? true }: {
     forceSSL = true;
     enableACME = true;
     acmeRoot = null;
     extraConfig = ''
       client_max_body_size 0;
     '';
-    locations = {
+    locations = lib.optionalAttrs apiBypass {
+      # API calls skip SSO: the apps still require their API key here, and this
+      # keeps mobile clients and API-key integrations working. The apps' own
+      # traffic to each other goes over localhost and never touches nginx.
+      "~ ^/api(/|$)" = {
+        proxyPass = "http://localhost:${toString port}";
+        extraConfig = ''
+          proxy_max_temp_file_size 2048m;
+        '';
+      };
+    } // {
       "/" = {
         proxyPass = "http://localhost:${toString port}";
         extraConfig = ''
@@ -67,15 +77,6 @@ let
           error_page 401 = @goauthentik_proxy_signin;
           auth_request_set $auth_cookie $upstream_http_set_cookie;
           add_header Set-Cookie $auth_cookie;
-        '';
-      };
-      # API calls skip SSO: the apps still require their API key here, and this
-      # keeps mobile clients and API-key integrations working. The apps' own
-      # traffic to each other goes over localhost and never touches nginx.
-      "~ ^/api(/|$)" = {
-        proxyPass = "http://localhost:${toString port}";
-        extraConfig = ''
-          proxy_max_temp_file_size 2048m;
         '';
       };
       "/outpost.goauthentik.io" = {
@@ -160,7 +161,100 @@ in
         (mkWaitForArrPing (lib.removeSuffix "-api" unit))
       ];
     }
-  );
+  ) // {
+    # The widgets need each app's API key, which nixarr's <arr>-api units export
+    # to ${stateDir}/secrets/<arr>.api-key (root:<arr>-api, 0640). homepage runs
+    # with DynamicUser + PrivateUsers, so group membership would not reliably
+    # reach those files; LoadCredential has PID 1 read them as root and hand the
+    # service private copies under $CREDENTIALS_DIRECTORY (%d), which homepage
+    # reads through its HOMEPAGE_FILE_* variables.
+    homepage-dashboard = {
+      after = map (name: "${name}-api.service") arrsWithApiUnits;
+      wants = map (name: "${name}-api.service") arrsWithApiUnits;
+      serviceConfig.LoadCredential = map
+        (name: "${name}-key:${config.nixarr.stateDir}/secrets/${name}.api-key")
+        arrsWithApiUnits;
+      environment = lib.listToAttrs (map
+        (name: lib.nameValuePair "HOMEPAGE_FILE_${lib.toUpper name}_KEY" "%d/${name}-key")
+        arrsWithApiUnits);
+    };
+  };
+
+  # Dashboard for the whole stack at arr.b.nel.family, behind the same
+  # authentik forward auth as the apps. Widgets talk to the apps over localhost;
+  # the links are what the browser opens.
+  services.homepage-dashboard = {
+    enable = true;
+    allowedHosts = "arr.b.nel.family";
+    settings = {
+      title = "Media";
+      theme = "dark";
+      color = "slate";
+      headerStyle = "clean";
+      layout = {
+        Watch = { style = "row"; columns = 2; };
+        Automation = { style = "row"; columns = 4; };
+        Downloads = { style = "row"; columns = 2; };
+      };
+    };
+    widgets = [
+      { resources = { cpu = true; memory = true; disk = config.nixarr.mediaDir; }; }
+    ];
+    services =
+      let
+        arrTile = name: description: {
+          ${lib.toSentenceCase name} = {
+            inherit description;
+            href = "https://${name}.arr.b.nel.family/";
+            icon = "${name}.svg";
+            widget = {
+              type = name;
+              url = "http://127.0.0.1:${toString arrPorts.${name}}";
+              key = "{{HOMEPAGE_FILE_${lib.toUpper name}_KEY}}";
+            };
+          };
+        };
+      in
+      [
+        {
+          Watch = [
+            {
+              Jellyfin = {
+                description = "Stream the library";
+                href = "https://media.nel.family/";
+                icon = "jellyfin.svg";
+              };
+            }
+          ];
+        }
+        {
+          Automation = [
+            (arrTile "sonarr" "TV")
+            (arrTile "radarr" "Movies")
+            (arrTile "lidarr" "Music")
+            (arrTile "prowlarr" "Indexers")
+          ];
+        }
+        {
+          Downloads = [
+            {
+              Transmission = {
+                description = "Torrents, over the VPN";
+                href = "http://romeo.b.nel.family:${toString config.nixarr.transmission.uiPort}/";
+                icon = "transmission.svg";
+                # RPC listens inside the VPN namespace; its address is reachable
+                # from the host through the namespace bridge. No RPC auth is set.
+                widget = {
+                  type = "transmission";
+                  url = "http://${config.vpnNamespaces.wg.namespaceAddress}:${toString config.nixarr.transmission.uiPort}";
+                  rpcUrl = "/transmission/";
+                };
+              };
+            }
+          ];
+        }
+      ];
+  };
 
   services.flaresolverr.enable = true;
 
@@ -175,8 +269,15 @@ in
   services.nginx = {
     enable = true;
     virtualHosts = lib.mapAttrs' (name: port:
-      lib.nameValuePair "${name}.arr.b.nel.family" (mkArrVhost port)
-    ) arrPorts;
+      lib.nameValuePair "${name}.arr.b.nel.family" (mkArrVhost { inherit port; })
+    ) arrPorts // {
+      # No /api bypass here: homepage's /api is the proxy that calls the apps
+      # *with* their API keys, so it has to stay behind SSO.
+      "arr.b.nel.family" = mkArrVhost {
+        port = config.services.homepage-dashboard.listenPort;
+        apiBypass = false;
+      };
+    };
   };
 
   services.jackett = {

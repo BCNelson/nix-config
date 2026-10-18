@@ -440,6 +440,15 @@ resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
   content = "h.b.nel.family"
 }
 
+# The wildcard above does not match its own apex, and the arr dashboard lives at
+# arr.b.nel.family itself.
+resource "porkbun_dns_record" "arr_b_nel_family" {
+  domain  = "nel.family"
+  name    = "arr.b"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 # rss.b     CNAME  dainty-bull.pikapod.net
 resource "porkbun_dns_record" "rss_b_nel_family-CNAME" {
   domain  = "nel.family"
