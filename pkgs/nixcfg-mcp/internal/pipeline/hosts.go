@@ -150,7 +150,14 @@ func EvalHost(p *HostProgress, target Milestone, o HostObs) []Event {
 	}
 
 	// Wrong branch: auto-update.sh deploys whatever is checked out.
-	if s.Branch != "auto-update" && !applied {
+	if s.Branch == "main" && !applied {
+		// main contains everything pushed, so the host still gets the
+		// commit -- ungated, but it does. Warn once and keep following it.
+		if len(p.Human) == 0 {
+			emit(HostFetched, "warn", "the checkout at "+s.Checkout+" is on main, not auto-update: it deploys main without waiting for CI. Hand the human: "+humancmd.SwitchBranch(h, s.Checkout))
+			p.Human = []string{humancmd.SwitchBranch(h, s.Checkout)}
+		}
+	} else if s.Branch != "auto-update" && !applied {
 		if s.Branch == "" {
 			finish(WillNotHappen, HostFetched, "the checkout at "+s.Checkout+" is on a detached HEAD; auto-update refuses to run", humancmd.SwitchBranch(h, s.Checkout))
 		} else {

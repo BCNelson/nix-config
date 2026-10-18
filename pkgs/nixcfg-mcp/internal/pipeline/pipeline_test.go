@@ -154,7 +154,11 @@ func TestEvalHost(t *testing.T) {
 			s.Result = "exit-code"
 			s.AttemptCount = 3
 		}), AttemptContains: Yes, AttemptIsTip: false, Advanced: true}}}, Pending, HostBuilding, "newer commit"},
-		{"wrong branch", romeo, HostApplied, []step{{0, HostObs{State: state(func(s *hostprobe.State) { s.Branch = "main" })}}}, WillNotHappen, HostFetched, "branch main"},
+		{"wrong branch", romeo, HostApplied, []step{{0, HostObs{State: state(func(s *hostprobe.State) { s.Branch = "feature" })}}}, WillNotHappen, HostFetched, "branch feature"},
+		{"on main: ungated but still gets it", romeo, HostApplied, []step{
+			{0, HostObs{State: state(func(s *hostprobe.State) { s.Branch = "main" }), Advanced: true, AdvancedAt: t0}},
+			{time.Minute, HostObs{State: state(func(s *hostprobe.State) { s.Branch = "main" }), BuiltContains: Yes, Advanced: true, AdvancedAt: t0}},
+		}, Succeeded, HostApplied, "applied"},
 		{"unobservable", config.Host{Name: "sierra-2"}, HostApplied, []step{{0, HostObs{}}}, WillNotHappen, HostFetched, "unobservable"},
 		{"not auto-updating", config.Host{Name: "wyse-1", AutoUpdate: new(bool)}, HostApplied, []step{{0, HostObs{}}}, WillNotHappen, HostFetched, "does not run"},
 		{"brief outage", romeo, HostApplied, []step{
