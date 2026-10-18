@@ -54,8 +54,16 @@ let
     forceSSL = true;
     enableACME = true;
     acmeRoot = null;
+    # Tailnet only. DNS for these names points at romeo's Tailscale address
+    # (main.tf), and the h.b ingress is a plain port forward that preserves the
+    # client's address, so anything not from Tailscale's ranges -- the internet,
+    # or a LAN client without Tailscale -- is refused before SSO even runs.
     extraConfig = ''
       client_max_body_size 0;
+
+      allow 100.64.0.0/10;
+      allow fd7a:115c:a1e0::/48;
+      deny all;
     '';
     locations = lib.optionalAttrs apiBypass {
       # API calls skip SSO: the apps still require their API key here, and this

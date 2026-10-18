@@ -433,11 +433,14 @@ resource "porkbun_dns_record" "monitor_nel_family-CNAME" {
   content = "gay-oxpecker.pikapod.net"
 }
 
+# The arr stack is tailnet-only (romeo's nginx refuses non-Tailscale sources),
+# so these point at romeo's Tailscale address rather than the public h.b
+# ingress. Tailnet clients then connect over Tailscale even on the home LAN.
 resource "porkbun_dns_record" "wildcard_arr_b_nel_family" {
   domain  = "nel.family"
   name    = "*.arr.b"
   type    = "CNAME"
-  content = "h.b.nel.family"
+  content = "romeo.b.nel.family"
 }
 
 # The wildcard above does not match its own apex, and the arr dashboard lives at
@@ -446,7 +449,7 @@ resource "porkbun_dns_record" "arr_b_nel_family" {
   domain  = "nel.family"
   name    = "arr.b"
   type    = "CNAME"
-  content = "h.b.nel.family"
+  content = "romeo.b.nel.family"
 }
 
 # rss.b     CNAME  dainty-bull.pikapod.net
