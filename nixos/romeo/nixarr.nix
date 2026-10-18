@@ -193,6 +193,8 @@ in
   # the links are what the browser opens.
   services.homepage-dashboard = {
     enable = true;
+    # The module default, 8082, is Frigate's internal port on romeo.
+    listenPort = 8084;
     allowedHosts = "arr.b.nel.family";
     settings = {
       title = "Media";
