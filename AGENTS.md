@@ -19,10 +19,12 @@ sections before touching either.
 3. **Never read secrets.** Don't read, grep, cat or `nix eval` any
    `**/sensitive.nix` (git-crypt, and this checkout is usually unlocked), never
    decrypt `.age` files, never read `/run/agenix*` on hosts.
-4. **Some steps belong to the human.** Pushing, anything that needs a hardware
-   key touch, kicking or resetting auto-update, and activating a system
+4. **Some steps belong to the human.** Anything that needs a hardware key
+   touch, kicking or resetting auto-update, and activating a system
    (`nixos-rebuild switch`, `just update-os`) are human-only. Hand the human the
-   exact command **on one line** -- no backslash continuations.
+   exact command **on one line** -- no backslash continuations. Pushing to
+   `main` is yours (`git push origin main`): CI gates the deploy. Never
+   force-push, and never push `auto-update` -- only CI moves it.
 5. **Write Nix `${...}` interpolations with your file-edit tool,** not shell
    heredocs: the shell tool expands `${...}` even inside quoted heredocs.
 6. **Use `nixcfg wait` to wait for anything** (CI, auto-update, a host applying a
@@ -65,7 +67,8 @@ List hosts: `nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSe
 | `just rekey` | `agenix rekey -a`; re-encrypts master secrets for every host into `secrets/hosts/`. **Key touch** (it does not generate keys) | human |
 | `just new-secrets` | generate + rekey. **Key touch** | human |
 | `just unlock` / `lock` | git-crypt via GPG. **Key touch** | human |
-| `just push` / `pull` / `sync` | git with a token read from `sensitive.nix` | human |
+| `git push origin main` | push; CI checks it and, if green, deploys it | agent |
+| `just push` / `pull` / `sync` | git with a token read from `sensitive.nix` (use plain `git push`) | human |
 | `just tofu ...` | OpenTofu with B2 credentials read from `sensitive.nix` | human |
 | `just update-os` (`apply`, `os`, `o`, `all`) | `nixos-rebuild switch` on *this* machine (`all` is OS only, not home) | human |
 | `just update-home` | `home-manager switch` | human |
@@ -135,7 +138,7 @@ Gotchas:
    (whiskey offloads its builds to romeo and can't build V8 itself):
    `nixcfg preseed romeo-2`. Otherwise the auto-update rebuilds it from scratch.
    Pre-seeding needs a clean checkout at the commit you'll push.
-4. Commit with a pathspec, then give the human `git push origin main`.
+4. Commit with a pathspec, then `git push origin main`.
 5. `nixcfg wait <sha> --until live` and report the summary it prints.
 
 ## Secrets
@@ -188,7 +191,7 @@ pushed -> ci_started -> check_hosts_passed -> ci_passed -> auto_update_advanced
 It prints one line per event and ends with `RESULT state=...`. Exit codes:
 0 succeeded, 1 failed, 2 usage error, 3 timed out, 4 unreachable,
 5 will not happen (e.g. the commit touches no watched path), 6 blocked on the
-human (e.g. not pushed yet, Tailscale SSH wants a browser login). A commit
+human (e.g. Tailscale SSH wants a browser login, a host needs a kick). A commit
 counts as applied once a host has built it *or any descendant*.
 
 Run it in the background (Claude: background Bash or Monitor) for long waits.
@@ -229,7 +232,8 @@ calls in every agent (`.claude/settings.json`, `.codex/hooks.json`,
 - `git commit` without an explicit pathspec, or with `-a`/`--interactive`/`--patch`
 - reading `**/sensitive.nix`, decrypting `.age`, reading `/run/agenix`, git-crypt
   unlock/export, `gpg -d`, `bw get`
-- key-touch commands: `agenix rekey|edit`, `just rekey|new-secrets|unlock|push|tofu|...`, `git push`
+- key-touch commands: `agenix rekey|edit`, `just rekey|new-secrets|unlock|push|tofu|...`
+- force pushes (`-f`, `--force-with-lease`, `+refspec`, `--delete`) and any push to `auto-update`
 - deploy controls: ntfy pings, `systemctl start auto-update`, editing the state file
 - activation: `nixos-rebuild switch|boot|test`, `just update-os` and its aliases
 

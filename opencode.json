@@ -22,7 +22,6 @@
   },
   "permission": {
     "bash": {
-      "git push*": "deny",
       "agenix rekey*": "deny",
       "agenix edit*": "deny",
       "just rekey*": "deny",

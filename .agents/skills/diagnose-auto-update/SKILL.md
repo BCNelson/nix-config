@@ -38,5 +38,5 @@ Then match the diagnosis:
 
 ## After a fix
 
-Commit the fix (pathspec), hand over the push, and
+Commit the fix (pathspec), `git push origin main`, and
 `nixcfg wait <new-sha> --until host_applied --host <host>`.

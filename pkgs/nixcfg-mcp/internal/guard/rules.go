@@ -216,9 +216,7 @@ func ruleGit(c call) Decision {
 	case "commit":
 		return checkCommit(rest)
 	case "push":
-		return block("human-only",
-			"pushing is the human's call: a push to main deploys to every host once CI passes.",
-			humanFor(c))
+		return checkPush(rest)
 	case "crypt":
 		return checkGitCrypt(append([]string{"git-crypt"}, rest...), c)
 	}
@@ -288,6 +286,41 @@ func checkCommit(args []string) Decision {
 		return block("commit-pathspec", "interactive commits can't be driven by an agent; "+how, "")
 	case !paths && !fromFile:
 		return block("commit-pathspec", "a bare `git commit` takes everything staged; "+how, "")
+	}
+	return allow
+}
+
+// checkPush allows ordinary pushes (main deploys through CI, which is the
+// point) but not the two ways round the gate: rewriting history, and writing
+// the auto-update branch directly (hosts build it with no check-hosts run).
+func checkPush(args []string) Decision {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if a == "-f" || a == "--force" || strings.HasPrefix(a, "--force-with-lease") || strings.HasPrefix(a, "--force-if-includes") ||
+			a == "--mirror" || a == "-d" || a == "--delete" || a == "--prune" ||
+			(strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && strings.ContainsRune(a, 'f')) {
+			return block("push-force",
+				"force-pushing, deleting or mirroring refs rewrites what hosts and CI see; push normally (fast-forward) instead.",
+				"")
+		}
+	}
+	for _, a := range positional(args, "o", []string{"push-option", "repo", "receive-pack", "exec", "recurse-submodules"}) {
+		// A refspec like main:auto-update, +x:auto-update or refs/heads/auto-update.
+		dst := a
+		if _, after, ok := strings.Cut(a, ":"); ok {
+			dst = after
+		}
+		dst = strings.TrimPrefix(strings.TrimPrefix(dst, "+"), "refs/heads/")
+		if dst == "auto-update" {
+			return block("deploy-control",
+				"auto-update is advanced only by CI, after check-hosts passes (forward only). Push to main and let CI move it.",
+				"")
+		}
+		if strings.HasPrefix(a, "+") {
+			return block("push-force", "a +refspec is a force push; push normally (fast-forward) instead.", "")
+		}
 	}
 	return allow
 }
@@ -507,7 +540,7 @@ var keyTouchRecipes = map[string]string{
 	"sync-secrets":      "syncing to Bitwarden decrypts every secret with the human's key and Bitwarden password.",
 	"unlock":            "git-crypt unlock needs the human's GPG key.",
 	"lock":              "locking git-crypt changes what every evaluation sees; the human does this.",
-	"push":              "pushing is the human's call: a push to main deploys to every host once CI passes.",
+	"push":              "this reads a GitHub token from sensitive.nix; push with `git push origin main` instead.",
 	"pull":              "this reads a token from sensitive.nix; the human runs it.",
 	"sync":              "this pulls with a token from sensitive.nix and switches this machine; the human runs it.",
 	"tofu":              "OpenTofu reads state credentials from sensitive.nix and changes real DNS; the human runs it.",
@@ -539,10 +572,12 @@ func ruleKeyTouch(c call) Decision {
 			rule := "key-touch"
 			if strings.HasPrefix(why, "activating") || strings.Contains(why, "switches") {
 				rule = "activation"
-			} else if pos[0] == "push" {
-				rule = "human-only"
 			}
-			return block(rule, why, humanFor(c))
+			human := humanFor(c)
+			if pos[0] == "push" {
+				human = "" // the agent can push itself, with git
+			}
+			return block(rule, why, human)
 		}
 	case "ykman", "age-plugin-yubikey", "age-plugin-fido2-hmac":
 		return block("key-touch", "hardware-key tools are the human's.", humanFor(c))

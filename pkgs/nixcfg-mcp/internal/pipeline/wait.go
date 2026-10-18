@@ -509,9 +509,8 @@ func (w *Wait) checkDeadline(now time.Time) {
 	if w.res.State.Terminal() || now.Before(w.res.Deadline) {
 		return
 	}
-	// Ran out of time: if something is waiting on the human, say so.
-	if len(w.res.HumanActions) > 0 && w.stage(Pushed).State != Succeeded {
-		w.finish(now, Blocked, Pushed, "", "not pushed before the deadline", "", w.res.HumanActions)
+	if w.stage(Pushed).State != Succeeded {
+		w.finish(now, TimedOut, Pushed, "", "never reached origin/main before the deadline (git push origin main)", "", nil)
 		return
 	}
 	var stuck []string

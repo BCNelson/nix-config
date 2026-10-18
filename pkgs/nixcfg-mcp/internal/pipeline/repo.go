@@ -74,8 +74,7 @@ func EvalRepo(o RepoObs) RepoVerdict {
 	if o.Pushed {
 		set(Pushed, Succeeded, "in origin/main")
 	} else {
-		set(Pushed, Pending, "only in your local checkout; the human pushes it")
-		v.Human = append(v.Human, "git push origin main")
+		set(Pushed, Pending, "only in the local checkout; push it: git push origin main")
 		for _, m := range RepoStages[1:] {
 			set(m, Pending, "")
 		}

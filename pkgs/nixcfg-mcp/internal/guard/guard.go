@@ -21,7 +21,7 @@ import (
 
 // RulesVersion is bumped whenever the rules change, so the shim can warn when
 // an installed binary lags the repo (.agents/guard-version).
-const RulesVersion = "1"
+const RulesVersion = "2"
 
 // Decision is the verdict on one tool call.
 type Decision struct {

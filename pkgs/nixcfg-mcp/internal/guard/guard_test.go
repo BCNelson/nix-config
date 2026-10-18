@@ -42,9 +42,18 @@ func TestCommands(t *testing.T) {
 		{`echo "git commit -m x"`, ""},
 		{`git log --oneline -5`, ""},
 
-		// human-only push
-		{`git push origin main`, "human-only"},
-		{`git push`, "human-only"},
+		// pushing main is fine; force pushes and writing auto-update are not
+		{`git push origin main`, ""},
+		{`git push`, ""},
+		{`git push -u origin feature`, ""},
+		{`git push --force origin main`, "push-force"},
+		{`git push -f`, "push-force"},
+		{`git push --force-with-lease origin main`, "push-force"},
+		{`git push origin +main`, "push-force"},
+		{`git push origin --delete old`, "push-force"},
+		{`git push origin main:auto-update`, "deploy-control"},
+		{`git push origin HEAD:refs/heads/auto-update`, "deploy-control"},
+		{`git push origin auto-update`, "deploy-control"},
 		{`git fetch origin`, ""},
 
 		// secret-read
@@ -79,7 +88,7 @@ func TestCommands(t *testing.T) {
 		{`just sync-secrets`, "key-touch"},
 		{`just unlock`, "key-touch"},
 		{`just tofu plan`, "key-touch"},
-		{`just push`, "human-only"},
+		{`just push`, "key-touch"},
 		{`agenix rekey -a`, "key-touch"},
 		{`git-crypt unlock`, "key-touch"},
 		{`git crypt unlock`, "key-touch"},
@@ -208,7 +217,8 @@ func TestPayloads(t *testing.T) {
 		{"codex", `{"tool_name":"Bash","tool_input":{"command":["git","status"]}}`, false},
 		{"opencode", `{"tool_name":"read","tool_input":{"filePath":"nixos/whiskey/sensitive.nix"}}`, true},
 		{"pi", `{"tool_name":"bash","tool_input":{"command":"just update-os"}}`, true},
-		{"plain", `git push origin main`, true},
+		{"plain", `git push origin main`, false},
+		{"plain", `git push -f origin main`, true},
 	}
 	for _, tc := range cases {
 		var out, errb bytes.Buffer

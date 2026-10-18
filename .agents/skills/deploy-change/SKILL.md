@@ -6,8 +6,9 @@ description: Take a change in this NixOS flake from edit to verified-live on the
 # Deploy a change
 
 Deploys are automatic once a commit reaches `main` -- your job is to make sure
-the commit is sound before the human pushes it, and to confirm it landed
-afterwards. You never push or activate anything yourself.
+the commit is sound before you push it, and to confirm it landed afterwards.
+You push `main` yourself; you never force-push, push `auto-update`, or
+activate anything.
 
 ## 1. Know what will happen
 
@@ -43,7 +44,7 @@ nixcfg preseed whiskey-1
 
 Pre-seeding needs git-crypt unlocked and a clean checkout at exactly the commit
 you'll push, otherwise the derivation won't match what the host builds. So
-commit first (step 4), then pre-seed, then hand over the push.
+commit first (step 4), then pre-seed, then push.
 
 ## 4. Commit with a pathspec
 
@@ -54,9 +55,10 @@ git commit -m "feat(scope): ..." -- <every path you changed>
 
 Never a bare `git commit`: other staged work in this tree would go to `main`.
 
-## 5. Hand over the push
+## 5. Push
 
-Give the human exactly: `git push origin main`
+`git push origin main`. If it's rejected as non-fast-forward, `git pull --rebase`
+and push again; never force.
 
 ## 6. Wait for it to be live
 
@@ -70,7 +72,7 @@ final summary (per-stage times, per-host result). If it ends:
 
 - `will_not_happen` (5): read the reason -- usually no watched path, a host
   that isn't auto-updating, or `reboot = false` with a reboot needed.
-- `blocked` (6): something needs the human (push, Tailscale SSH login). Hand
+- `blocked` (6): something needs the human (Tailscale SSH login, a host kick). Hand
   them the command it printed.
 - `failed` (1): CI or a host build failed. Fix forward with a new commit; for a
   host with retries exhausted, see the `diagnose-auto-update` skill.
