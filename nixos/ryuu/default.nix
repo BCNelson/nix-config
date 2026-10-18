@@ -10,7 +10,7 @@
   services.bcnelson.autoUpdate = {
     enable = true;
     path = "/config";
-    reboot = false;
+    reboot = true;
     refreshInterval = "5m";
     healthCheck = {
       enable = true;
