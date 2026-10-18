@@ -172,19 +172,38 @@ in
   ) // {
     # The widgets need each app's API key, which nixarr's <arr>-api units export
     # to ${stateDir}/secrets/<arr>.api-key (root:<arr>-api, 0640). homepage runs
-    # with DynamicUser + PrivateUsers, so group membership would not reliably
-    # reach those files; LoadCredential has PID 1 read them as root and hand the
-    # service private copies under $CREDENTIALS_DIRECTORY (%d), which homepage
-    # reads through its HOMEPAGE_FILE_* variables.
-    homepage-dashboard = {
+    # with DynamicUser + PrivateUsers, so it cannot read those itself. This
+    # root oneshot gathers them into an env file that systemd (as root) feeds
+    # to homepage as HOMEPAGE_VAR_*.
+    #
+    # Not HOMEPAGE_FILE_*: homepage pastes file contents into the YAML
+    # verbatim, and the exported keys end in a newline, which broke the quoted
+    # `key:` scalar and made homepage print the key into the journal.
+    homepage-arr-keys = {
+      description = "Collect arr API keys for homepage";
       after = map (name: "${name}-api.service") arrsWithApiUnits;
       wants = map (name: "${name}-api.service") arrsWithApiUnits;
-      serviceConfig.LoadCredential = map
-        (name: "${name}-key:${config.nixarr.stateDir}/secrets/${name}.api-key")
-        arrsWithApiUnits;
-      environment = lib.listToAttrs (map
-        (name: lib.nameValuePair "HOMEPAGE_FILE_${lib.toUpper name}_KEY" "%d/${name}-key")
-        arrsWithApiUnits);
+      before = [ "homepage-dashboard.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        RuntimeDirectory = "homepage-arr-keys";
+        RuntimeDirectoryMode = "0700";
+        UMask = "0077";
+      };
+      script = ''
+        out=/run/homepage-arr-keys/env
+        : > "$out.tmp"
+        ${lib.concatMapStrings (name: ''
+          printf 'HOMEPAGE_VAR_${lib.toUpper name}_KEY=%s\n' \
+            "$(tr -d '[:space:]' < '${config.nixarr.stateDir}/secrets/${name}.api-key')" >> "$out.tmp"
+        '') arrsWithApiUnits}
+        mv "$out.tmp" "$out"
+      '';
+    };
+    homepage-dashboard = {
+      requires = [ "homepage-arr-keys.service" ];
+      after = [ "homepage-arr-keys.service" ];
     };
   };
 
@@ -195,6 +214,8 @@ in
     enable = true;
     # The module default, 8082, is Frigate's internal port on romeo.
     listenPort = 8084;
+    # Written by homepage-arr-keys (above); systemd reads it as root.
+    environmentFiles = [ "/run/homepage-arr-keys/env" ];
     allowedHosts = "arr.b.nel.family";
     settings = {
       title = "Media";
@@ -220,7 +241,7 @@ in
             widget = {
               type = name;
               url = "http://127.0.0.1:${toString arrPorts.${name}}";
-              key = "{{HOMEPAGE_FILE_${lib.toUpper name}_KEY}}";
+              key = "{{HOMEPAGE_VAR_${lib.toUpper name}_KEY}}";
             };
           };
         };
