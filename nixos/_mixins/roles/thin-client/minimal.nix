@@ -56,5 +56,5 @@
   # Old generations are the other half of the disk pressure. common.nix keeps a
   # week; on this hardware that is several closures' worth of eMMC. Only the
   # retention is overridden -- the daily schedule from common.nix still applies.
-  nix.gc.options = "--delete-older-than 3d";
+  services.bcnelson.generationRetention.olderThanDays = 3;
 }

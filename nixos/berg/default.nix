@@ -37,9 +37,9 @@
     gc = {
       automatic = true;
       dates = "weekly";
-      options = "--delete-older-than 30d";
     };
   };
+  services.bcnelson.generationRetention.olderThanDays = 30;
 
   # Enable zram swap for better performance on limited RAM
   zramSwap.enable = true;

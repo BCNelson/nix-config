@@ -9,7 +9,6 @@
     gc = lib.mkDefault{
       automatic = true;
       dates = "daily";
-      options = "--delete-older-than 7d";
     };
     settings = {
       auto-optimise-store = true;
@@ -45,6 +44,12 @@
       ];
     };
   };
+
+  # Generation expiry ahead of nix-gc (default: older than 7 days). Unlike
+  # `nix.gc.options = "--delete-older-than"`, it never deletes the booted
+  # generation, so a long-running host keeps its proven-bootable fallback entry
+  # and systemd-bless-boot doesn't fail every switch.
+  services.bcnelson.generationRetention.enable = true;
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;

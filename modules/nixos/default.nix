@@ -3,6 +3,7 @@
 
 {
   autoUpdate = import ./autoUpdate;
+  generationRetention = import ./generationRetention;
   recovery = import ./recovery;
   dataDirs = import ./dataDirs;
   nixBinaryCacheProxy = import ./nixBinaryCacheProxy;

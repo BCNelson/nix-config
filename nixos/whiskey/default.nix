@@ -43,10 +43,13 @@
 
   # Tiny disk (78G) + hourly auto-update rebuilds were piling up 30+ system
   # generations (~69G of /nix). Keep only the current generation plus one
-  # rollback. nix-collect-garbage can't do count-based retention, so prune the
-  # system profile to the last 2 generations, then let the daily GC reap the
-  # now-unreferenced paths.
-  nix.gc.options = lib.mkForce ""; # generation retention handled by prune service below
+  # rollback (plus the booted generation, which generationRetention always
+  # keeps), then let the daily GC reap the now-unreferenced paths. Other
+  # profiles get no age-based expiry here, as before.
+  services.bcnelson.generationRetention = {
+    keep = 2;
+    olderThanDays = null;
+  };
 
   # whiskey is a headless server, not a dev box: it has no nix-direnv shells to
   # protect, so it doesn't need build-time deps kept rooted. common.nix enables
@@ -55,14 +58,6 @@
   # reclaim. Dropping them lets GC collect the build closure.
   nix.settings.keep-outputs = lib.mkForce false;
   nix.settings.keep-derivations = lib.mkForce false;
-
-  systemd.services.prune-system-generations = {
-    description = "Keep only the last 2 system generations (current + 1 rollback)";
-    requiredBy = [ "nix-gc.service" ];
-    before = [ "nix-gc.service" ];
-    serviceConfig.Type = "oneshot";
-    script = "${config.nix.package}/bin/nix-env -p /nix/var/nix/profiles/system --delete-generations +2";
-  };
 
   # home-manager writes a new user-profile generation on every system rebuild,
   # into bcnelson's home (~/.local/state/nix/profiles) where the root-run
