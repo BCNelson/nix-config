@@ -31,12 +31,28 @@
 
     # have the job run this shell script
     script = with pkgs; ''
-      # wait for tailscaled to settle
-      sleep 2
+      backend_state() {
+          ${tailscale}/bin/tailscale status -json 2>/dev/null | ${jq}/bin/jq -r '.BackendState // empty' || true
+      }
+
+      # Wait for tailscaled to settle instead of sleeping a fixed two seconds.
+      # An already-authenticated node reports NoState/Starting until it reaches
+      # the control plane. That can take far longer than two seconds on a slow
+      # boot or after a big tailscale upgrade, and reading "Starting" as "not
+      # logged in" sent ryuu down the login path. It then failed waiting for an
+      # auth URL that a logged-in node never produces.
+      status=""
+      for i in $(seq 1 30); do
+          status="$(backend_state)"
+          case "$status" in
+              ""|NoState|Starting) sleep 1 ;;
+              *) break ;;
+          esac
+      done
+      echo "tailscaled backend state: ''${status:-unknown}"
 
       # check if we are already authenticated to tailscale
-      status="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r .BackendState)"
-      if [ $status = "Running" ]; then # if so, then do nothing
+      if [ "$status" = "Running" ]; then # if so, then do nothing
           exit 0
       fi
 
@@ -55,8 +71,17 @@
       # notification is not delivered at all and the URL reaches nobody. The
       # `// empty` also normalises a JSON null, which -r would otherwise hand
       # back as the literal string "null".
+      #
+      # Reaching Running in the meantime also counts as done. The node was
+      # logged in after all and was just slow to come up, so there will never
+      # be a URL to wait for.
       auth_url=""
       for i in $(seq 1 60); do
+          if [ "$(backend_state)" = "Running" ]; then
+              echo "tailscale connected without a login after ''${i}s"
+              wait $tail_pid || true
+              exit 0
+          fi
           auth_url="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r '.AuthURL // empty')"
           [ -n "$auth_url" ] && break
           sleep 1
