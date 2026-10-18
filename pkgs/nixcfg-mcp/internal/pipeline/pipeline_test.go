@@ -28,7 +28,7 @@ func job(name, status string) forgejo.RunJob {
 }
 
 func TestEvalRepo(t *testing.T) {
-	base := RepoObs{At: t0, Pushed: true, PushedSince: t0.Add(-time.Minute), WatchedAhead: true, NextBump: NextBump(t0), Deadline: t0.Add(time.Hour)}
+	base := RepoObs{At: t0, Pushed: true, PushedSince: t0.Add(-5 * time.Minute), WatchedAhead: true, NextBump: NextBump(t0), Deadline: t0.Add(time.Hour)}
 
 	cases := []struct {
 		name  string
@@ -40,7 +40,12 @@ func TestEvalRepo(t *testing.T) {
 		{"not pushed", func(o RepoObs) RepoObs { o.Pushed = false; return o }, Pushed, Pending, "local"},
 		{"already deployed", func(o RepoObs) RepoObs { o.InAutoUpdate = true; return o }, AutoUpdateAdvanced, Succeeded, "contains"},
 		{"waiting for runner", func(o RepoObs) RepoObs { return o }, CIStarted, Pending, "waiting for a check.yml run"},
-		{"unwatched, short deadline", func(o RepoObs) RepoObs { o.WatchedAhead = false; return o }, CIStarted, WillNotHappen, "touches no path"},
+		{"unwatched, short deadline", func(o RepoObs) RepoObs { o.WatchedAhead = false; return o }, CIStarted, WillNotHappen, "touches a path"},
+		{"unwatched, just pushed", func(o RepoObs) RepoObs {
+			o.WatchedAhead = false
+			o.PushedSince = t0.Add(-30 * time.Second)
+			return o
+		}, CIStarted, Pending, "looking for a CI run"},
 		{"unwatched, rides the bump", func(o RepoObs) RepoObs {
 			o.WatchedAhead = false
 			o.Deadline = o.NextBump.Add(2 * time.Hour)

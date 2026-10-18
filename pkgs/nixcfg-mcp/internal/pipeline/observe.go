@@ -142,7 +142,7 @@ func (o *Observer) Repo(ctx context.Context, sha string, refs Refs, pushedSince,
 			obs.OwnWatched = append(obs.OwnWatched, m.Path)
 		}
 	}
-	obs.WatchedAhead = o.watchedAhead(ctx, sha, refs.Main)
+	obs.WatchedAhead = o.watchedAhead(ctx, sha, refs.Main, refs.AutoUpdate)
 
 	if obs.InAutoUpdate && pushedSince.IsZero() {
 		// Long since deployed; skip the CI lookups.
@@ -157,7 +157,8 @@ func (o *Observer) Repo(ctx context.Context, sha string, refs Refs, pushedSince,
 	since := o.commitTime(ctx, sha).Add(-10 * time.Minute)
 	for i := len(runs) - 1; i >= 0; i-- { // API returns newest first; walk oldest first
 		r := runs[i]
-		if !r.Started.IsZero() && r.Started.Before(since) {
+		// Queued runs report started as the Unix epoch, not as unset.
+		if r.Started.Unix() > 0 && r.Started.Before(since) {
 			continue
 		}
 		if o.Contains(ctx, sha, r.CommitSHA) != Yes {
@@ -181,8 +182,20 @@ func (o *Observer) commitTime(ctx context.Context, sha string) time.Time {
 	return t
 }
 
-func (o *Observer) watchedAhead(ctx context.Context, sha, main string) bool {
-	commits, err := o.Git.Commits(ctx, sha+"^", main)
+// watchedAhead reports whether a CI run will (or did) carry sha: some commit
+// that isn't deployed yet -- anything on main past auto-update, not just sha
+// and its descendants -- touches a watched path. A push's path filter sees the
+// whole pushed range, so an unwatched commit pushed together with a watched
+// one still gets a run.
+func (o *Observer) watchedAhead(ctx context.Context, sha, main, autoUpdate string) bool {
+	var commits []string
+	var err error
+	if autoUpdate != "" {
+		commits, err = o.Git.Commits(ctx, autoUpdate, main)
+	}
+	if autoUpdate == "" || err != nil {
+		commits, err = o.Git.Commits(ctx, sha+"^", main)
+	}
 	if err != nil {
 		commits = []string{sha}
 	}

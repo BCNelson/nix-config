@@ -114,11 +114,15 @@ func EvalRepo(o RepoObs) RepoVerdict {
 			when += ", " + o.NextBump.UTC().Format("2006-01-02 15:04") + " UTC"
 		}
 		when += ")"
-		reason := "it touches no path check.yml watches, and nothing after it on main does either, so no CI run will deploy it until another watched change lands or " + when
-		// Ride the flake bump if the wait lasts long enough for it.
-		if !o.NextBump.IsZero() && !o.Deadline.IsZero() && o.Deadline.After(o.NextBump.Add(90*time.Minute)) {
+		reason := "nothing on main that isn't deployed yet touches a path check.yml watches, so no CI run will deploy it until another watched change lands or " + when
+		switch {
+		case o.PushedSince.IsZero() || o.At.Sub(o.PushedSince) < 2*time.Minute:
+			// Runs can show up a little after the push; don't call it early.
+			set(CIStarted, Pending, "looking for a CI run (none yet; "+reason+")")
+		case !o.NextBump.IsZero() && !o.Deadline.IsZero() && o.Deadline.After(o.NextBump.Add(90*time.Minute)):
+			// Ride the flake bump if the wait lasts long enough for it.
 			set(CIStarted, Pending, "waiting for "+when+"; "+reason)
-		} else {
+		default:
 			set(CIStarted, WillNotHappen, reason)
 		}
 	default:
