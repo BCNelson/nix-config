@@ -108,6 +108,12 @@ func EvalHost(p *HostProgress, target Milestone, o HostObs) []Event {
 			}
 			return evs
 		}
+		var off *hostprobe.OfflineError
+		if errors.As(o.Err, &off) && !p.RebootExpected && (off.LastSeen.Year() < 2000 || o.Now.Sub(off.LastSeen) > time.Hour) {
+			// Long gone from the tailnet, not mid-reboot: waiting won't help.
+			finish(Unreachable, p.Stage, off.Error())
+			return evs
+		}
 		if p.FailStreakSince.IsZero() {
 			p.FailStreakSince = o.Now
 		}

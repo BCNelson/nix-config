@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"nixcfg-mcp/internal/config"
+	"nixcfg-mcp/internal/hostprobe"
 	"nixcfg-mcp/internal/humancmd"
 )
 
@@ -77,7 +78,7 @@ func NewWait(cfg *config.Config, obs *Observer, store *Store, spec Spec) (*Wait,
 		w.res.Stages = append(w.res.Stages, Stage{Name: m, State: Pending})
 	}
 	if spec.Until.IsHostStage() {
-		sel, err := SelectHosts(cfg, spec.Hosts)
+		sel, err := SelectHosts(cfg, spec.Hosts, hostprobe.Tailnet(ctx))
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +117,9 @@ func describeExcluded(ex map[string]string) string {
 }
 
 // SelectHosts picks the hosts a host-stage wait covers.
-func SelectHosts(cfg *config.Config, explicit []string) (*HostSelection, error) {
+// peers is the tailnet's view (nil when unknown); a default selection leaves
+// out hosts it says are offline, since they can only end unreachable.
+func SelectHosts(cfg *config.Config, explicit []string, peers map[string]hostprobe.Peer) (*HostSelection, error) {
 	sel := &HostSelection{Excluded: map[string]string{}}
 	if len(explicit) > 0 {
 		sel.Explicit = true
@@ -139,6 +142,11 @@ func SelectHosts(cfg *config.Config, explicit []string) (*HostSelection, error) 
 			sel.Excluded[n] = "unobservable"
 		case !h.Ntfy && (iv == 0 || iv > 15*time.Minute):
 			sel.Excluded[n] = "no ntfy; timer every " + h.Interval
+		case peers != nil && !peers[n].Online && peers[n].HostName != "":
+			sel.Excluded[n] = "offline on the tailnet"
+			if ls := peers[n].LastSeen; ls.Year() >= 2000 {
+				sel.Excluded[n] += ", last seen " + hostprobe.Ago(time.Since(ls)) + " ago"
+			}
 		default:
 			sel.Hosts = append(sel.Hosts, n)
 		}
@@ -468,22 +476,32 @@ func orDefault(s, d string) string {
 	return s
 }
 
+// aggregateHosts ends the wait once the hosts decide it. A host that fails
+// for a reason about the change (build failed, wrong branch, ...) ends it at
+// once unless keep_going. A host that is merely out of reach (unreachable,
+// timed out) never does, unless strict: the wait carries on with the others
+// and ends partial if they all made it.
 func (w *Wait) aggregateHosts(now time.Time) {
 	sel := w.res.HostSelection
+	strict := w.res.Spec.Strict
 	all := true
-	var worst *HostProgress
+	var hard, soft []*HostProgress
+	ok := 0
 	minStage := HostRebootedOK
 	for _, n := range sel.Hosts {
 		p := w.res.Hosts[n]
-		if !p.State.Terminal() {
+		switch {
+		case !p.State.Terminal():
 			all = false
 			if hostIndex(p.Stage) < hostIndex(minStage) {
 				minStage = p.Stage
 			}
-			continue
-		}
-		if p.State != Succeeded && worst == nil {
-			worst = p
+		case p.State == Succeeded:
+			ok++
+		case p.State.Soft() && !strict:
+			soft = append(soft, p)
+		default:
+			hard = append(hard, p)
 		}
 	}
 	if minStage == "" {
@@ -492,7 +510,8 @@ func (w *Wait) aggregateHosts(now time.Time) {
 	if w.stage(AutoUpdateAdvanced).State == Succeeded {
 		w.res.CurrentStage = minStage
 	}
-	if worst != nil && (!w.res.Spec.KeepGoing || all) {
+	if len(hard) > 0 && (!w.res.Spec.KeepGoing || all) {
+		worst := hard[0]
 		reason := worst.Detail
 		if len(sel.Hosts) > 1 {
 			reason = worst.Host + ": " + reason
@@ -500,9 +519,27 @@ func (w *Wait) aggregateHosts(now time.Time) {
 		w.finish(now, worst.State, worst.Stage, worst.Host, reason, worst.LogTail, worst.Human)
 		return
 	}
-	if all {
-		w.finish(now, Succeeded, w.res.Spec.Until, "", fmt.Sprintf("%d host(s) reached %s", len(sel.Hosts), w.res.Spec.Until), "", nil)
+	if !all {
+		return
 	}
+	switch {
+	case len(soft) == 0:
+		w.finish(now, Succeeded, w.res.Spec.Until, "", fmt.Sprintf("%d host(s) reached %s", len(sel.Hosts), w.res.Spec.Until), "", nil)
+	case ok == 0:
+		// Nobody could be reached: that is not a partial success.
+		w.finish(now, soft[0].State, soft[0].Stage, soft[0].Host, describeSoft(soft), "", nil)
+	default:
+		w.finish(now, Partial, w.res.Spec.Until, "",
+			fmt.Sprintf("%d host(s) reached %s; %s", ok, w.res.Spec.Until, describeSoft(soft)), "", nil)
+	}
+}
+
+func describeSoft(ps []*HostProgress) string {
+	parts := make([]string, len(ps))
+	for i, p := range ps {
+		parts[i] = fmt.Sprintf("%s %s (%s)", p.Host, p.State, p.Detail)
+	}
+	return "didn't finish: " + strings.Join(parts, "; ")
 }
 
 func (w *Wait) checkDeadline(now time.Time) {
@@ -511,6 +548,32 @@ func (w *Wait) checkDeadline(now time.Time) {
 	}
 	if w.stage(Pushed).State != Succeeded {
 		w.finish(now, TimedOut, Pushed, "", "never reached origin/main before the deadline (git push origin main)", "", nil)
+		return
+	}
+	// Out of time on the host stages: each host still pending times out on
+	// its own, and the usual rules decide the whole (partial when the others
+	// made it).
+	if w.res.HostSelection != nil && w.stage(AutoUpdateAdvanced).State == Succeeded {
+		for _, n := range sortedKeys(w.res.Hosts) {
+			p := w.res.Hosts[n]
+			if p.State.Terminal() {
+				continue
+			}
+			why := joinNonEmpty(p.Detail, p.ETA)
+			switch {
+			case p.LastError == "needs-login":
+				p.State, p.Detail = Blocked, "Tailscale SSH check mode needs a browser login"
+			case p.LastError != "" && !p.FailStreakSince.IsZero():
+				p.State = Unreachable
+				p.Detail = fmt.Sprintf("unreachable for %s: %s", now.Sub(p.FailStreakSince).Round(time.Second), p.LastError)
+			default:
+				p.State = TimedOut
+				p.Detail = "deadline reached at " + orDefault(string(p.Stage), "start") + " (" + why + ")"
+				p.Human = append(p.Human, humancmd.Journal(w.cfg.Hosts[n]))
+			}
+			w.addEvent(Event{At: now, Stage: p.Stage, Host: n, Kind: "fail", Text: p.Detail})
+		}
+		w.aggregateHosts(now)
 		return
 	}
 	var stuck []string
@@ -557,7 +620,7 @@ func (w *Wait) finish(now time.Time, s State, stage Milestone, host, reason, tai
 		return
 	}
 	w.res.State = s
-	if s != Succeeded {
+	if s != Succeeded && s != Partial {
 		w.res.FailedStage = stage
 		w.res.FailedHost = host
 	}

@@ -438,7 +438,7 @@ func ruleSecretArgs(c call) Decision {
 		if strings.HasPrefix(a, ":!") || strings.HasPrefix(a, ":^") || strings.HasPrefix(a, ":(exclude)") {
 			continue // a git pathspec that leaves the file out
 		}
-		if isSensitivePath(a) || globHitsSensitive(a) {
+		if isSensitivePath(a) || globHitsSensitive(c.resolve(a)) {
 			return secretFileBlock()
 		}
 		if strings.HasPrefix(a, "/run/agenix") && name != "ls" {
@@ -525,7 +525,7 @@ func ruleRecursiveSearch(c call) Decision {
 		return allow
 	}
 	for _, t := range targets {
-		if coversSensitive(t) {
+		if coversSensitive(c.resolve(t)) {
 			return block("secret-read",
 				"that recursive search would read git-crypt secrets (**/sensitive.nix, plaintext in this checkout). Use rg without --no-ignore/-u (it honours .ignore), or exclude them: grep -r --exclude=sensitive.nix ...",
 				"")

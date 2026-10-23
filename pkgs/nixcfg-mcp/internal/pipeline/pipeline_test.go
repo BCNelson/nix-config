@@ -219,7 +219,7 @@ func TestSelectHosts(t *testing.T) {
 		"golf-2":  {Name: "golf-2", Ntfy: true},
 		"wyse-1":  {Name: "wyse-1", AutoUpdate: &f},
 	}}
-	sel, err := SelectHosts(cfg, nil)
+	sel, err := SelectHosts(cfg, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestSelectHosts(t *testing.T) {
 	if sel.Excluded["golf-2"] != "unobservable" || !strings.Contains(sel.Excluded["qilin-1"], "24h") || sel.Excluded["wyse-1"] == "" {
 		t.Errorf("excluded = %v", sel.Excluded)
 	}
-	sel, _ = SelectHosts(cfg, []string{"romeo"})
+	sel, _ = SelectHosts(cfg, []string{"romeo"}, nil)
 	if !sel.Explicit || sel.Hosts[0] != "romeo-2" {
 		t.Errorf("explicit = %+v", sel)
 	}
@@ -241,5 +241,73 @@ func TestNextBump(t *testing.T) {
 	}
 	if got := NextBump(time.Date(2026, 10, 18, 10, 0, 0, 0, time.UTC)); got.Day() != 19 {
 		t.Errorf("after 9: %v", got)
+	}
+}
+
+func TestSelectHostsSkipsOffline(t *testing.T) {
+	cfg := &config.Config{Hosts: map[string]config.Host{
+		"romeo-2":   romeo,
+		"charlie-1": {Name: "charlie-1", SSH: "u@charlie", Ntfy: true},
+	}}
+	peers := map[string]hostprobe.Peer{
+		"romeo-2":   {HostName: "romeo-2", Online: true},
+		"charlie-1": {HostName: "charlie-1", Online: false, LastSeen: time.Now().Add(-184 * 24 * time.Hour)},
+	}
+	sel, _ := SelectHosts(cfg, nil, peers)
+	if strings.Join(sel.Hosts, ",") != "romeo-2" || !strings.Contains(sel.Excluded["charlie-1"], "184d") {
+		t.Fatalf("hosts=%v excluded=%v", sel.Hosts, sel.Excluded)
+	}
+	// Named explicitly, it is still waited on (and ends unreachable fast).
+	sel, _ = SelectHosts(cfg, []string{"charlie-1"}, peers)
+	if len(sel.Hosts) != 1 {
+		t.Fatalf("explicit = %v", sel.Hosts)
+	}
+}
+
+func TestOfflineHostIsUnreachableAtOnce(t *testing.T) {
+	p := &HostProgress{Host: "charlie-1", State: Pending}
+	EvalHost(p, HostApplied, HostObs{Host: config.Host{Name: "charlie-1", SSH: "u@charlie"}, Now: t0,
+		Err: &hostprobe.OfflineError{Host: "charlie-1", LastSeen: t0.Add(-184 * 24 * time.Hour)}})
+	if p.State != Unreachable {
+		t.Fatalf("got %s %q", p.State, p.Detail)
+	}
+	// Seen a minute ago: probably rebooting, so give it the usual grace.
+	p = &HostProgress{Host: "vor-2", State: Pending}
+	EvalHost(p, HostApplied, HostObs{Host: config.Host{Name: "vor-2", SSH: "u@vor"}, Now: t0,
+		Err: &hostprobe.OfflineError{Host: "vor-2", LastSeen: t0.Add(-time.Minute)}})
+	if p.State != Pending {
+		t.Fatalf("recently seen: got %s", p.State)
+	}
+}
+
+func TestAggregateHosts(t *testing.T) {
+	cases := []struct {
+		name   string
+		states map[string]State
+		strict bool
+		want   State
+	}{
+		{"all ok", map[string]State{"a": Succeeded, "b": Succeeded}, false, Succeeded},
+		{"one unreachable", map[string]State{"a": Succeeded, "b": Unreachable}, false, Partial},
+		{"one unreachable, strict", map[string]State{"a": Succeeded, "b": Unreachable}, true, Unreachable},
+		{"one timed out", map[string]State{"a": Succeeded, "b": TimedOut}, false, Partial},
+		{"nobody reachable", map[string]State{"a": Unreachable, "b": Unreachable}, false, Unreachable},
+		{"unreachable doesn't stop the rest", map[string]State{"a": Pending, "b": Unreachable}, false, Pending},
+		{"a real failure still does", map[string]State{"a": Pending, "b": Failed}, false, Failed},
+		{"failure beats unreachable", map[string]State{"a": Unreachable, "b": Failed, "c": Succeeded}, false, Failed},
+	}
+	for _, c := range cases {
+		w := &Wait{notify: make(chan struct{}), done: make(chan struct{}), lastDetail: map[string]string{}}
+		w.res = Result{State: Pending, Spec: Spec{Until: Live, Strict: c.strict}, Hosts: map[string]*HostProgress{}, HostSelection: &HostSelection{}}
+		for _, n := range []string{"a", "b", "c"} {
+			if s, ok := c.states[n]; ok {
+				w.res.HostSelection.Hosts = append(w.res.HostSelection.Hosts, n)
+				w.res.Hosts[n] = &HostProgress{Host: n, State: s, Detail: string(s)}
+			}
+		}
+		w.aggregateHosts(t0)
+		if w.res.State != c.want {
+			t.Errorf("%s: got %s (%s), want %s", c.name, w.res.State, w.res.Reason, c.want)
+		}
 	}
 }

@@ -93,6 +93,9 @@ func (s State) NeedsReboot() bool { return s.SwitchPending() || s.KernelChanged 
 
 // Probe observes a host.
 func Probe(ctx context.Context, host, dest string) (State, error) {
+	if off := Offline(ctx, host); off != nil {
+		return State{}, off
+	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	out, code, err := Exec(ctx, dest, probeScript)

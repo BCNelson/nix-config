@@ -191,8 +191,17 @@ pushed -> ci_started -> check_hosts_passed -> ci_passed -> auto_update_advanced
 It prints one line per event and ends with `RESULT state=...`. Exit codes:
 0 succeeded, 1 failed, 2 usage error, 3 timed out, 4 unreachable,
 5 will not happen (e.g. the commit touches no watched path), 6 blocked on the
-human (e.g. Tailscale SSH wants a browser login, a host needs a kick). A commit
-counts as applied once a host has built it *or any descendant*.
+human (e.g. Tailscale SSH wants a browser login, a host needs a kick), 7 partial.
+A commit counts as applied once a host has built it *or any descendant*.
+
+One host being out of reach never sinks the rest. Hosts the tailnet reports
+offline are left out of the default set (and fail fast as `unreachable` if
+named with `--host`). A host that stays unreachable, or is still going at the
+deadline, ends on its own while the wait carries on with the others; if those
+all make it, the wait ends **partial** (exit 7) and names the stragglers. A
+real failure (build failed, retries exhausted, wrong branch) still ends the
+wait at once. `--strict` (MCP `strict: true`) makes unreachable and timed-out
+hosts count as failures too.
 
 Run it in the background (Claude: background Bash or Monitor) for long waits.
 Over MCP, `wait_for` blocks for a few minutes at a time and returns

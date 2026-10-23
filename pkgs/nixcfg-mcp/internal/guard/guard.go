@@ -93,16 +93,23 @@ func checkScript(src string, remote bool, depth int) Decision {
 		return checkCall(call{args: strings.Fields(src), remote: remote}, depth)
 	}
 	var d Decision
+	// Follow `cd` so relative paths are judged where the command runs, not
+	// where the hook runs (the project root). Approximate: a cd anywhere
+	// earlier in the line counts, whatever the control flow.
+	dir := ""
 	syntax.Walk(f, func(n syntax.Node) bool {
 		if d.Block {
 			return false
 		}
 		switch x := n.(type) {
 		case *syntax.CallExpr:
-			c := call{remote: remote}
+			c := call{remote: remote, dir: dir}
 			for _, w := range x.Args {
 				s, _ := wordString(w)
 				c.args = append(c.args, s)
+			}
+			if len(c.args) == 2 && c.args[0] == "cd" && !remote && !strings.ContainsRune(c.args[1], '\x00') {
+				dir = c.resolve(c.args[1])
 			}
 			if len(c.args) > 0 {
 				d = checkCall(c, depth)
@@ -169,7 +176,16 @@ func checkRedirect(op syntax.RedirOperator, target string) Decision {
 // call is one simple command after redirections are stripped.
 type call struct {
 	args   []string
-	remote bool // ran through ssh on another machine
+	remote bool   // ran through ssh on another machine
+	dir    string // working directory after an earlier `cd` ("" = the hook's)
+}
+
+// resolve makes a relative path relative to the call's directory.
+func (c call) resolve(p string) string {
+	if c.dir == "" || filepath.IsAbs(p) || strings.HasPrefix(p, "~") {
+		return p
+	}
+	return filepath.Join(c.dir, p)
 }
 
 func (c call) name() string {
@@ -189,7 +205,7 @@ func checkCall(c call, depth int) Decision {
 		if script != "" {
 			return checkScript(script, remote, depth+1)
 		}
-		return checkCall(call{args: inner, remote: remote}, depth+1)
+		return checkCall(call{args: inner, remote: remote, dir: c.dir}, depth+1)
 	}
 	for _, rule := range rules {
 		if d := rule(c); d.Block {

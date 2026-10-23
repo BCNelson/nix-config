@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -18,6 +19,9 @@ import (
 type Payload struct {
 	ToolName  string         `json:"tool_name"`
 	ToolInput map[string]any `json:"tool_input"`
+	// Cwd is where the agent's shell is (Claude and Codex send it); relative
+	// paths in the command are relative to it, not to the hook's directory.
+	Cwd string `json:"cwd,omitempty"`
 }
 
 // CheckPayload decides on one hook payload.
@@ -81,6 +85,11 @@ func RunHook(agent string, r io.Reader, stdout, stderr io.Writer) int {
 		// Not JSON: treat the input as a bare command line (handy for tests
 		// and for agents that pass the command as text).
 		p = Payload{ToolName: "bash", ToolInput: map[string]any{"command": strings.TrimSpace(string(raw))}}
+	}
+	if p.Cwd != "" {
+		// One payload per process, so moving there is the simplest way to
+		// judge relative paths (and find the repo) where the command runs.
+		_ = os.Chdir(p.Cwd)
 	}
 	d := CheckPayload(p)
 

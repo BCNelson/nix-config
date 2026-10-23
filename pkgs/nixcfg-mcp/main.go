@@ -26,7 +26,7 @@ const version = "0.1.0"
 
 const usage = `nixcfg: agent tooling for nix-config (see AGENTS.md)
 
-  nixcfg wait <rev> [--until M] [--host H]... [--timeout 60m] [--keep-going] [--json]
+  nixcfg wait <rev> [--until M] [--host H]... [--timeout 60m] [--keep-going] [--strict] [--json]
   nixcfg wait --id <wait-id>          follow (or resume) an existing wait
   nixcfg wait job <job-id> [--timeout 2h]
   nixcfg status [rev] [--until M] [--host H]...
@@ -45,7 +45,8 @@ const usage = `nixcfg: agent tooling for nix-config (see AGENTS.md)
 
 Milestones: %s
 Exit codes for wait: 0 succeeded, 1 failed, 2 usage, 3 timed out, 4 unreachable,
-5 will not happen, 6 blocked on the human.
+5 will not happen, 6 blocked on the human, 7 partial (every reachable host made it;
+some were unreachable or timed out -- --strict makes those a failure instead).
 Global: --repo <path> (default $NIXCFG_REPO or the enclosing git checkout), --json.
 `
 
@@ -232,7 +233,7 @@ func cmdWait(ctx context.Context, ap *app.App, a args) int {
 		if err != nil {
 			return usageErr(err)
 		}
-		w, err := ap.Store.Start(pipeline.Spec{SHA: sha, Until: until, Hosts: a.all("host"), KeepGoing: a.has("keep-going"), Timeout: timeout})
+		w, err := ap.Store.Start(pipeline.Spec{SHA: sha, Until: until, Hosts: a.all("host"), KeepGoing: a.has("keep-going"), Strict: a.has("strict"), Timeout: timeout})
 		if err != nil {
 			return fail(err)
 		}

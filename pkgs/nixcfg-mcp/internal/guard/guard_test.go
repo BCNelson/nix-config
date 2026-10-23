@@ -190,6 +190,10 @@ func TestRecursiveSearch(t *testing.T) {
 		{`git grep token -- ':!**/sensitive.nix'`, false},
 		{`cat nixos/*.nix`, true},
 		{`cat pkgs/*.nix`, false},
+		// cd is followed: the hook runs from the root, the command doesn't.
+		{`cd pkgs && grep -rn token .`, false},
+		{`cd nixos && grep -rn token .`, true},
+		{`cd pkgs && cat ../nixos/*.nix`, true},
 	}
 	for _, tc := range cases {
 		d := CheckCommand(tc.cmd)

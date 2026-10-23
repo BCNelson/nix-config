@@ -44,7 +44,7 @@ func serve(ap *app.App) error {
 		Description: "Wait for a commit to reach a milestone of the deploy timeline (" + milestones + "; default live). " +
 			"Walks every earlier stage and stops at the first that fails or can never happen, with the stage, reason, log tail and any human hand-off. " +
 			"Blocks up to block_sec (default 240) then returns state=pending with wait_id; call again with wait_id (sha not needed) to keep waiting. " +
-			"Terminal states: succeeded, failed, will_not_happen, blocked (needs the human), unreachable, timed_out.",
+			"Terminal states: succeeded, partial (some hosts made it; the others were unreachable or did not finish before the deadline -- strict=true makes that a failure), failed, will_not_happen, blocked (needs the human), unreachable, timed_out.",
 	}, s.waitFor)
 	mcp.AddTool(srv, &mcp.Tool{Name: "wait_status", Description: "Current state of a wait without blocking."}, s.waitStatus)
 	mcp.AddTool(srv, &mcp.Tool{Name: "wait_cancel", Description: "Cancel a wait."}, s.waitCancel)
@@ -79,6 +79,7 @@ type waitForIn struct {
 	Until      string   `json:"until,omitempty" jsonschema:"milestone to wait for (default live)"`
 	Hosts      []string `json:"hosts,omitempty" jsonschema:"hosts for host stages; default: observable hosts that apply within minutes"`
 	KeepGoing  bool     `json:"keep_going,omitempty" jsonschema:"keep waiting on other hosts after one fails"`
+	Strict     bool     `json:"strict,omitempty" jsonschema:"treat an unreachable or timed-out host as a failure (default: keep going and end partial)"`
 	TimeoutMin int      `json:"timeout_min,omitempty" jsonschema:"overall deadline in minutes (default 60)"`
 	BlockSec   int      `json:"block_sec,omitempty" jsonschema:"how long this call blocks before returning pending (default 240, max 540)"`
 	WaitID     string   `json:"wait_id,omitempty" jsonschema:"continue an existing wait"`
@@ -107,7 +108,7 @@ func (s *server) waitFor(ctx context.Context, req *mcp.CallToolRequest, in waitF
 		}
 		timeout := time.Duration(in.TimeoutMin) * time.Minute
 		var w *pipeline.Wait
-		w, err = s.app.Store.Start(pipeline.Spec{SHA: sha, Until: until, Hosts: in.Hosts, KeepGoing: in.KeepGoing, Timeout: timeout})
+		w, err = s.app.Store.Start(pipeline.Spec{SHA: sha, Until: until, Hosts: in.Hosts, KeepGoing: in.KeepGoing, Strict: in.Strict, Timeout: timeout})
 		if err == nil {
 			h, err = s.app.Store.Get(w.ID())
 		}

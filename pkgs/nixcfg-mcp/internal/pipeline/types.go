@@ -110,10 +110,18 @@ const (
 	Blocked       State = "blocked"
 	Unreachable   State = "unreachable"
 	TimedOut      State = "timed_out"
+	// Partial: every host that could be reached got there; the rest were
+	// unreachable or ran out of time. Only a whole wait ends this way.
+	Partial State = "partial"
 )
 
 // Terminal reports whether s ends a wait.
 func (s State) Terminal() bool { return s != Pending && s != "" }
+
+// Soft reports whether a host ending this way says nothing about the change
+// itself -- the host was just out of reach -- so it shouldn't stop a wait on
+// the other hosts (unless the wait is strict).
+func (s State) Soft() bool { return s == Unreachable || s == TimedOut }
 
 // ExitCode is the CLI exit status for a terminal state.
 func (s State) ExitCode() int {
@@ -130,6 +138,8 @@ func (s State) ExitCode() int {
 		return 5
 	case Blocked:
 		return 6
+	case Partial:
+		return 7
 	}
 	return 2
 }
@@ -199,11 +209,14 @@ func (e Event) Line() string {
 
 // Spec is what to wait for.
 type Spec struct {
-	SHA       string        `json:"sha"`
-	Until     Milestone     `json:"until"`
-	Hosts     []string      `json:"hosts,omitempty"`
-	KeepGoing bool          `json:"keep_going,omitempty"`
-	Timeout   time.Duration `json:"timeout"`
+	SHA       string    `json:"sha"`
+	Until     Milestone `json:"until"`
+	Hosts     []string  `json:"hosts,omitempty"`
+	KeepGoing bool      `json:"keep_going,omitempty"`
+	// Strict makes an unreachable or timed-out host fail the wait like any
+	// other failure, instead of ending it as partial.
+	Strict  bool          `json:"strict,omitempty"`
+	Timeout time.Duration `json:"timeout"`
 }
 
 // Result is the whole wait, as reported to agents.

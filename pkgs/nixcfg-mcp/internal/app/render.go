@@ -29,6 +29,8 @@ func mark(s pipeline.State) string {
 		return "DOWN"
 	case pipeline.TimedOut:
 		return "TIME"
+	case pipeline.Partial:
+		return "PART"
 	}
 	return "    "
 }

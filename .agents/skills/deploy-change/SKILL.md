@@ -76,4 +76,8 @@ final summary (per-stage times, per-host result). If it ends:
   them the command it printed.
 - `failed` (1): CI or a host build failed. Fix forward with a new commit; for a
   host with retries exhausted, see the `diagnose-auto-update` skill.
+- `partial` (7): every host that could be reached applied it; the summary names
+  the ones that were unreachable or still going at the deadline. Report them;
+  for a host still building, `nixcfg wait <sha> --until live --host <host>`
+  again with a longer `--timeout`.
 - `unreachable` (4) / `timed_out` (3): `nixcfg host-status <host>` and report.
