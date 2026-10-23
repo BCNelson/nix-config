@@ -1,4 +1,4 @@
-{ config, ... }:{
+{ config, pkgs, ... }:{
   imports =
     [
       ../_mixins/roles/tailscale.nix
@@ -37,6 +37,15 @@
       uuidFile = config.age.secrets.cadence_check_auto_update_vor.path;
     };
   };
+
+  # md127 (vor:swap0, a leftover mirror from the 2023 install) means mdadm
+  # --monitor runs, and with no mail address or alert command it exits 1. That
+  # failed every boot unnoticed, then failed a switch once an mdadm bump
+  # restarted the unit. Send its events to the journal (and so Loki) instead.
+  # PROGRAM takes a bare path; mdadm appends the event, array and device.
+  boot.swraid.mdadmConf = "PROGRAM ${pkgs.writeShellScript "mdadm-alert" ''
+    exec ${pkgs.util-linux}/bin/logger -t mdadm -p daemon.warning -- "$@"
+  ''}";
 
   networking.hostId = "d80836c3";
 }
