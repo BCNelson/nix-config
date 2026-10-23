@@ -41,30 +41,14 @@ let
   # A workstation must not mirror itself: the daemon would ssh back into this
   # machine and mirror its own workspaces, which recurses in the sidebar.
   mirrored = lib.filterAttrs (name: _: name != hostname) hosts;
-
-  # `herdr plugin install` git-clones the plugin, runs its build step, and
-  # records the result in ~/.config/herdr/plugins.json. The store has no room
-  # for the first two, so declare the registry entry the installer would have
-  # written -- generated from the packaged manifest rather than transcribed, so
-  # an upstream version that adds an action does not need this file touched.
-  #
-  # The trade-off of owning plugins.json: it becomes a read-only symlink, so
-  # `herdr plugin install/uninstall/enable/disable` can no longer write it. A
-  # second plugin gets added here, the same way.
-  pluginRegistry = pkgs.runCommand "herdr-plugins.json"
-    {
-      nativeBuildInputs = [ pkgs.python3 ];
-      inherit pluginRoot;
-    } ''
-    python3 ${./plugin-registry.py} > "$out"
-  '';
 in
 {
   home.packages = [ herdr-mirror ];
 
-  xdg.configFile = {
-    "herdr/plugins.json".source = pluginRegistry;
+  # Registered in plugins.json by ./core.nix.
+  local.herdr.pluginRoots = [ pluginRoot ];
 
+  xdg.configFile = {
     # The canonical location of the two the plugin searches; the other is
     # `herdr plugin config-dir mirror`, which would shadow this one. Left alone
     # so `herdr-mirror status` typed in a shell reads the same config the

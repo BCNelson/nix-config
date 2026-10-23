@@ -11,6 +11,9 @@
     ./_mixins/programs/voxtype.nix
     # Spool replaces Klipper here first (Meta+V, clipboard history).
     ./_mixins/programs/spool.nix
+    # Phone/browser access to herdr; served to the tailnet by
+    # nixos/sierra/herdr-web-ui.nix.
+    ./_mixins/herdr/web-ui.nix
   ];
 
   home.packages = [

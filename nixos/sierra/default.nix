@@ -19,6 +19,7 @@
       ../_mixins/roles/workstation.nix
       ./ollama.nix
       ./goose-desktop.nix
+      ./herdr-web-ui.nix
     ];
   networking.firewall = {
     enable = true;

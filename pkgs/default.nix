@@ -36,6 +36,7 @@ pkgs: rec {
   cli-proxy-api = pkgs.callPackage ./cli-proxy-api { };
   cockroachdb = pkgs.callPackage ./cockroachdb.nix { };
   herdr-mirror = pkgs.callPackage ./herdr-mirror { };
+  herdr-web-ui = pkgs.callPackage ./herdr-web-ui { };
   lowprio = pkgs.callPackage ./lowprio { };
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };

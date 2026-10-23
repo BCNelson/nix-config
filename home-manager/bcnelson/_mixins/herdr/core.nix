@@ -105,6 +105,32 @@ in
     description = "Extra herdr `[[keys.command]]` entries, appended to the ones below.";
   };
 
+  # `herdr plugin install` git-clones a plugin, runs its build step, and records
+  # the result in ~/.config/herdr/plugins.json. The store has no room for the
+  # first two, so plugins are packaged (pkgs/herdr-*) and this declares the
+  # registry entries the installer would have written -- generated from each
+  # packaged manifest rather than transcribed, so an upstream version that adds
+  # an action does not need anything here touched.
+  #
+  # The trade-off of owning plugins.json: it becomes a read-only symlink, so
+  # `herdr plugin install/uninstall/enable/disable` can no longer write it.
+  # Mixins add their plugin here instead (./mirror.nix, ./web-ui.nix).
+  options.local.herdr.pluginRoots = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = "Absolute plugin roots (directories holding herdr-plugin.toml) to register in plugins.json.";
+  };
+
+  config.xdg.configFile."herdr/plugins.json" = lib.mkIf (config.local.herdr.pluginRoots != [ ]) {
+    source = pkgs.runCommand "herdr-plugins.json"
+      {
+        nativeBuildInputs = [ pkgs.python3 ];
+        pluginRoots = lib.concatLines config.local.herdr.pluginRoots;
+      } ''
+      python3 ${./plugin-registry.py} > "$out"
+    '';
+  };
+
   # `settings` is deliberately left empty: the home-manager module would write
   # config.toml as a read-only symlink, but herdr's Settings tab rewrites that
   # same file. config-merge owns it instead (below).
