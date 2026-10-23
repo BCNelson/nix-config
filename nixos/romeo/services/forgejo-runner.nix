@@ -5,81 +5,143 @@
   ...
 }:
 let
-  labels = [
-    "docker:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
-    "ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
-    "ubuntu-22.04:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
-  ];
+  image = "docker://ghcr.io/catthehacker/ubuntu:act-22.04";
 
-  # Job containers reach the runner's cache proxy at ACTIONS_CACHE_URL, which
-  # points at romeo's LAN IP. Pin the port so the firewall can admit it.
+  # The runner and every job container run under this user's rootless Podman,
+  # so job containers are confined to its user namespace instead of being
+  # root on romeo. A fixed uid keeps the user socket path stable.
+  runnerUser = "forgejo-runner";
+  runnerUid = 1010;
+  userManager = "user@${toString runnerUid}.service";
+  podmanSocket = "/run/user/${toString runnerUid}/podman/podman.sock";
+
+  # Rootless containers reach the host only through pasta's
+  # host.containers.internal mapping: neither the job network's gateway nor
+  # romeo's LAN IP answers from inside. Connections arrive as local traffic,
+  # so wildcard-bound host ports are reachable without a firewall rule while
+  # loopback-only services are not.
+  hostFromJobs = "host.containers.internal";
   cacheProxyPort = 4101;
 in
 {
   age.secrets.forgejo_runner_token.rekeyFile = ./secrets/forgejo_runner_token.age;
 
-  services.gitea-actions-runner = {
-    package = pkgs.forgejo-runner;
-    instances.romeo = {
-      enable = true;
-      name = "romeo";
-      url = "https://git.bcnelson.dev";
-      # The NixOS module still requires a legacy registration token even when
-      # the v12 server.connections configuration is used. Registration is
-      # disabled below, so this non-secret value is never sent to Forgejo.
-      token = "connection-configured";
+  users.users.${runnerUser} = {
+    # isNormalUser for the automatic subuid/subgid range rootless Podman needs.
+    isNormalUser = true;
+    uid = runnerUid;
+    group = runnerUser;
+    description = "Forgejo Actions runner (rootless Podman)";
+    # Also holds the runner's state directory and Podman's image storage.
+    home = "/var/lib/forgejo-runner";
+    createHome = true;
+    shell = "${pkgs.shadow}/bin/nologin";
+    # Starts the user manager at boot, which brings up the podman.socket user
+    # unit the Podman module enables for every user.
+    linger = true;
+  };
+  users.groups.${runnerUser} = { };
 
-      # One daemon can execute several jobs concurrently. Keep every job in a
-      # container; do not expose a host-execution label.
-      inherit labels;
-      settings = {
-        runner.capacity = 8;
-        # The internal cache server is only spoken to by the proxy over
-        # loopback; pin it too so it stops landing on a random port.
-        cache = {
-          port = 4100;
-          proxy_port = cacheProxyPort;
-        };
-        server.connections.forgejo = {
-          url = "https://git.bcnelson.dev/";
-          uuid = "54f6999c-067c-4ce5-93d7-0f7b97cce5ab";
-          token_url = "file:$CREDENTIALS_DIRECTORY/forgejo-token";
-          inherit labels;
+  services.forgejo-runner.instances.romeo = {
+    enable = true;
+
+    # The module only knows rootful runtimes: it would add the runner to the
+    # docker and podman groups, which is root-equivalent. Both are disabled
+    # and the rootless socket is wired up below instead.
+    runtimes = {
+      docker = false;
+      podman = false;
+    };
+
+    settings = {
+      runner = {
+        # Keep every job in a container; do not expose a host-execution label.
+        labels = [
+          "docker:${image}"
+          "ubuntu-latest:${image}"
+          "ubuntu-22.04:${image}"
+        ];
+        # One daemon can execute several jobs concurrently.
+        capacity = 8;
+        # Jobs get the runner's Podman socket (container.docker_host below),
+        # so testcontainers works everywhere. It must connect through the
+        # pasta mapping, and bind-mount the socket by its host path.
+        envs = {
+          TESTCONTAINERS_HOST_OVERRIDE = hostFromJobs;
+          TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = podmanSocket;
         };
       };
+      # The internal cache server is only spoken to by the proxy and rejects
+      # requests without the proxy's secret; pin it so it stops landing on a
+      # random port.
+      cache = {
+        port = 4100;
+        proxy_port = cacheProxyPort;
+        actions_cache_url_override = "http://${hostFromJobs}:${toString cacheProxyPort}";
+      };
+      # Mount the socket the runner itself uses (DOCKER_HOST) into every job at
+      # /var/run/docker.sock. It is the rootless user's own Podman, so a job can
+      # reach other jobs' containers but nothing beyond that user.
+      container.docker_host = "automount";
+      server.connections.forgejo = {
+        url = "https://git.bcnelson.dev/";
+        uuid = "54f6999c-067c-4ce5-93d7-0f7b97cce5ab";
+      };
+    };
+    secrets.server.connections.forgejo.token_url = config.age.secrets.forgejo_runner_token.path;
+  };
+
+  systemd.services.forgejo-runner-romeo = {
+    requires = [ userManager ];
+    after = [ userManager ];
+    environment.DOCKER_HOST = "unix://${podmanSocket}";
+    serviceConfig = {
+      DynamicUser = lib.mkForce false;
+      User = runnerUser;
+      Group = runnerUser;
     };
   };
 
-  # Forgejo Runner v12 accepts the UUID/token pair directly in its config.
-  # Bypass the NixOS module's legacy registration step and provide the token as
-  # a systemd credential, keeping it out of both the Nix store and environment.
-  systemd.services.gitea-runner-romeo.serviceConfig = {
-    ExecStartPre = lib.mkForce [ ];
-    LoadCredential = "forgejo-token:${config.age.secrets.forgejo_runner_token.path}";
+  # Testcontainers' reaper (Ryuk) is commonly disabled under Podman, so
+  # containers from cancelled or crashed jobs can outlive them. Remove
+  # testcontainers leftovers older than the runner's default 3h job timeout,
+  # plus stopped containers and dangling images.
+  systemd.services.forgejo-runner-podman-gc = {
+    description = "Prune leftover Forgejo job containers";
+    requires = [ userManager ];
+    after = [ userManager ];
+    path = [
+      pkgs.podman
+      pkgs.coreutils
+    ];
+    environment.XDG_RUNTIME_DIR = "/run/user/${toString runnerUid}";
+    serviceConfig = {
+      Type = "oneshot";
+      User = runnerUser;
+      Group = runnerUser;
+    };
+    script = ''
+      cutoff=$(( $(date +%s) - 4 * 3600 ))
+      for id in $(podman ps -aq --filter label=org.testcontainers=true); do
+        created=$(podman inspect --format '{{.Created.Unix}}' "$id" 2>/dev/null) || continue
+        if [ "$created" -lt "$cutoff" ]; then
+          podman rm -f "$id"
+        fi
+      done
+      podman container prune -f --filter until=4h
+      podman image prune -f
+      podman volume prune -f --filter until=24h
+    '';
+  };
+  systemd.timers.forgejo-runner-podman-gc = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "hourly";
+      RandomizedDelaySec = "10m";
+    };
   };
 
-  # romeo enables both Docker and Podman, and the module prefers Podman's
-  # socket. Podman 5.8.7 (buildah 1.43.4, CVE-2026-79705 hardening) rejects
-  # archive PUTs that cross absolute symlinks like /var/run, which breaks every
-  # job's file copy into the container: containers/podman#29805, fix pending in
-  # containers/buildah#7129. Docker shipped the same regression and fixed it in
-  # 29.5.2 (moby#53258), so run jobs on Docker. Revisit once a fixed Podman lands.
-  systemd.services.gitea-runner-romeo.environment.DOCKER_HOST =
-    lib.mkForce "unix:///run/docker.sock";
-
-  # Each job runs on its own runner-created Docker bridge (br-<random>), so
-  # match on Docker's default 172.16.0.0/12 address pool rather than an
-  # interface name. Without this, actions/cache times out with ETIMEDOUT.
-  networking.firewall.extraCommands = ''
-    iptables -I nixos-fw -s 172.16.0.0/12 -p tcp --dport ${toString cacheProxyPort} -j nixos-fw-accept
-  '';
-  networking.firewall.extraStopCommands = ''
-    iptables -D nixos-fw -s 172.16.0.0/12 -p tcp --dport ${toString cacheProxyPort} -j nixos-fw-accept 2>/dev/null || true
-  '';
-
-  # The recovery specialisation deliberately disables Docker. Remove the
-  # Docker-backed runner instance there as well so the module's runtime
-  # assertion remains valid.
-  specialisation.recovery.configuration.services.gitea-actions-runner.instances =
-    lib.mkForce { };
+  # The recovery specialisation deliberately starts no containers. Remove the
+  # runner there too.
+  specialisation.recovery.configuration.services.forgejo-runner.instances = lib.mkForce { };
 }
