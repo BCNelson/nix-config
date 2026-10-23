@@ -89,6 +89,32 @@
       ];
     });
 
+    # urllib3-future 2.25.902 fails its own suite in the sandbox: 34 failures,
+    # all in test/contrib/test_socks.py (MaxRetryError / ConnectTimeoutError
+    # against the SOCKS dummy servers). Hydra hits the same thing, so nothing
+    # caches it, and the suite takes ~95 minutes before failing -- longer on
+    # romeo, which builds it for niquests -> caldav -> odysseus-ai. Skip the
+    # tests rather than deselecting the SOCKS file, so the build is minutes
+    # instead of an hour and a half; pythonImportsCheck still runs. Drop this
+    # once Hydra builds it again (hydra.nixos.org job
+    # nixpkgs/unstable/python314Packages.urllib3-future.x86_64-linux).
+    #
+    # niquests 3.21.2 on top of it then fails test_use_proxy_from_environment
+    # (all 8 variants: the fake proxy never sees a connection). Hydra never got
+    # that far -- niquests and caldav show "dependency failed" there. Together
+    # with the SOCKS failures this looks like a real proxy regression in this
+    # urllib3-future, not sandbox noise. odysseus-ai (the only consumer, on
+    # romeo) runs with no *_proxy variables, so it is not affected; anything
+    # that starts relying on proxies through niquests should re-check this.
+    pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+      (_pyFinal: pyPrev: {
+        urllib3-future = pyPrev.urllib3-future.overridePythonAttrs { doCheck = false; };
+        niquests = pyPrev.niquests.overridePythonAttrs (old: {
+          disabledTests = (old.disabledTests or [ ]) ++ [ "test_use_proxy_from_environment" ];
+        });
+      })
+    ];
+
     # GAM 7.43.04 pins chardet==5.2.0 in its pyproject, but nixpkgs now ships
     # chardet 6.0.0, so pythonRuntimeDepsCheckHook fails with
     # `chardet==5.2.0 not satisfied by version 6.0.0.post1`. Relax the pin;
