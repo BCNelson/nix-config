@@ -124,9 +124,14 @@
     owner = "kanidm";
   };
 
+  # kanidmd only migrates one minor version at a time, so 1.9 has to pass
+  # through 1.10 (end of life, hence marked insecure) on the way to 1.11.
+  # Drop this once the server has started on 1.10 and moved on to 1.11.
+  nixpkgs.config.permittedInsecurePackages = [ "kanidm-with-secret-provisioning-1.10.5" ];
+
   services.kanidm = {
     server.enable = true;
-    package = pkgs.kanidmWithSecretProvisioning_1_9;
+    package = pkgs.kanidmWithSecretProvisioning_1_10;
     server.settings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";
