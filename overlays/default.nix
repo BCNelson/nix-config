@@ -115,6 +115,26 @@
       })
     ];
 
+    # patchelf 0.19.2 (now stdenv's) writes a broken layout when it rewrites
+    # both the interpreter and the rpath: .dynamic lands in a read-only LOAD
+    # segment and ld.so segfaults in dl_main before the program runs
+    # (NixOS/patchelf#674, nixpkgs#576412). trilium-server autoPatchelfs the
+    # prebuilt node it ships, so the service dumped core on every start after
+    # the bump. auto-patchelf runs whatever patchelf is first on PATH; put a
+    # 0.15 one there. patchelfUnstable (0.18) is not old enough -- it produces
+    # the same overlapping LOADs -- so borrow 0.15.2 from the `nixpkgs` input,
+    # which has not taken the bump. The assert makes this fail at evaluation,
+    # rather than ship a binary that segfaults, once that input moves on too.
+    # Drop this once nixpkgs#576412 is fixed.
+    trilium-server =
+      let
+        patchelf = inputs.nixpkgs.legacyPackages.${final.stdenv.buildPlatform.system}.patchelf;
+      in
+      assert final.lib.versionOlder patchelf.version "0.16";
+      prev.trilium-server.overrideAttrs (old: {
+        nativeBuildInputs = [ patchelf ] ++ (old.nativeBuildInputs or [ ]);
+      });
+
     # GAM 7.43.04 pins chardet==5.2.0 in its pyproject, but nixpkgs now ships
     # chardet 6.0.0, so pythonRuntimeDepsCheckHook fails with
     # `chardet==5.2.0 not satisfied by version 6.0.0.post1`. Relax the pin;
