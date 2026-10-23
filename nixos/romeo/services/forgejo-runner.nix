@@ -14,6 +14,7 @@ let
   runnerUid = 1010;
   userManager = "user@${toString runnerUid}.service";
   podmanSocket = "/run/user/${toString runnerUid}/podman/podman.sock";
+  jobPodmanSocket = "/run/podman/podman.sock";
 
   # Rootless containers reach the host only through pasta's
   # host.containers.internal mapping: neither the job network's gateway nor
@@ -69,6 +70,10 @@ in
         envs = {
           TESTCONTAINERS_HOST_OVERRIDE = hostFromJobs;
           TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = podmanSocket;
+          # testcontainers-go only switches to Podman's default network when
+          # DOCKER_HOST names a podman.sock; otherwise its reaper asks for
+          # Docker's `bridge` network, which Podman rejects.
+          DOCKER_HOST = "unix://${jobPodmanSocket}";
         };
       };
       # The internal cache server is only spoken to by the proxy and rejects
@@ -82,7 +87,12 @@ in
       # Mount the socket the runner itself uses (DOCKER_HOST) into every job at
       # /var/run/docker.sock. It is the rootless user's own Podman, so a job can
       # reach other jobs' containers but nothing beyond that user.
-      container.docker_host = "automount";
+      container = {
+        docker_host = "automount";
+        # The same socket again at a Podman-looking path, for DOCKER_HOST.
+        options = "-v ${podmanSocket}:${jobPodmanSocket}";
+        valid_volumes = [ podmanSocket ];
+      };
       server.connections.forgejo = {
         url = "https://git.bcnelson.dev/";
         uuid = "54f6999c-067c-4ce5-93d7-0f7b97cce5ab";
