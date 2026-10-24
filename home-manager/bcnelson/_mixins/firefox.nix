@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   ...
 }: {
@@ -72,6 +73,16 @@
     policies = {
       DisablePocket = true;
       DisableSetDesktopBackground = true;
+      # Freeze updates for exactly the extensions nix installs, in any profile
+      # (including ones other modules add); hand-installed ones keep updating.
+      # A self-updated nix extension gets reverted to the pinned version on the
+      # next activation, and that downgrade breaks extensions whose IndexedDB
+      # schema only migrates forward (1Password).
+      ExtensionSettings = lib.listToAttrs (lib.concatMap
+        (profile:
+          map (ext: lib.nameValuePair ext.addonId {updates_disabled = true;})
+          profile.extensions.packages)
+        (lib.attrValues config.programs.firefox.profiles));
     };
   };
 }
