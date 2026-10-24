@@ -62,6 +62,9 @@ in
   services.kdeconnect = {
     enable = true;
     indicator = true;
+    # kdeconnect-app is Qt Quick and aborts with "EGL not available" on the
+    # genericLinux hosts without the nixGL shim; a no-op on NixOS.
+    package = config.lib.nixGL.wrap pkgs.kdePackages.kdeconnect-kde;
   };
 
   # Workaround for Failed to start unit kdeconnect-indicator.service: Unit tray.target not found.
