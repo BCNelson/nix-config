@@ -37,6 +37,23 @@ let
     ' "$previous" ${base} > "$temporary"
     ${pkgs.coreutils}/bin/mv "$temporary" "$live"
   '';
+  cli = pkgs.writeShellScriptBin "mcpproxy" ''
+    exec ${lib.getExe cfg.package} --config ${lib.escapeShellArg "${cfg.stateDirectory}/mcp_config.json"} \
+      --data-dir ${lib.escapeShellArg cfg.stateDirectory} "$@"
+  '';
+  # The web UI authenticates with the generated admin key as an ?apikey= query
+  # parameter, and `status --web-url` prints the URL with it filled in. Reading
+  # it at launch rather than baking it in keeps the key out of the Nix store and
+  # follows `status --reset-key`. The key does land in browser history, which is
+  # no wider than the 0700 state directory it already sits in for this user.
+  dashboard = pkgs.writeShellScriptBin "mcpproxy-dashboard" ''
+    if ! url="$(${lib.getExe cli} status --web-url)" || [ -z "$url" ]; then
+      ${pkgs.libnotify}/bin/notify-send -a MCPProxy -i dialog-error \
+        "MCPProxy dashboard" "Could not read the web UI URL; is the mcpproxy user service running?"
+      exit 1
+    fi
+    exec ${pkgs.xdg-utils}/bin/xdg-open "$url"
+  '';
 
 in
 {
@@ -88,10 +105,21 @@ in
       activity_retention_days = lib.mkDefault 7;
     };
 
-    home.packages = [ (pkgs.writeShellScriptBin "mcpproxy" ''
-      exec ${lib.getExe cfg.package} --config ${lib.escapeShellArg "${cfg.stateDirectory}/mcp_config.json"} \
-        --data-dir ${lib.escapeShellArg cfg.stateDirectory} "$@"
-    '') ];
+    home.packages = [ cli ] ++ lib.optional cfg.settings.features.enable_web_ui dashboard;
+
+    # Indexed by KRunner and the application launcher.
+    xdg.desktopEntries = lib.mkIf cfg.settings.features.enable_web_ui {
+      mcpproxy-dashboard = {
+        name = "MCPProxy Dashboard";
+        genericName = "MCP Gateway";
+        comment = "Open the MCPProxy web UI, signed in with the local admin key";
+        exec = lib.getExe dashboard;
+        icon = "network-server";
+        terminal = false;
+        categories = [ "Development" "Network" ];
+        settings.Keywords = "mcp;mcpproxy;gateway;oauth;";
+      };
+    };
 
     systemd.user.services.mcpproxy = {
       Unit = {
@@ -105,7 +133,8 @@ in
           "--config" "${cfg.stateDirectory}/mcp_config.json" "--data-dir" cfg.stateDirectory ];
         # xdg-open delegates to desktop helpers (e.g. KDE's kde-open), and
         # browser desktop entries may resolve executables from the user profile.
-        Environment = [ "PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.xdg-utils ]}:${config.home.profileDirectory}/bin:/run/current-system/sw/bin" ];
+        # /usr/bin is where those helpers live on non-NixOS hosts (redo-3).
+        Environment = [ "PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.xdg-utils ]}:${config.home.profileDirectory}/bin:/run/current-system/sw/bin:/usr/bin" ];
         UMask = "0077";
         Restart = "on-failure";
         RestartSec = 5;
