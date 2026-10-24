@@ -75,13 +75,20 @@ in
     "d ${storage}        0700 ${user} ${user} - -"
   ];
 
+  # level4 is a ZFS-native mountpoint, so mnt-vault-data-level4.mount is only
+  # passively tracked and requires-mounts-for orders against nothing at boot.
+  # On the 2026-10-23 boot this bind came up 15s before zfs-mount.service,
+  # systemd created an empty root-owned source dir on the root disk, and HA
+  # logged in fine but could not write. Depend on the real oneshot instead,
+  # as ./services/factorio.nix does (see its note 5).
   fileSystems."${chroot}/backups" = {
     device = storage;
     fsType = "none";
     options = [
       "bind"
       "nofail"
-      "x-systemd.requires-mounts-for=${config.data.dirs.level4}"
+      "x-systemd.requires=zfs-mount.service"
+      "x-systemd.after=zfs-mount.service"
     ];
   };
 
