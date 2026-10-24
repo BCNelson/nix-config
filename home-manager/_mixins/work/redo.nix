@@ -15,6 +15,9 @@
     # own pkgs/cockroachdb.nix, not the nixpkgs attribute of the same name,
     # which still ships 23.1.14.
     pkgs.cockroachdb
+    # Upwind Security CLI; packaged from the release binary rather than the
+    # curl | sh installer (see ../../../pkgs/upwindctl.nix).
+    pkgs.upwindctl
     pkgs.spec-kit
     pkgs.don # dev environment / task runner
     pkgs.dive
