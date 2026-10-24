@@ -7,6 +7,7 @@
     # ../_mixins/programs/blender.nix
     ./_mixins/programs/veloren.nix
     ./_mixins/workstation.nix
+    ./_mixins/mcp/home-assistant.nix
     ./_mixins/3dprinting.nix
     ./_mixins/programs/voxtype.nix
     # Spool replaces Klipper here first (Meta+V, clipboard history).

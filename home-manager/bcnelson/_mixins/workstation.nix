@@ -11,7 +11,7 @@
     ./mcp
     ./mcp/playwrite.nix
     ./mcp/pulumi.nix
-    ./mcp/home-assistant.nix
+    ./mcp/rea.nix
     ./claude
     ./claude/skill/pr-review-response
     ./claude/skill/init-devenv
