@@ -34,6 +34,24 @@
     };
   };
 
+  # Rootless podman (redo-3's testcontainers) asks this user manager for a
+  # fresh libpod-<id>.scope per container under user.slice, so containers an
+  # agent starts escape lowprio.slice the same way docker's do (see
+  # system-lowprio.slice in responsiveness.nix). containers.conf has no
+  # default cgroup parent, but nothing else uses this user.slice -- systemd
+  # doesn't ship one for the user manager -- so demote the whole slice.
+  # UNVERIFIED: the libpod placement is from podman's documented behaviour;
+  # confirm on redo-3 with /proc/<container pid>/cgroup.
+  systemd.user.slices.user = {
+    Unit.Description = "Rootless podman containers (deprioritized)";
+    Slice = {
+      CPUWeight = 20;
+      IOWeight = 10;
+      MemoryHigh = "70%";
+      ManagedOOMMemoryPressure = "kill";
+    };
+  };
+
   # Upstream unit, so a drop-in rather than a definition that would shadow it.
   # MemoryLow is carved out of user.slice's protection (set in
   # responsiveness.nix); without that it would be capped at zero.
