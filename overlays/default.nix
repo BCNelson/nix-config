@@ -122,13 +122,15 @@
     # prebuilt node it ships, so the service dumped core on every start after
     # the bump. auto-patchelf runs whatever patchelf is first on PATH; put a
     # 0.15 one there. patchelfUnstable (0.18) is not old enough -- it produces
-    # the same overlapping LOADs -- so borrow 0.15.2 from the `nixpkgs` input,
-    # which has not taken the bump. The assert makes this fail at evaluation,
-    # rather than ship a binary that segfaults, once that input moves on too.
-    # Drop this once nixpkgs#576412 is fixed.
+    # the same overlapping LOADs -- so borrow 0.15.2 from the
+    # `nixpkgs-patchelf-0_15` input, pinned by rev to a nixos-unstable from
+    # before the bump (the plain `nixpkgs` input took it on 2026-10-21 and the
+    # daily flake bump has failed on this assert since). The assert makes this
+    # fail at evaluation, rather than ship a binary that segfaults, if that pin
+    # is ever moved past the bump. Drop this once nixpkgs#576412 is fixed.
     trilium-server =
       let
-        patchelf = inputs.nixpkgs.legacyPackages.${final.stdenv.buildPlatform.system}.patchelf;
+        patchelf = inputs.nixpkgs-patchelf-0_15.legacyPackages.${final.stdenv.buildPlatform.system}.patchelf;
       in
       assert final.lib.versionOlder patchelf.version "0.16";
       prev.trilium-server.overrideAttrs (old: {

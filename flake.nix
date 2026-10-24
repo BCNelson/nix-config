@@ -10,6 +10,11 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable-small.url = "github:nixos/nixpkgs/nixos-unstable-small";
 
+    # Pinned to the last nixos-unstable rev with patchelf 0.15, for the
+    # trilium-server workaround in overlays/default.nix (nixpkgs#576412).
+    # Pinned by rev so the daily bump can't move it. Remove with that overlay.
+    nixpkgs-patchelf-0_15.url = "github:nixos/nixpkgs/f5c082a40f7571c266e74e80ae2e68aadd8a9fc7";
+
     # happy-coder PR #492656 — monorepo migration, brings 1.1.x without bundled
     # claude-code. Remove once merged into unstable.
     nixpkgs-happy-coder.url = "github:colonelpanic8/nixpkgs/happy-coder-monorepo-migration";
@@ -150,7 +155,10 @@
         "iso_console" = libx.mkHost {
           hostname = "iso_console";
           usernames = [ "nixos" ];
-          nixosMods = inputs.nixpkgs-unstable + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix";
+          # Take the installer module from the same nixpkgs as the channel:
+          # mixing them breaks whenever unstable-small drops an option
+          # unstable still sets (e.g. boot.initrd.systemd.enable).
+          nixosMods = inputs.nixpkgs-unstable-small + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix";
           channelName = "nixpkgs-unstable-small-patched";
         };
         "iso_desktop" = libx.mkHost { 
