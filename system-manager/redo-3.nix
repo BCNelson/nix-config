@@ -71,6 +71,76 @@
     # reapply it.
     system.sysctl."net.ipv4.ip_unprivileged_port_start" = 80;
 
+    # Bluetooth audio silently died on 2026-09-11 when a resume from suspend
+    # landed on top of a global OOM kill (a Firefox content process at 11.8G
+    # RSS). bluetoothd stalled long enough for wireplumber's bluez5 monitor to
+    # hit its 25s D-Bus timeout --
+    #   spa.bluez5: GetManagedObjects() failed: org.freedesktop.DBus.Error.NoReply
+    # -- and that monitor has no retry path. It unregistered every
+    # /MediaEndpoint/A2DP{Sink,Source}/* from bluetoothd and never registered
+    # them again. Headphones still paired and connected, because HID and AVRCP
+    # live in bluetoothd rather than PipeWire, while every audio attempt got
+    #   a2dp-sink profile connect failed: Protocol not available
+    # and no sink ever appeared. That asymmetry is why it went five days
+    # unnoticed; only `systemctl --user restart wireplumber` clears it.
+    #
+    # Nothing declarative can make that monitor retry, so the lever here is the
+    # memory pressure that stalled bluetoothd to begin with. Fedora's
+    # zram-generator-defaults ships `zram-size = min(ram, 8192)`, i.e. 8G on
+    # this 60.6G machine, and it sat pinned at 8.0G of 8.0G used through nine
+    # OOM kills in the preceding thirty days.
+    #
+    # ram/2 is ~30.3G here. zram was compressing 7.7G of pages down to 2.6G, so
+    # at that ~3:1 ratio a fully saturated 30G device costs ~10G of real RAM --
+    # affordable out of 60.6G, and enough headroom that the thrashing which
+    # preceded the stall should stop happening.
+    #
+    # This file overrides /usr/lib/systemd/zram-generator.conf, so it also
+    # survives the dnf updates that rewrite the shipped defaults. The new size
+    # applies at the next boot: resizing a live zram device means swapoff first,
+    # which would fault the entire backing set back into RAM.
+    environment.etc."systemd/zram-generator.conf" = {
+      mode = "0644";
+      replaceExisting = true;
+      text = ''
+        # Managed by system-manager -- see ./redo-3.nix
+        [zram0]
+        zram-size = ram / 2
+        compression-algorithm = zstd
+      '';
+    };
+
+    # Fedora's default of 60 is tuned for swapping to a disk. With zram the swap
+    # device *is* RAM, so a compression round-trip is far cheaper than evicting
+    # page cache and the kernel should reach for it much sooner -- the Arch wiki
+    # recommends going beyond 100 for in-memory swap, and 180 is what Pop!_OS
+    # ships. Without this the enlarged device would stay mostly unused under the
+    # same pressure that caused the stall.
+    system.sysctl."vm.swappiness" = 180;
+
+    # On 2026-10-12 Ghostty kept opening windows with no shell in them, logging
+    #   failed to initialize surface err=error.SystemResources
+    # for each one. That is io_uring_setup(2) returning ENOMEM: an unprivileged
+    # ring's memory is charged to the *user's* locked-page count and checked
+    # against RLIMIT_MEMLOCK, which systemd leaves at 8M. Every Node process
+    # holds three rings through libuv, and 18 Claude Code sessions with their
+    # MCP servers added up to ~95 of those -- 284 of the 289 rings on the box,
+    # right at the 8M ceiling. Ghostty needs a fresh ring per surface and has
+    # no fallback once the app is already running on io_uring.
+    #
+    # The limit is per user, so the terminal pays for whatever else is running.
+    # 256M is ~30x the load that hit the ceiling and still a hard bound on
+    # pinned memory. Set on user@.service because everything in the graphical
+    # session inherits its rlimits from the user manager; it applies the next
+    # time that manager starts (logout or reboot).
+    environment.etc."systemd/system/user@.service.d/10-memlock.conf" = {
+      mode = "0644";
+      text = ''
+        [Service]
+        LimitMEMLOCK=256M
+      '';
+    };
+
     # Upstream system-manager writes this file with systemd's syntax --
     #   PATH=/etc/profiles/per-user/${USER}/bin:/run/system-manager/sw/bin:${PATH}
     # -- which systemd expands, but under sudo root ends up with that literal,
