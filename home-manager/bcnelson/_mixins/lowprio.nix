@@ -8,6 +8,9 @@
 #   background.slice  baloo, syncthing                  CPUWeight 30 (default)
 #   lowprio.slice     agent commands, `lowprio <cmd>`   CPUWeight 20
 #
+# Docker containers those commands start are not children of them; they land
+# in the system-side system-lowprio.slice instead (same file as above).
+#
 # Weights only bite under contention, so an otherwise idle machine still gives
 # a lowprio build every core.
 {

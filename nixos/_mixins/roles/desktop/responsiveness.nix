@@ -9,6 +9,7 @@
 #   user.slice      everything the logged-in user runs (compositor, apps)
 #   system.slice    ordinary daemons
 #   nix-daemon      builds -- whoever asked for them, a person or an agent
+#   system-lowprio  docker containers -- whoever started them
 #
 # The user-side split (session/app/background/lowprio) lives in
 # home-manager/bcnelson/_mixins/lowprio.nix. IOWeight below only takes effect
@@ -43,9 +44,30 @@
     MemoryHigh = "75%";
   };
 
-  # docker.service is deliberately left alone: containers run in their own
-  # system.slice/docker-*.scope, not under the daemon, so weighting the daemon
-  # would do nothing for them.
+  # Containers are created by dockerd via PID 1, not as children of whoever ran
+  # `docker run`, so an agent's tests escape lowprio.slice and their containers
+  # (testcontainers starts one Postgres per test package) compete with the
+  # desktop as ordinary system.slice services. Weighting docker.service would
+  # do nothing: each container is its own docker-<id>.scope. The user's
+  # lowprio.slice belongs to user@1000.service and dockerd cannot place scopes
+  # in it, so mirror it system-side: every container that doesn't pass its own
+  # --cgroup-parent lands here. Desktop role only, so servers' production
+  # containers keep their normal weight.
+  virtualisation.docker.daemon.settings = lib.mkIf config.virtualisation.docker.enable {
+    cgroup-parent = "system-lowprio.slice";
+  };
+  systemd.slices.system-lowprio = lib.mkIf config.virtualisation.docker.enable {
+    description = "Deprioritized containers";
+    sliceConfig = {
+      CPUWeight = 20;
+      IOWeight = 10;
+      MemoryHigh = "70%";
+      # oomd kills the child scope reclaiming hardest: one container, never
+      # dockerd.
+      ManagedOOMMemoryPressure = "kill";
+    };
+  };
+
   systemd.services.ollama.serviceConfig = lib.mkIf config.services.ollama.enable {
     CPUWeight = 50;
     IOWeight = 50;
