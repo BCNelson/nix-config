@@ -16,6 +16,7 @@ runCommandLocal "nix-store-selinux" {
       type useradd_t;
       type systemd_coredump_t;
       type systemd_tmpfiles_t;
+      type xdm_t;
       type pasta_t;
       type iptables_t;
       type sshd_key_t;
@@ -85,8 +86,21 @@ runCommandLocal "nix-store-selinux" {
   allow pasta_t nix_store_t:lnk_file { read getattr };
 
   # systemd-tmpfiles stats the /nix/store directory itself during tmpfiles
-  # runs (getattr on the dir, no descent into it).
+  # runs. It also reads Determinate Nix's /etc/tmpfiles.d/nix-daemon.conf,
+  # which links through /nix/var/nix/profiles/default/lib (a store symlink)
+  # into the store; without lnk_file and file read, boot-time
+  # systemd-tmpfiles-setup skips that config with a getattr denial.
   allow systemd_tmpfiles_t nix_store_t:dir { search getattr };
+  allow systemd_tmpfiles_t nix_store_t:lnk_file { read getattr };
+  allow systemd_tmpfiles_t nix_store_t:file { read open getattr ioctl };
+
+  # sddm-helper (xdm_t) resolves login shells while setting up a session, and
+  # system-manager users get /run/system-manager/sw/bin/bash, which links into
+  # the store. Lookup only: the shell is exec'd after the transition to the
+  # user's domain, never from xdm_t.
+  allow xdm_t nix_store_t:dir { search getattr };
+  allow xdm_t nix_store_t:lnk_file { read getattr };
+  allow xdm_t nix_store_t:file { getattr };
 
   # agenix's secret-decryption service. Its SELinuxContext= (set in
   # system-manager/_mixins/selinux.nix) previously named unconfined_t purely so
