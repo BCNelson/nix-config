@@ -1,10 +1,28 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   dataDirs = config.data.dirs;
 in
 {
   services.frigate = {
     enable = true;
+    # nixpkgs' OpenVINO Python bindings are built against pybind11 3.1.0, which
+    # runs keep_alive hooks for rejected overloads, so ov.Tensor(type, shape)
+    # throws "Could not activate conditional_keep_alive!" and the detector
+    # crashes on its first frame. Build the tensors from numpy arrays instead
+    # (the ov.Tensor(array) constructor works). Drop this once
+    # https://github.com/NixOS/nixpkgs/pull/576186 lands or a pybind11 release
+    # carries https://github.com/pybind/pybind11/pull/6183.
+    package = pkgs.frigate.overrideAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+        substituteInPlace frigate/detectors/detection_runners.py \
+          --replace-fail \
+            'self.input_tensor = ov.Tensor(input_element_type, input_shape)' \
+            'self.input_tensor = ov.Tensor(np.zeros(tuple(input_shape), dtype=input_element_type.to_dtype()))' \
+          --replace-fail \
+            'input_tensor = ov.Tensor(input_element_type, input_data.shape)' \
+            'input_tensor = ov.Tensor(np.zeros(input_data.shape, dtype=expected_dtype))'
+      '';
+    });
     checkConfig = false;
     hostname = "frigate.h.b.nel.family";
     settings = {
