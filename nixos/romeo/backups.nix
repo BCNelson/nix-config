@@ -263,6 +263,10 @@ in
   # liveData -> vault sync follows that run the same way, so NelsonData is
   # there by then too).
   systemd.services.sanoid = {
+    # nixpkgs leaves it Type=simple, which counts as started (releasing
+    # Before= units) when the process spawns, mid-snapshot. oneshot holds
+    # them until sanoid exits, and has no start timeout to cut a long prune.
+    serviceConfig.Type = "oneshot";
     wants = map (u: "${u}.service") afterSnapshot;
     before = map (u: "${u}.service") afterSnapshot;
   };

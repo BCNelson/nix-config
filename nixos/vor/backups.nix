@@ -123,6 +123,9 @@ in
   # vault/Backups/NelsonData (and romeo's :05 pull of it) ran 1-2h behind.
   # Wants, not OnSuccess: a failed prune shouldn't stop the copy.
   systemd.services.sanoid = {
+    # Type=simple (the nixpkgs default) would release the sync mid-snapshot;
+    # see romeo's backups.nix.
+    serviceConfig.Type = "oneshot";
     wants = [ "syncoid-liveData-NelsonData-Local-Backup.service" ];
     before = [ "syncoid-liveData-NelsonData-Local-Backup.service" ];
   };
