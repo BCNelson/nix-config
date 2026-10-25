@@ -173,13 +173,15 @@ in
     ReadWritePaths = [ "${dataDirs.level5}/frigate/db" ];
   };
 
-  # Force OpenVINO/Level Zero to only use the A380. In PCI order the B580
-  # (06:00.0) is device 0 and the A380 (0f:00.0) device 1; with the mask the
-  # A380 is the only GPU, so the detector's "GPU.0" resolves to it. The
-  # session-wide ZE_ENABLE_PCI_ID_DEVICE_ORDER doesn't reach services, so pin
-  # the ordering here too.
+  # Hide the B580 from OpenVINO so the detector's "GPU.0" is the A380.
+  # compute-runtime (NEO) always sorts GPUs by the PCI address in
+  # /dev/dri/by-path before applying the mask, so index 1 is the A380
+  # (0f:00.0) behind the B580 (06:00.0). That holds across reboots but not
+  # if either card moves slot. ZE_ENABLE_PCI_ID_DEVICE_ORDER would be a no-op
+  # here: it only stops NEO preferring discrete over integrated GPUs, and
+  # romeo has no iGPU. Without the mask, OpenCL lists the B580 first anyway
+  # (one platform per product family, newest family first).
   systemd.services.frigate.environment = {
-    ZE_ENABLE_PCI_ID_DEVICE_ORDER = "1";
     ZE_AFFINITY_MASK = "1";
     # Name the Intel iHD driver explicitly. Frigate's stats loop calls
     # is_vaapi_amd_driver() every cycle to tell AMD from Intel; with no
