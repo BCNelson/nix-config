@@ -147,7 +147,15 @@ in
       "vor/vault/Backups/NelsonData" = {
         source = "syncoid@vor.ck.nel.family:vault/Backups/NelsonData";
         target = "vault/remotebackups/VorNelsonData";
+        # vault/Backups/NelsonData is itself a replication target: vor's local
+        # syncoid receives into it hourly with `zfs receive -F`, which rolls back
+        # (destroys) any snapshot newer than its base -- including a sync snap we
+        # just made there, so every other pull failed with "dataset does not
+        # exist". Don't write to it at all: pull the newest existing autosnap,
+        # and skip vor's own syncoid_* snaps, which nothing on romeo prunes.
         extraArgs = [
+          "--no-sync-snap"
+          "--exclude-snaps=^syncoid_"
           "--compress=zstd-slow"
           "--source-bwlimit=15m"
           "--debug"
@@ -179,6 +187,11 @@ in
       };
     };
   };
+
+  # The syncoid module has one global interval (hourly); keep this pull off the
+  # top of the hour so it never overlaps vor's local liveData -> vault sync.
+  systemd.timers."syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar =
+    lib.mkForce "*-*-* *:30:00";
 
   age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
 
