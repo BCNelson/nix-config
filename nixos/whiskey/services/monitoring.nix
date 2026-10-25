@@ -1,4 +1,17 @@
-{ config, ... }: {
+{ config, lib, ... }:
+let
+  # Flake hosts whose node-exporter Prometheus scrapes. Each target carries a
+  # `host` label with the flake host name, the same label custom checks put
+  # on their metrics, so check rules and node metrics share one selector.
+  # honor_labels keeps a metric's own `host` where it has one. alerting.nix
+  # refuses to build if a host with checks is missing from here.
+  nodeTargets = {
+    "whiskey-1" = { job = "whiskey"; target = "127.0.0.1:9100"; };
+    "romeo-2" = { job = "romeo"; target = "romeo.b.nel.family:9100"; };
+    "vor-2" = { job = "vor"; target = "vor.ck.nel.family:9100"; };
+  };
+in
+{
   services.prometheus = {
     enable = true;
     port = 9001;
@@ -9,31 +22,18 @@
         port = 9100;
       };
     };
-    scrapeConfigs = [
-      {
-        job_name = "whiskey";
+    scrapeConfigs = lib.mapAttrsToList
+      (host: t: {
+        job_name = t.job;
+        honor_labels = true;
         static_configs = [
           {
-            targets = [ "127.0.0.1:9100" ];
+            targets = [ t.target ];
+            labels = { inherit host; };
           }
         ];
-      }
-      {
-        job_name = "romeo";
-        static_configs = [
-          {
-            targets = [ "romeo.b.nel.family:9100" ];
-          }
-        ];
-      }
-      {
-        job_name = "vor";
-        static_configs = [
-          {
-            targets = [ "vor.ck.nel.family:9100" ];
-          }
-        ];
-      }
+      })
+      nodeTargets ++ [
       {
         job_name = "homeassistant";
         static_configs = [

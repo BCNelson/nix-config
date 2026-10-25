@@ -14,4 +14,5 @@
   thinClient = import ./thinClient;
   thinClientBuilder = import ./thinClientBuilder;
   opengym = import ./opengym.nix;
+  checks = import ./checks;
 }

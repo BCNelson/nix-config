@@ -1,6 +1,7 @@
 {
   config,
   libx,
+  pkgs,
   ...
 }: let
   # Shared family Migadu SMTP password (git-crypt sensitive.nix), reused by
@@ -156,6 +157,23 @@ in {
     locations."/" = {
       proxyPass = "https://localhost:9443";
       proxyWebsockets = true;
+    };
+  };
+
+  # Through the public name on purpose: this covers the cert and nginx as
+  # well as authentik itself. ready/ is authentik's own health check (database
+  # and cache reachable); the flow page proves it can actually serve a login.
+  services.bcnelson.checks.authentik-login = {
+    description = "authentik is healthy and serving its login flow";
+    runtimeInputs = [pkgs.curl];
+    script = ''
+      curl -fsS -m 15 -o /dev/null https://auth.nel.family/-/health/ready/
+      curl -fsS -m 15 -o /dev/null https://auth.nel.family/if/flow/default-authentication-flow/
+    '';
+    alert = {
+      severity = "critical";
+      summary = "authentik login is down";
+      description = "auth.nel.family is not serving its login flow, so sign-in is broken for every app that uses it for SSO.";
     };
   };
 }

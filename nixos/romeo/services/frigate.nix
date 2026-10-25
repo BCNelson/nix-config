@@ -224,4 +224,39 @@ in
     enableACME = true;
     acmeRoot = null;
   };
+
+  # :5000 is the module's internal, unauthenticated nginx listener; :5001
+  # (the API itself) and the public vhost both want a login.
+  services.bcnelson.checks = {
+    frigate-detector = {
+      description = "Frigate's object detector is running";
+      runtimeInputs = [ pkgs.curl pkgs.jq ];
+      script = ''
+        detectors=$(curl -fsS -m 10 http://127.0.0.1:5000/api/stats | jq -c '.detectors')
+        echo "detectors: $detectors"
+        jq -e 'length > 0 and all(.[]; .inference_speed > 0)' <<<"$detectors" >/dev/null
+      '';
+      alert = {
+        severity = "critical";
+        for = "10m";
+        summary = "Frigate has no working object detector";
+        description = "Without a detector Frigate records nothing as an event and sends no notifications. The detector runs on the A380 through OpenVINO (see the overrides in romeo/services/frigate.nix).";
+      };
+    };
+
+    frigate-cameras = {
+      description = "Every Frigate camera is receiving frames";
+      runtimeInputs = [ pkgs.curl pkgs.jq ];
+      script = ''
+        fps=$(curl -fsS -m 10 http://127.0.0.1:5000/api/stats | jq -c '.cameras | map_values(.camera_fps)')
+        echo "camera fps: $fps"
+        jq -e 'length > 0 and all(.[]; . > 0)' <<<"$fps" >/dev/null
+      '';
+      alert = {
+        for = "10m";
+        summary = "A Frigate camera has stopped sending video";
+        description = "At least one camera reports 0 fps. Usually the camera is offline or rebooting, or its stream URL changed.";
+      };
+    };
+  };
 }

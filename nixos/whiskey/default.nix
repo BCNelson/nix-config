@@ -16,6 +16,7 @@
       ./services/kanidm.nix
       ./services/authentik.nix
       ./services/monitoring.nix
+      ./services/alerting.nix
     ];
 
   networking.firewall.allowedTCPPorts = [ 80 443 ];

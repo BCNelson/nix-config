@@ -85,4 +85,51 @@ in
 
   systemd.services.alloy.serviceConfig.SupplementaryGroups =
     lib.mkIf hasDocker [ "docker" ];
+
+  # sanoid's own Nagios-style monitors judge each dataset against its
+  # retention policy (hourly_warn/crit, daily_warn/crit, ... and pool
+  # capacity), so these follow whatever datasets the host's sanoid config
+  # lists. On a replication target the newest snapshot is the newest one
+  # replicated, so snapshot age doubles as syncoid freshness. Pool health is
+  # left to the ZfsPoolDegraded rule on whiskey.
+  services.bcnelson.checks = lib.mkIf config.services.sanoid.enable (
+    let
+      sanoidMonitor = mode: ''
+        rc=0
+        out=$(sanoid --configdir /etc/sanoid --monitor-${mode} 2>&1) || rc=$?
+        # One finding per line; drop the per-template config noise.
+        grep -v '^ignored key' <<<"$out" | tr ',' '\n' || true
+        # 0 OK, 1 WARN, 2 CRIT, 3 UNKNOWN
+        echo "sanoid_monitor_status{mode=\"${mode}\",host=\"${hostname}\"} $rc" >> "$CHECK_METRICS"
+        exit "$rc"
+      '';
+    in
+    {
+      sanoid-snapshots = {
+        description = "sanoid snapshot ages are within each dataset's policy";
+        runtimeInputs = [ config.services.sanoid.package ];
+        script = sanoidMonitor "snapshots";
+        interval = "15m";
+        alert = {
+          # Replicated snapshots normally arrive a little after the hour, so
+          # give a late syncoid run time to catch up before alerting.
+          for = "30m";
+          summary = "Snapshots are missing or older than their sanoid policy";
+          description = "sanoid --monitor-snapshots is reporting WARN or CRIT. On a replication target this usually means syncoid has stopped delivering; check the syncoid-* units on the sending host.";
+        };
+      };
+
+      sanoid-capacity = {
+        description = "ZFS pools are below sanoid's capacity thresholds";
+        runtimeInputs = [ config.services.sanoid.package ];
+        script = sanoidMonitor "capacity";
+        interval = "1h";
+        alert = {
+          for = "1h";
+          summary = "A ZFS pool is filling up";
+          description = "sanoid --monitor-capacity is over its threshold (WARN at 80%, CRIT at 95%). ZFS slows down badly as a pool gets full.";
+        };
+      };
+    }
+  );
 }
