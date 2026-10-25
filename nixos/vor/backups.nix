@@ -119,7 +119,7 @@ in
 
   # Not at :00 with sanoid: syncoid's sync snapshot would land before the
   # hourly autosnap, so each run carried the previous hour's and
-  # vault/Backups/NelsonData (and romeo's pull of it, at :20) ran 1-2h behind.
+  # vault/Backups/NelsonData (and romeo's pull of it, at :10) ran 1-2h behind.
   systemd.timers."syncoid-liveData-NelsonData-Local-Backup".timerConfig.OnCalendar =
     lib.mkForce "*-*-* *:05:00";
 
