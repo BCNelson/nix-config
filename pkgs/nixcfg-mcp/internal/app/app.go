@@ -49,6 +49,7 @@ func New(root string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	st.OnSave = func(r pipeline.Result) { NoteWait(cfg.Root, r) }
 	return &App{Cfg: cfg, Obs: obs, Store: st}, nil
 }
 

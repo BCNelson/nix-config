@@ -203,8 +203,13 @@ real failure (build failed, retries exhausted, wrong branch) still ends the
 wait at once. `--strict` (MCP `strict: true`) makes unreachable and timed-out
 hosts count as failures too.
 
-Run it in the background (Claude: background Bash or Monitor) for long waits.
-Over MCP, `wait_for` blocks for a few minutes at a time and returns
+Run it in the background (Claude: Monitor, see CLAUDE.md) for long waits, and
+**never pipe it through `tail`, `head` or `grep`**: the output is sized to be
+read whole (a few dozen event lines, then a summary; a log tail appears only
+when something failed, clipped to 40 lines; `--json` has everything), and a pipe hides progress from the
+human until it exits. Its first line is the `wait_id`; if your watcher stops
+before the wait ends, `nixcfg wait --id <wait_id>` picks the same wait back
+up (it replays the events so far, then follows). Over MCP, `wait_for` blocks for a few minutes at a time and returns
 `state: pending` with a `wait_id`; call it again with the same `wait_id` until
 it finishes. Waits survive the MCP server restarting.
 

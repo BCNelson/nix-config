@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"nixcfg-mcp/internal/app"
+	"nixcfg-mcp/internal/config"
 	"nixcfg-mcp/internal/guard"
 	"nixcfg-mcp/internal/humancmd"
 	"nixcfg-mcp/internal/jobs"
@@ -31,6 +32,7 @@ const usage = `nixcfg: agent tooling for nix-config (see AGENTS.md)
   nixcfg wait job <job-id> [--timeout 2h]
   nixcfg status [rev] [--until M] [--host H]...
   nixcfg waits                        recent waits
+  nixcfg statusline                   origin/main's deploy status in one line (Claude Code statusLine)
   nixcfg hosts [--probe | --check]     --check: compare .agents/hosts.json with the flake
   nixcfg host-status <host> [--log]
   nixcfg explain [rev | a..b]
@@ -85,6 +87,34 @@ func run(argv []string) int {
 			return 0
 		}
 		return guard.RunHook(a.get("agent", "plain"), os.Stdin, os.Stdout, os.Stderr)
+	case "statusline":
+		// Before app.New: Claude runs this every few seconds, so it reads
+		// state files only (no config load, no git). Claude pipes session
+		// JSON on stdin; nothing here needs it.
+		now := time.Now()
+		if a.has("refresh") {
+			// Spawned detached by the status line itself; see statuscache.go.
+			ap, err := app.New(a.get("repo", ""))
+			if err != nil {
+				return fail(err)
+			}
+			if err := app.RefreshStatus(context.Background(), ap, now); err != nil {
+				return fail(err)
+			}
+			return 0
+		}
+		// A running wait keeps its commit's cached status current itself; no
+		// refresh needs to repeat its probes.
+		covered := map[string]bool{}
+		for _, w := range pipeline.PeekRecent(config.StateDir("waits"), now.Add(-time.Hour)) {
+			if w.Running && app.CoversRemote(w.Result) {
+				covered[w.Spec.SHA] = true
+			}
+		}
+		self, _ := os.Executable()
+		line := app.RemoteStatus(self, app.LocalRemoteHead(""), covered, now)
+		fmt.Println(line)
+		return 0
 	}
 
 	ap, err := app.New(a.get("repo", ""))
@@ -241,6 +271,11 @@ func cmdWait(ctx context.Context, ap *app.App, a args) int {
 	}
 	jsonOut := a.has("json")
 	enc := json.NewEncoder(os.Stdout)
+	if !jsonOut {
+		// First, so an agent whose watcher expires (Claude's Monitor caps at
+		// 30m) knows how to pick the same wait back up.
+		fmt.Printf("wait_id %s (resume: nixcfg wait --id %s)\n", h.ID, h.ID)
+	}
 	r, _, err := h.Await(ctx, 0, 1000*time.Hour, func(e pipeline.Event) {
 		if jsonOut {
 			_ = enc.Encode(e)

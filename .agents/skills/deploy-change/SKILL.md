@@ -66,7 +66,9 @@ and push again; never force.
 nixcfg wait <sha> --until live
 ```
 
-Run it in the background. It walks CI, the auto-update branch and each host,
+Run it in the background, unpiped (Claude: under Monitor, re-armed with
+`nixcfg wait --id <wait_id>` if it expires; never `| tail`, which hides the
+progress from the human). It walks CI, the auto-update branch and each host,
 and stops at the first real failure with the stage and a log tail. Report the
 final summary (per-stage times, per-host result). If it ends:
 

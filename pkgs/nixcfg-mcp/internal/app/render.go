@@ -47,7 +47,11 @@ func RenderResult(r *pipeline.Result) string {
 		fmt.Fprintf(&b, "  %s %-21s %s\n", mark(s.State), s.Name, s.Detail)
 	}
 	if r.CI != nil && r.CI.RunURL != "" {
-		fmt.Fprintf(&b, "  ci: %s\n", r.CI.RunURL)
+		fmt.Fprintf(&b, "  ci: %s", r.CI.RunURL)
+		if s := r.CI.Remaining(time.Now()); s != "" && !r.State.Terminal() {
+			fmt.Fprintf(&b, " (%s)", s)
+		}
+		b.WriteString("\n")
 	}
 	if sel := r.HostSelection; sel != nil {
 		fmt.Fprintf(&b, "hosts: %s", strings.Join(sel.Hosts, ", "))
@@ -82,7 +86,7 @@ func RenderResult(r *pipeline.Result) string {
 		fmt.Fprintf(&b, "hand the human (one line): %s\n", h)
 	}
 	if r.LogTail != "" {
-		fmt.Fprintf(&b, "log tail:\n%s\n", indent(r.LogTail))
+		fmt.Fprintf(&b, "log tail:\n%s\n", indent(clipTail(r.LogTail)))
 	}
 	if r.State.Terminal() {
 		b.WriteString(r.Summary())
@@ -99,6 +103,33 @@ func RenderEvents(evs []pipeline.Event) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// Bounds for the log tail in rendered output. Agents stream this (Monitor,
+// MCP), and a journal tail can be one 6 KB line (systemd listing every
+// container mount it stopped), which buries the error and tempts agents to
+// pipe the whole command through `tail`. --json keeps the full tail.
+const (
+	tailMaxLines = 40
+	tailMaxLine  = 300
+)
+
+// clipTail keeps the last tailMaxLines lines and the end of any long line,
+// where the error usually is.
+func clipTail(s string) string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	var out []string
+	if n := len(lines) - tailMaxLines; n > 0 {
+		out = append(out, fmt.Sprintf("… %d earlier lines (--json has them)", n))
+		lines = lines[n:]
+	}
+	for _, l := range lines {
+		if r := []rune(l); len(r) > tailMaxLine {
+			l = fmt.Sprintf("…[%d chars] %s", len(r)-tailMaxLine, string(r[len(r)-tailMaxLine:]))
+		}
+		out = append(out, l)
+	}
+	return strings.Join(out, "\n")
 }
 
 func indent(s string) string {
@@ -243,9 +274,9 @@ func RenderJob(j *jobs.Job) string {
 	fmt.Fprintf(&b, "  %s\n", strings.Join(j.Argv, " "))
 	fmt.Fprintf(&b, "  log: %s\n", jobs.LogPath(j.ID))
 	if j.Error != "" {
-		fmt.Fprintf(&b, "error:\n%s\n", indent(j.Error))
+		fmt.Fprintf(&b, "error:\n%s\n", indent(clipTail(j.Error)))
 	} else if j.Tail != "" {
-		fmt.Fprintf(&b, "tail:\n%s\n", indent(j.Tail))
+		fmt.Fprintf(&b, "tail:\n%s\n", indent(clipTail(j.Tail)))
 	}
 	if !j.Done() {
 		fmt.Fprintf(&b, "still running; follow with: nixcfg wait job %s\n", j.ID)

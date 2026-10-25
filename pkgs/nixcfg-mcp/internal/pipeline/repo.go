@@ -52,7 +52,8 @@ type RepoObs struct {
 	OwnWatched   []string // the watched paths sha itself touches
 	NextBump     time.Time
 	Deadline     time.Time
-	Errors       []string // transient observation errors (progress only)
+	TypicalCI    time.Duration // median of recent successful check.yml runs (TypicalDuration)
+	Errors       []string      // transient observation errors (progress only)
 }
 
 // RepoVerdict is the evaluation of the repo stages.
@@ -104,6 +105,12 @@ func EvalRepo(o RepoObs) RepoVerdict {
 	case len(o.CheckRuns) > 0:
 		r := o.CheckRuns[len(o.CheckRuns)-1]
 		set(CIStarted, Succeeded, runLabel(r))
+		// Record the run now, not only on failure: it links the run while it
+		// is going, and says when it is a later commit's (pushed together).
+		v.CI = ciInfo(r, "check.yml")
+		if !r.Run.Done() && r.Run.Started.Unix() > 0 {
+			v.CI.Started, v.CI.TypicalSec = r.Run.Started, int(o.TypicalCI.Seconds())
+		}
 	case o.BumpRunning:
 		set(CIStarted, Pending, "no check.yml run; the daily flake bump (update.yml) is running from a main that contains it")
 		v.CI.Route = "update.yml"

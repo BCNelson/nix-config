@@ -156,9 +156,17 @@ func Get(id string) (*Job, error) {
 		end = j.Finished
 	}
 	j.Elapsed = end.Sub(j.Started).Round(time.Second).String()
-	j.Tail = Tail(id, 40)
-	if j.Status == Failed {
+	// Logs go to the agent only when something went wrong. A running or
+	// successful build's output is thousands of lines the agent can't act on;
+	// the log file is there (LogPath) if it does need it.
+	switch j.Status {
+	case Failed:
 		j.Error = NixError(id)
+		if j.Error == "" {
+			j.Tail = Tail(id, 40)
+		}
+	case Lost:
+		j.Tail = Tail(id, 40)
 	}
 	return &j, nil
 }

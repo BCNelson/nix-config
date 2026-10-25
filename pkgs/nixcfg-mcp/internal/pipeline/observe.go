@@ -154,6 +154,7 @@ func (o *Observer) Repo(ctx context.Context, sha string, refs Refs, pushedSince,
 		obs.Errors = append(obs.Errors, err.Error())
 		return obs
 	}
+	obs.TypicalCI = TypicalDuration(runs, o.Cfg.Forgejo.Workflow)
 	since := o.commitTime(ctx, sha).Add(-10 * time.Minute)
 	for i := len(runs) - 1; i >= 0; i-- { // API returns newest first; walk oldest first
 		r := runs[i]

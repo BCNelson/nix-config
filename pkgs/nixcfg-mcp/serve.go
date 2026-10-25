@@ -58,7 +58,7 @@ func serve(ap *app.App) error {
 	mcp.AddTool(srv, &mcp.Tool{Name: "explain_change", Description: "Whether commits (default origin/main..HEAD plus the working tree; or a rev, or a..b) touch paths check.yml watches -- i.e. whether pushing them runs CI and deploys."}, s.explain)
 	mcp.AddTool(srv, &mcp.Tool{Name: "check_host", Description: "Start a background job that evaluates (mode=eval), dry-runs (default) or builds (mode=build) a host's system; all=true dry-runs every host. Returns a job_id for job_wait."}, s.checkHost)
 	mcp.AddTool(srv, &mcp.Tool{Name: "preseed", Description: "Start a background job that builds romeo-2 or whiskey-1 here and copies it into romeo's store, so auto-update doesn't rebuild it. Needs a clean checkout at the commit to be pushed, and git-crypt unlocked."}, s.preseed)
-	mcp.AddTool(srv, &mcp.Tool{Name: "job_wait", Description: "Wait up to block_sec (default 240) for a background job; returns its status, exit code and the nix error or log tail. Call again while it is running."}, s.jobWait)
+	mcp.AddTool(srv, &mcp.Tool{Name: "job_wait", Description: "Wait up to block_sec (default 240) for a background job; returns its status and exit code, plus the nix error or log tail only if it failed (the full log path is always included). Call again while it is running."}, s.jobWait)
 	mcp.AddTool(srv, &mcp.Tool{Name: "job_status", Description: "A background job's status and log tail, without blocking."}, s.jobStatus)
 	mcp.AddTool(srv, &mcp.Tool{Name: "job_cancel", Description: "Stop a background job."}, s.jobCancel)
 	mcp.AddTool(srv, &mcp.Tool{Name: "jobs_list", Description: "Recent background jobs."}, s.jobsList)

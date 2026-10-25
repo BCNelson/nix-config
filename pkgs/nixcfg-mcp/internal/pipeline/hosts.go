@@ -76,6 +76,9 @@ func EvalHost(p *HostProgress, target Milestone, o HostObs) []Event {
 		switch s {
 		case Succeeded:
 			kind = "ok"
+			// Logs go to the agent only for errors: a tail kept from an
+			// attempt that failed before a retry succeeded is noise now.
+			p.LogTail = ""
 		case Blocked:
 			kind = "blocked"
 		}

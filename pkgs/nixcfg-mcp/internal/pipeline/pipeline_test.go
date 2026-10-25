@@ -311,3 +311,101 @@ func TestAggregateHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestAddEventDedupesRepeatedWarnings(t *testing.T) {
+	w := &Wait{notify: make(chan struct{}), done: make(chan struct{}), lastDetail: map[string]string{}}
+	branch := Event{Stage: HostApplied, Host: "ryuu-2", Kind: "warn", Text: "checkout is on main"}
+	w.addEvent(branch)
+	w.addEvent(branch)
+	w.addEvent(Event{Stage: HostApplied, Host: "vor-2", Kind: "warn", Text: "checkout is on main"})
+	w.addEvent(Event{Stage: HostApplied, Host: "ryuu-2", Kind: "ok", Text: "reached"})
+	w.addEvent(Event{Stage: HostApplied, Host: "ryuu-2", Kind: "ok", Text: "reached"})
+	if got := len(w.events); got != 4 {
+		t.Fatalf("got %d events, want 4 (only the repeated warning dropped): %+v", got, w.events)
+	}
+}
+
+func TestStableETADropsCountdown(t *testing.T) {
+	for in, want := range map[string]string{
+		"timer fires at 00:50 (in 48m0s)":                 "timer fires at 00:50",
+		"ntfy should start it within a couple of minutes": "ntfy should start it within a couple of minutes",
+		"": "",
+	} {
+		if got := stableETA(in); got != want {
+			t.Errorf("stableETA(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestTypicalDuration(t *testing.T) {
+	t0 := time.Date(2026, 10, 25, 16, 0, 0, 0, time.UTC)
+	run := func(status, ref string, d time.Duration) forgejo.Run {
+		return forgejo.Run{WorkflowID: "check.yml", Status: status, PrettyRef: ref, Started: t0, Stopped: t0.Add(d)}
+	}
+	m := func(min, sec int) time.Duration {
+		return time.Duration(min)*time.Minute + time.Duration(sec)*time.Second
+	}
+	// Runs #58..#53 from 2026-10-25, newest first, plus noise that must be skipped.
+	runs := []forgejo.Run{
+		{WorkflowID: "check.yml", Status: "running", PrettyRef: "main", Started: t0},
+		run("success", "main", m(7, 7)),
+		run("cancelled", "main", m(2, 55)),
+		run("failure", "main", m(1, 0)),
+		{WorkflowID: "update.yml", Status: "success", PrettyRef: "main", Started: t0, Stopped: t0.Add(time.Hour)},
+		run("success", "some-branch", m(30, 0)),
+		run("success", "main", m(3, 50)),
+		run("success", "main", m(4, 48)),
+		run("success", "main", m(5, 43)),
+		run("success", "main", m(4, 42)),
+		run("success", "main", m(4, 41)), // the sixth success: past typicalRuns
+	}
+	if got, want := TypicalDuration(runs, "check.yml"), m(4, 48); got != want {
+		t.Errorf("TypicalDuration = %s, want %s (median of the last 5 successes)", got, want)
+	}
+	if got := TypicalDuration(runs[:2], "check.yml"); got != 0 {
+		t.Errorf("one successful run is not enough history, got %s", got)
+	}
+}
+
+func TestCIRemaining(t *testing.T) {
+	start := time.Date(2026, 10, 25, 16, 0, 0, 0, time.UTC)
+	ci := &CIInfo{Started: start, TypicalSec: 288} // 4m48s
+	for _, c := range []struct {
+		elapsed time.Duration
+		want    string
+	}{
+		{0, "~4m48s left"},
+		{90 * time.Second, "~3m18s left"},
+		{4*time.Minute + 20*time.Second, "~28s left"},
+		{4*time.Minute + 48*time.Second, "~0s left"},
+		{4*time.Minute + 49*time.Second, "longer than usual (+1s)"},
+		{7 * time.Minute, "longer than usual (+2m12s)"},
+	} {
+		if got := ci.Remaining(start.Add(c.elapsed)); got != c.want {
+			t.Errorf("after %s: %q, want %q", c.elapsed, got, c.want)
+		}
+	}
+	if got := (&CIInfo{Started: start}).Remaining(start); got != "" {
+		t.Errorf("no history should mean no estimate, got %q", got)
+	}
+	var none *CIInfo
+	if got := none.Remaining(start); got != "" {
+		t.Errorf("nil CI info: %q", got)
+	}
+}
+
+func TestEvalRepoCarriesCIEstimate(t *testing.T) {
+	o := RepoObs{At: t0, Pushed: true, PushedSince: t0.Add(-5 * time.Minute), WatchedAhead: true, NextBump: NextBump(t0), Deadline: t0.Add(time.Hour), TypicalCI: 288 * time.Second}
+	running := RunObs{Own: true, Run: forgejo.Run{Index: 58, Status: "running", Started: t0.Add(-2 * time.Minute)}}
+	o.CheckRuns = []RunObs{running}
+	v := EvalRepo(o)
+	if !v.CI.Started.Equal(running.Run.Started) || v.CI.TypicalSec != 288 {
+		t.Errorf("running run: CI = %+v, want its start and the typical duration", v.CI)
+	}
+
+	running.Run.Status, running.Run.Stopped = "success", t0
+	o.CheckRuns = []RunObs{running}
+	if v := EvalRepo(o); !v.CI.Started.IsZero() {
+		t.Errorf("a finished run still carries an estimate: %+v", v.CI)
+	}
+}

@@ -15,8 +15,11 @@ package pipeline
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
+
+	"nixcfg-mcp/internal/forgejo"
 )
 
 type Milestone string
@@ -250,6 +253,57 @@ type CIInfo struct {
 	Superseded  bool     `json:"superseded,omitempty"` // the run is for a later commit containing sha
 	Route       string   `json:"route,omitempty"`      // check.yml | update.yml | none
 	FailedHosts []string `json:"failed_hosts,omitempty"`
+	// While the run is going: when it started, and how long recent
+	// successful runs of the workflow took (median). Remaining is worked out
+	// when rendered, not stored, so it doesn't change on every poll.
+	Started    time.Time `json:"started,omitzero"`
+	TypicalSec int       `json:"typical_sec,omitempty"`
+}
+
+// Remaining estimates how much longer the run will take: "~3m20s left", or
+// "longer than usual (+1m5s)" once it has run past the typical duration.
+// Empty without enough history or once the run is done.
+func (c *CIInfo) Remaining(now time.Time) string {
+	if c == nil || c.Started.IsZero() || c.TypicalSec == 0 {
+		return ""
+	}
+	left := c.Started.Add(time.Duration(c.TypicalSec) * time.Second).Sub(now).Round(time.Second)
+	if left < 0 {
+		return fmt.Sprintf("longer than usual (+%s)", -left)
+	}
+	return fmt.Sprintf("~%s left", left)
+}
+
+// typicalRuns is how many recent successful runs the estimate is based on.
+const typicalRuns = 5
+
+// TypicalDuration is the median duration of the last typicalRuns successful
+// runs of workflow on main (runs newest first), or 0 with fewer than two.
+// The median, so one slow run (a cold cache, a busy runner) doesn't drag the
+// estimate; failed and cancelled runs stop early and would make it optimistic.
+func TypicalDuration(runs []forgejo.Run, workflow string) time.Duration {
+	var ds []time.Duration
+	for _, r := range runs {
+		if len(ds) == typicalRuns {
+			break
+		}
+		if r.WorkflowID != workflow || r.Status != "success" || r.PrettyRef != "main" {
+			continue
+		}
+		// Queued runs report started as the Unix epoch, not as unset.
+		if r.Started.Unix() <= 0 || !r.Stopped.After(r.Started) {
+			continue
+		}
+		ds = append(ds, r.Stopped.Sub(r.Started))
+	}
+	if len(ds) < 2 {
+		return 0
+	}
+	slices.Sort(ds)
+	if len(ds)%2 == 1 {
+		return ds[len(ds)/2]
+	}
+	return (ds[len(ds)/2-1] + ds[len(ds)/2]) / 2
 }
 
 // Summary is a short human-readable final line.

@@ -191,6 +191,17 @@ func (w *Wait) Changed() <-chan struct{} {
 func (w *Wait) Done() <-chan struct{} { return w.done }
 
 func (w *Wait) addEvent(e Event) {
+	// Host checks re-derive their warnings on every poll (a checkout on the
+	// wrong branch stays wrong), so the same warning would otherwise repeat
+	// for the whole wait. Scanning is fine: a wait has a few dozen events, and
+	// it also dedupes across a resume because the old events are loaded.
+	if e.Kind == "warn" {
+		for _, old := range w.events {
+			if old.Kind == "warn" && old.Host == e.Host && old.Text == e.Text {
+				return
+			}
+		}
+	}
 	w.events = append(w.events, e)
 	w.res.EventCount = len(w.events)
 	if w.store != nil {
@@ -238,10 +249,9 @@ func (w *Wait) Run(ctx context.Context) {
 func (w *Wait) interval() time.Duration {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	// 15s for host stages too: the status line shows each poll's result, and
+	// the probes are a cheap ssh each.
 	base := 15 * time.Second
-	if w.res.CurrentStage.IsHostStage() {
-		base = 30 * time.Second
-	}
 	if w.res.CurrentStage == CIStarted || w.res.CurrentStage == CheckHostsPassed {
 		base = 20 * time.Second
 	}
@@ -365,13 +375,24 @@ func (w *Wait) step(ctx context.Context) {
 			w.addEvent(e)
 		}
 		if !r.p.State.Terminal() {
-			w.progress(r.p.Stage, r.p.Host, "progress", joinNonEmpty(r.p.Detail, r.p.ETA))
+			w.progress(r.p.Stage, r.p.Host, "progress", joinNonEmpty(r.p.Detail, stableETA(r.p.ETA)))
 		}
 	}
 	w.aggregateHosts(now)
 	if !w.res.State.Terminal() {
 		w.checkDeadline(now)
 	}
+}
+
+// stableETA drops a trailing "(in 48m0s)" countdown. progress() only emits
+// when the text changes, and a countdown changes every poll: a host waiting
+// an hour for its timer would print a line a minute. The absolute time before
+// it says the same thing; the rendered summary still shows the countdown.
+func stableETA(eta string) string {
+	if i := strings.LastIndex(eta, " (in "); i >= 0 && strings.HasSuffix(eta, ")") {
+		return eta[:i]
+	}
+	return eta
 }
 
 func joinNonEmpty(parts ...string) string {

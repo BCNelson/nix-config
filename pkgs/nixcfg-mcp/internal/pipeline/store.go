@@ -33,6 +33,10 @@ type Store struct {
 	locks map[string]*os.File
 	cfg   *config.Config
 	obs   *Observer
+
+	// OnSave, if set, sees every saved result (the status line cache). It
+	// runs with the wait's lock held: it must not call back into the wait.
+	OnSave func(Result)
 }
 
 // NewStore opens the store.
@@ -59,6 +63,9 @@ func (s *Store) save(r *Result, b book) {
 	tmp := s.path(r.ID, ".json.tmp")
 	if err := os.WriteFile(tmp, raw, 0o600); err == nil {
 		_ = os.Rename(tmp, s.path(r.ID, ".json"))
+	}
+	if s.OnSave != nil {
+		s.OnSave(*r)
 	}
 }
 
@@ -270,4 +277,72 @@ func (s *Store) List(limit int) []Result {
 		out = out[:limit]
 	}
 	return out
+}
+
+// Peek is a wait as seen from outside, without loading it into a Store.
+type Peek struct {
+	Result
+	Running bool // some process holds the wait's lock and is polling it
+}
+
+// PeekRecent reads the waits under dir whose state changed after since,
+// newest first. It never takes a lock: the status line calls it every few
+// seconds, and even a brief probe of a lock could make a CLI resuming a wait
+// at that moment back off to following, leaving nobody polling it. Instead it
+// reads /proc/locks.
+func PeekRecent(dir string, since time.Time) []Peek {
+	entries, _ := os.ReadDir(dir)
+	held := heldFlocks()
+	var out []Peek
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, "w-") || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		fi, err := e.Info()
+		if err != nil || fi.ModTime().Before(since) {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		var rec record
+		if json.Unmarshal(raw, &rec) != nil {
+			continue
+		}
+		p := Peek{Result: rec.Result}
+		if lfi, err := os.Stat(filepath.Join(dir, strings.TrimSuffix(name, ".json")+".lock")); err == nil {
+			if st, ok := lfi.Sys().(*syscall.Stat_t); ok {
+				p.Running = held[st.Ino]
+			}
+		}
+		out = append(out, p)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Created.After(out[j].Created) })
+	return out
+}
+
+// heldFlocks returns the inodes with a flock(2) on them, from /proc/locks
+// lines like "1: FLOCK  ADVISORY  WRITE 1234 fd:01:5678 0 EOF". Device
+// numbers are ignored: the waits are all on one filesystem, and a stray inode
+// match elsewhere only makes a stale wait look alive.
+func heldFlocks() map[uint64]bool {
+	held := map[uint64]bool{}
+	raw, err := os.ReadFile("/proc/locks")
+	if err != nil {
+		return held
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 6 || f[1] != "FLOCK" {
+			continue
+		}
+		dev := strings.Split(f[5], ":")
+		var ino uint64
+		if _, err := fmt.Sscan(dev[len(dev)-1], &ino); err == nil {
+			held[ino] = true
+		}
+	}
+	return held
 }
