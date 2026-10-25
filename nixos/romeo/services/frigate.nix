@@ -12,7 +12,15 @@ in
     # (the ov.Tensor(array) constructor works). Drop this once
     # https://github.com/NixOS/nixpkgs/pull/576186 lands or a pybind11 release
     # carries https://github.com/pybind/pybind11/pull/6183.
-    package = pkgs.frigate.overrideAttrs (old: {
+    package = pkgs.frigate.overrideAttrs (finalAttrs: old: {
+      # The module runs `python -m frigate` with PYTHONPATH = pythonPath, and
+      # nixpkgs builds that from the un-overridden `frigate` argument, so an
+      # override is built but never loaded. Point it at this package.
+      passthru = old.passthru // {
+        pythonPath =
+          (old.passthru.python3Packages.makePythonPath finalAttrs.finalPackage.dependencies)
+          + ":${finalAttrs.finalPackage}/${old.passthru.python.sitePackages}";
+      };
       postPatch = (old.postPatch or "") + ''
         substituteInPlace frigate/detectors/detection_runners.py \
           --replace-fail \
