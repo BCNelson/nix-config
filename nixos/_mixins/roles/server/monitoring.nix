@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
   hasDocker = config.virtualisation.docker.enable;
   hostname = config.networking.hostName;
@@ -92,42 +92,47 @@ in
   # lists. On a replication target the newest snapshot is the newest one
   # replicated, so snapshot age doubles as syncoid freshness. Pool health is
   # left to the ZfsPoolDegraded rule on whiskey.
+  #
+  # sanoid-monitor.sh turns each finding into its own series, so each dataset
+  # or pool is its own alert carrying the numbers.
   services.bcnelson.checks = lib.mkIf config.services.sanoid.enable (
     let
-      sanoidMonitor = mode: ''
-        rc=0
-        out=$(sanoid --configdir /etc/sanoid --monitor-${mode} 2>&1) || rc=$?
-        # One finding per line; drop the per-template config noise.
-        grep -v '^ignored key' <<<"$out" | tr ',' '\n' || true
-        # 0 OK, 1 WARN, 2 CRIT, 3 UNKNOWN
-        echo "sanoid_monitor_status{mode=\"${mode}\",host=\"${hostname}\"} $rc" >> "$CHECK_METRICS"
-        exit "$rc"
-      '';
+      sanoidMonitor = pkgs.writeShellApplication {
+        name = "sanoid-monitor";
+        runtimeInputs = [ config.services.sanoid.package ];
+        text = builtins.readFile ./sanoid-monitor.sh;
+      };
+      sel = ''host="${hostname}"'';
     in
     {
       sanoid-snapshots = {
         description = "sanoid snapshot ages are within each dataset's policy";
-        runtimeInputs = [ config.services.sanoid.package ];
-        script = sanoidMonitor "snapshots";
+        runtimeInputs = [ sanoidMonitor ];
+        script = "sanoid-monitor snapshots";
         interval = "15m";
         alert = {
+          # Missing snapshots come out as -1 so one rule covers both kinds.
+          expr = "sanoid_snapshot_age_seconds{${sel}} or (sanoid_snapshot_missing{${sel}} * -1)";
+          severity = "{{ $labels.level }}";
           # Replicated snapshots normally arrive a little after the hour, so
           # give a late syncoid run time to catch up before alerting.
           for = "30m";
-          summary = "Snapshots are missing or older than their sanoid policy";
-          description = "sanoid --monitor-snapshots is reporting WARN or CRIT. On a replication target this usually means syncoid has stopped delivering; check the syncoid-* units on the sending host.";
+          summary = "{{ $labels.dataset }}: {{ if lt $value 0.0 }}no {{ $labels.type }} snapshots at all{{ else }}newest {{ $labels.type }} snapshot is {{ $value | humanizeDuration }} old (limit {{ $labels.limit }}){{ end }}";
+          description = "{{ if lt $value 0.0 }}sanoid's policy keeps {{ $labels.type }} snapshots of {{ $labels.dataset }}, but there are none.{{ else }}The newest {{ $labels.type }} snapshot of {{ $labels.dataset }} is {{ $value | humanizeDuration }} old; the {{ $labels.level }} limit is {{ $labels.limit }}.{{ end }} On a replication target this means syncoid is not delivering: check the syncoid-* units on the sending host, and sanoid itself on the source.";
         };
       };
 
       sanoid-capacity = {
         description = "ZFS pools are below sanoid's capacity thresholds";
-        runtimeInputs = [ config.services.sanoid.package ];
-        script = sanoidMonitor "capacity";
+        runtimeInputs = [ sanoidMonitor ];
+        script = "sanoid-monitor capacity";
         interval = "1h";
         alert = {
+          expr = ''sanoid_pool_capacity_percent{${sel},status!="ok"}'';
+          severity = "{{ $labels.status }}";
           for = "1h";
-          summary = "A ZFS pool is filling up";
-          description = "sanoid --monitor-capacity is over its threshold (WARN at 80%, CRIT at 95%). ZFS slows down badly as a pool gets full.";
+          summary = "ZFS pool {{ $labels.pool }} is {{ $value }}% full";
+          description = "Over sanoid's {{ $labels.status }} threshold (warning at 80%, critical at 95%). ZFS slows down badly as a pool fills, and snapshots pin space that deleting files won't free.";
         };
       };
     }

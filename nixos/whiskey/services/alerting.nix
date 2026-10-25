@@ -117,8 +117,11 @@ in
       configuration = {
         route = {
           receiver = "ntfy";
-          # One notification per alert per host/check, not one per rule.
-          group_by = [ "alertname" "host" "check" ];
+          # Every alert is its own group. alertmanager-ntfy sends one message
+          # per alert in a webhook, and a group re-sends all of its alerts
+          # whenever one joins, so a shared group (say, three datasets behind
+          # on one host) would re-push the ones already firing.
+          group_by = [ "..." ];
           group_wait = "30s";
           group_interval = "5m";
           repeat_interval = "12h";

@@ -99,16 +99,17 @@ let
         check = name;
         host = hostname;
       };
+      # A templated severity only resolves against the Failing expression's
+      # labels; the Broken and Stale rules have none to offer.
+      plainLabels = labels // lib.optionalAttrs (lib.hasInfix "{{" check.alert.severity) { severity = "warning"; };
       logs = "Logs: journalctl -u check-${name} on ${hostname}";
       staleAfter = if check.alert.staleAfter != null then check.alert.staleAfter else "${toString (3 * toSeconds check.interval)}s";
-      failing = "check_success${sel} == 0";
+      scriptFailed = "check_success${sel} == 0";
     in
     [
       {
         alert = "${base}Failing";
-        # A custom expression adds a condition on the check's own metrics; the
-        # script failing outright still alerts.
-        expr = if check.alert.expr == null then failing else "(${check.alert.expr}) or (${failing})";
+        expr = if check.alert.expr == null then scriptFailed else check.alert.expr;
         inherit (check.alert) for;
         inherit labels;
         annotations = {
@@ -116,17 +117,34 @@ let
           description = lib.concatStringsSep "\n\n" (lib.filter (s: s != "") [ check.alert.description logs ]);
         };
       }
+    ]
+    # With a custom expression the script's exit status no longer is the
+    # result, only whether it managed to produce one.
+    ++ lib.optional (check.alert.expr != null) {
+      alert = "${base}Broken";
+      expr = scriptFailed;
+      for = "15m";
+      labels = plainLabels;
+      annotations = {
+        summary = "Check ${name} cannot run";
+        description = ''
+          check-${name} is exiting non-zero, so its metrics, and with them "${check.description}", are not being checked.
+
+          ${logs}'';
+      };
+    }
+    ++ [
       {
         alert = "${base}Stale";
         # absent() covers a check that has never reported (or whose host is
         # gone); the age test covers one that stopped.
         expr = "absent(check_last_run_timestamp_seconds${sel}) or (time() - check_last_run_timestamp_seconds${sel}) > ${toString (toSeconds staleAfter)}";
         for = "5m";
-        inherit labels;
+        labels = plainLabels;
         annotations = {
           summary = "Check ${name} has stopped reporting";
           description = ''
-            No result from check-${name} for over ${staleAfter}, so "${check.alert.summary}" is not being watched. The timer may have stopped, node-exporter may be down, or the .prom file may be malformed (node_textfile_scrape_error).
+            No result from check-${name} for over ${staleAfter}, so "${check.description}" is not being checked. The timer may have stopped, node-exporter may be down, or the .prom file may be malformed (node_textfile_scrape_error).
 
             ${logs}'';
         };
@@ -144,7 +162,13 @@ in
 
         The script can also write extra Prometheus metrics, in text exposition
         format, to the file named by $CHECK_METRICS, both for graphing and for
-        a custom `alert.expr`.
+        a custom `alert.expr`. They need no host label: the scrape adds it.
+
+        With `alert.expr` set, Failing fires once per series the expression
+        returns (say, one per dataset), and summary, description and severity
+        can use Prometheus templates over that series ({{ $labels.x }},
+        {{ $value }}). The script's exit status then only says whether it ran,
+        and gets its own <Name>Broken rule.
       '';
       type = lib.types.attrsOf (lib.types.submodule {
         options = {
@@ -173,9 +197,12 @@ in
           };
           alert = {
             severity = lib.mkOption {
-              type = lib.types.enum [ "warning" "critical" ];
+              type = lib.types.str;
               default = "warning";
-              description = "critical is pushed to ntfy as urgent, warning as high.";
+              description = ''
+                "critical" is pushed to ntfy as urgent, "warning" as high. May be
+                a template over `alert.expr`'s labels that yields one of them.
+              '';
             };
             for = lib.mkOption {
               type = durationType;
@@ -194,7 +221,7 @@ in
             expr = lib.mkOption {
               type = lib.types.nullOr lib.types.str;
               default = null;
-              description = "Extra PromQL condition for the Failing rule, usually over metrics the script wrote to $CHECK_METRICS.";
+              description = "PromQL for the Failing rule in place of the script's exit status, usually over metrics the script wrote to $CHECK_METRICS.";
             };
             staleAfter = lib.mkOption {
               type = lib.types.nullOr durationType;
