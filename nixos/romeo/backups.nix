@@ -328,18 +328,4 @@ in
     #   paths = "/mnt/vault/data/level5";
     # };
   };
-
-  users.users.backup = {
-    isNormalUser = true;
-    description = "Backup user";
-  };
-
-  systemd.services.BackupZFSAlow = {
-    serviceConfig.Type = "oneshot";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    script = ''
-      sudo zfs allow -u backup send,hold
-    '';
-  };
 }
