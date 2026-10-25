@@ -68,6 +68,9 @@ in
           motion.mask = ["0.25,0,0.735,0,0.735,0.07,0.25,0.07"];
         };
       };
+      # Frigate 0.18 defaults detect.enabled to false; without this the
+      # cameras only record, and no objects are ever detected or tracked.
+      detect.enabled = true;
       detectors = {
         ov = {
           type = "openvino";
@@ -170,9 +173,14 @@ in
     ReadWritePaths = [ "${dataDirs.level5}/frigate/db" ];
   };
 
-  # Force OpenVINO/Level Zero to only use the A380 (first GPU)
+  # Force OpenVINO/Level Zero to only use the A380. In PCI order the B580
+  # (06:00.0) is device 0 and the A380 (0f:00.0) device 1; with the mask the
+  # A380 is the only GPU, so the detector's "GPU.0" resolves to it. The
+  # session-wide ZE_ENABLE_PCI_ID_DEVICE_ORDER doesn't reach services, so pin
+  # the ordering here too.
   systemd.services.frigate.environment = {
-    ZE_AFFINITY_MASK = "0";
+    ZE_ENABLE_PCI_ID_DEVICE_ORDER = "1";
+    ZE_AFFINITY_MASK = "1";
     # Name the Intel iHD driver explicitly. Frigate's stats loop calls
     # is_vaapi_amd_driver() every cycle to tell AMD from Intel; with no
     # LIBVA_DRIVER_NAME set it runs bare `vainfo` (no --device), which libva
