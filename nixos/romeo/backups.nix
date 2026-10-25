@@ -242,6 +242,11 @@ in
         inherit target;
         recursive = true;
         recvOptions = "u";
+        # syncoid prunes its previous sync snapshot on the target too, and the
+        # module's default target permissions leave out destroy: every run
+        # failed that prune ("zfs destroy ... failed: 256") and syncoid_*
+        # snapshots piled up on trove. (The next run clears the backlog.)
+        localTargetAllow = config.services.syncoid.localTargetAllow ++ [ "destroy" ];
         service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-trove-${level}"}";
       })
       troveCopies;
