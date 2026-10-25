@@ -99,17 +99,43 @@ in
     let
       sanoidMonitor = pkgs.writeShellApplication {
         name = "sanoid-monitor";
-        runtimeInputs = [ config.services.sanoid.package ];
+        runtimeInputs = [
+          config.services.sanoid.package
+          config.boot.zfs.package
+          pkgs.procps
+          pkgs.gawk
+        ];
         text = builtins.readFile ./sanoid-monitor.sh;
       };
       sel = ''host="${hostname}"'';
+
+      # "; receiving for 14h, 122GiB of ~1.1TiB, ~6h to go", when a zfs
+      # receive into the alert's dataset is running. Each part is left out
+      # when its metric is missing: bytes come from the resume token, the
+      # total from the sending host's estimate (joined on the snapshot name,
+      # so it works across hosts), and the time left from the receive rate
+      # over the last hour.
+      recvSel = ''printf "host=%q,dataset=%q" $labels.host $labels.dataset'';
+      transfer = lib.concatStrings [
+        "{{ $sel := ${recvSel} }}"
+        ''{{ with printf "zfs_receive_running_seconds{%s}" $sel | query }}{{ with first . }}''
+        "; receiving for {{ value . | humanizeDuration }}"
+        ''{{ $snap := label "snapshot" . }}''
+        ''{{ with printf "zfs_receive_bytes{%s}" $sel | query }}{{ with first . }}, {{ value . | humanize1024 }}B{{ end }}{{ end }}''
+        "{{ if $snap }}"
+        ''{{ with printf "zfs_send_estimated_bytes{snapshot=%q}" $snap | query }}{{ with first . }} of ~{{ value . | humanize1024 }}B{{ end }}{{ end }}''
+        ''{{ with printf "(vector((scalar(zfs_send_estimated_bytes{snapshot=%q}) - scalar(zfs_receive_bytes{%s})) / scalar(deriv(zfs_receive_bytes{%s}[1h]))) > 0) < 31536000" $snap $sel $sel | query }}{{ with first . }}, ~{{ value . | humanizeDuration }} to go{{ end }}{{ end }}''
+        "{{ end }}"
+        "{{ end }}{{ end }}"
+      ];
     in
     {
       sanoid-snapshots = {
         description = "sanoid snapshot ages are within each dataset's policy";
         runtimeInputs = [ sanoidMonitor ];
         script = "sanoid-monitor snapshots";
-        interval = "15m";
+        # Often enough that a transfer's progress in the alert is current.
+        interval = "5m";
         alert = {
           # Missing snapshots come out as -1 so one rule covers both kinds.
           expr = "sanoid_snapshot_age_seconds{${sel}} or (sanoid_snapshot_missing{${sel}} * -1)";
@@ -117,8 +143,8 @@ in
           # Replicated snapshots normally arrive a little after the hour, so
           # give a late syncoid run time to catch up before alerting.
           for = "30m";
-          summary = "{{ $labels.dataset }}: {{ if lt $value 0.0 }}no {{ $labels.type }} snapshots at all{{ else }}newest {{ $labels.type }} snapshot is {{ $value | humanizeDuration }} old (limit {{ $labels.limit }}){{ end }}";
-          description = "{{ if lt $value 0.0 }}sanoid's policy keeps {{ $labels.type }} snapshots of {{ $labels.dataset }}, but there are none.{{ else }}The newest {{ $labels.type }} snapshot of {{ $labels.dataset }} is {{ $value | humanizeDuration }} old; the {{ $labels.level }} limit is {{ $labels.limit }}.{{ end }} On a replication target this means syncoid is not delivering: check the syncoid-* units on the sending host, and sanoid itself on the source.";
+          summary = "{{ $labels.dataset }}: {{ if lt $value 0.0 }}no {{ $labels.type }} snapshots at all{{ else }}newest {{ $labels.type }} snapshot is {{ $value | humanizeDuration }} old (limit {{ $labels.limit }}){{ end }}${transfer}";
+          description = "{{ if lt $value 0.0 }}sanoid's policy keeps {{ $labels.type }} snapshots of {{ $labels.dataset }}, but there are none.{{ else }}The newest {{ $labels.type }} snapshot of {{ $labels.dataset }} is {{ $value | humanizeDuration }} old; the {{ $labels.level }} limit is {{ $labels.limit }}.{{ end }} If a receive is in progress (see the title) this clears once it lands. Otherwise syncoid is not delivering: check the syncoid-* units on the sending host, and sanoid itself on the source.";
         };
       };
 

@@ -67,6 +67,60 @@ case $mode in
         unparsed=1
       fi
     done < <(grep -oE '(WARN|CRIT): [^,]+' <<<"$out" || true)
+
+    # Transfers in flight, so a snapshot alert can say a dataset is behind
+    # because it is still receiving. A receive always runs on the host of the
+    # dataset it fills (syncoid runs it over ssh when pushing), and its resume
+    # token names the snapshot and how many bytes have landed. The matching
+    # send runs on the source host, where `zfs send -nP` estimates the total;
+    # the alert joins the two on the snapshot name.
+    {
+      echo "# HELP zfs_receive_running_seconds How long a zfs receive into a dataset has been running."
+      echo "# TYPE zfs_receive_running_seconds gauge"
+      echo "# HELP zfs_receive_bytes Bytes a resumable zfs receive has written so far, from its resume token."
+      echo "# TYPE zfs_receive_bytes gauge"
+      echo "# HELP zfs_send_running_seconds How long a zfs send of a snapshot has been running."
+      echo "# TYPE zfs_send_running_seconds gauge"
+      echo "# HELP zfs_send_estimated_bytes zfs send -nP's estimate of a running send's total size."
+      echo "# TYPE zfs_send_estimated_bytes gauge"
+    } >>"$CHECK_METRICS"
+    for pid in $(pgrep -x zfs || true); do
+      # cmdline rather than ps: dataset names survive intact, without quoting.
+      mapfile -d '' -t argv <"/proc/$pid/cmdline" 2>/dev/null || continue
+      [ "${#argv[@]}" -ge 3 ] || continue
+      elapsed=$(ps -o etimes= -p "$pid" | tr -d ' ' || true)
+      [ -n "$elapsed" ] || continue
+      case ${argv[1]} in
+        receive | recv)
+          dataset=${argv[-1]}
+          snapshot=
+          bytes=
+          token=$(zfs get -H -o value receive_resume_token "$dataset" 2>/dev/null || true)
+          if [ -n "$token" ] && [ "$token" != "-" ]; then
+            # Exits non-zero here (the snapshot is on the sender), but
+            # prints the token's contents first.
+            contents=$(zfs send -nvt "$token" 2>&1 || true)
+            snapshot=$(sed -n 's/^[[:space:]]*toname = //p' <<<"$contents")
+            hex=$(sed -n 's/^[[:space:]]*bytes = 0x//p' <<<"$contents")
+            if [ -n "$hex" ]; then bytes=$((16#$hex)); fi
+          fi
+          printf 'zfs_receive_running_seconds{dataset="%s",snapshot="%s"} %s\n' "$dataset" "$snapshot" "$elapsed" >>"$CHECK_METRICS"
+          if [ -n "$bytes" ]; then
+            printf 'zfs_receive_bytes{dataset="%s",snapshot="%s"} %s\n' "$dataset" "$snapshot" "$bytes" >>"$CHECK_METRICS"
+          fi
+          ;;
+        send)
+          # Ignore our own dry runs and token decodes.
+          case " ${argv[*]} " in *" -n"*) continue ;; esac
+          snapshot=${argv[-1]}
+          printf 'zfs_send_running_seconds{snapshot="%s"} %s\n' "$snapshot" "$elapsed" >>"$CHECK_METRICS"
+          size=$(zfs send -nP "${argv[@]:2}" 2>/dev/null | awk '$1 == "size" { s = $2 } END { print s }' || true)
+          if [ -n "$size" ]; then
+            printf 'zfs_send_estimated_bytes{snapshot="%s"} %s\n' "$snapshot" "$size" >>"$CHECK_METRICS"
+          fi
+          ;;
+      esac
+    done
     ;;
   capacity)
     pool_re='^(OK|WARNING|CRITICAL) ZPOOL ([^ ]+) : ([0-9]+)%$'
