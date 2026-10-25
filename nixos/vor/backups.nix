@@ -117,6 +117,11 @@ in
     };
   };
 
+  # romeo's syncoid runs these on vor over ssh (they must be on the login
+  # PATH, not just the local syncoid units'): without mbuffer it warns and
+  # sends/receives unbuffered.
+  environment.systemPackages = [ pkgs.mbuffer pkgs.pv ];
+
   # User for syncoid to pull backups
   users.users.syncoid = {
     isSystemUser = true;
