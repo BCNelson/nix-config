@@ -60,7 +60,15 @@ let
     preHook = cadencePreHook cadenceSlug;
     postHook = cadencePostHook cadenceSlug;
   };
-  borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
+  # level3-5 otherwise live only on vault (raidz1); trove (raidz2) is a second
+  # pool, so losing vault no longer loses them. (level1-3 also go offsite via
+  # borg, level1-2 to vor.)
+  troveCopies = {
+    level3 = "trove/vaultLevel3";
+    level4 = "trove/vaultLevel4";
+    level5 = "trove/vaultLevel5";
+  };
+  borgReposSecrets =libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
     level2 = "";
     level3 = "";
@@ -129,7 +137,25 @@ in
         useTemplate = [ "common" ];
         autosnap = false;
       };
-    };
+      # Replication targets below: syncoid never prunes the receiving side.
+      "vault/remotebackups/VorLevel2" = {
+        hourly = 72;
+        daily = 31;
+        weekly = 52;
+        monthly = 24;
+        yearly = 10;
+        useTemplate = [ "common" ];
+        autosnap = false;
+      };
+    } // lib.genAttrs (lib.attrValues troveCopies) (_: {
+      hourly = 72;
+      daily = 31;
+      weekly = 24;
+      monthly = 12;
+      yearly = 2;
+      useTemplate = [ "common" ];
+      autosnap = false;
+    });
     templates = {
       "common" = {
         autoprune = true;
@@ -185,13 +211,49 @@ in
         ];
         service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-level2"}";
       };
-    };
+      # Immich photos (and the nightly DB dumps Immich writes alongside them).
+      # Pulled, like NelsonData, so vor never holds credentials for romeo; and
+      # --no-sync-snap so romeo only needs send on vor (it replicates vor's
+      # sanoid hourlies). Photos don't compress, so skip zstd-slow's CPU cost.
+      "vor/liveData/level2" = {
+        source = "syncoid@vor.ck.nel.family:liveData/level2";
+        target = "vault/remotebackups/VorLevel2";
+        # -u: the syncoid user can't mount, and the first full receive would
+        # otherwise fail trying to.
+        recvOptions = "u";
+        extraArgs = [
+          "--no-sync-snap"
+          "--exclude-snaps=^syncoid_"
+          "--compress=zstd-fast"
+          "--source-bwlimit=15m"
+          "--debug"
+          "--sshoption=StrictHostKeyChecking=off"
+        ];
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-VorLevel2"}";
+      };
+    } // lib.mapAttrs'
+      (level: target: lib.nameValuePair "trove/${level}" {
+        source = "vault/data/${level}";
+        inherit target;
+        recursive = true;
+        recvOptions = "u";
+        service.serviceConfig.ExecStartPost = "+${cadencePingExec "syncoid-romeo-trove-${level}"}";
+      })
+      troveCopies;
   };
 
   # The syncoid module has one global interval (hourly); keep this pull off the
   # top of the hour so it never overlaps vor's local liveData -> vault sync.
-  systemd.timers."syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar =
-    lib.mkForce "*-*-* *:30:00";
+  systemd.timers = {
+    "syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar = lib.mkForce "*-*-* *:30:00";
+    "syncoid-vor-liveData-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:40:00";
+  }
+  # Local vault -> trove copies: after sanoid's :00 snapshots and the :00 pushes.
+  // lib.mapAttrs'
+    (level: _: lib.nameValuePair "syncoid-trove-${level}" {
+      timerConfig.OnCalendar = lib.mkForce "*-*-* *:15:00";
+    })
+    troveCopies;
 
   age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
 
@@ -207,6 +269,14 @@ in
     ../../secrets/store/cadence/checks/syncoid-romeo-level1.age;
   age.secrets.cadence_check_syncoid_romeo_level2.rekeyFile =
     ../../secrets/store/cadence/checks/syncoid-romeo-level2.age;
+  age.secrets.cadence_check_syncoid_romeo_VorLevel2.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-VorLevel2.age;
+  age.secrets.cadence_check_syncoid_romeo_trove_level3.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-trove-level3.age;
+  age.secrets.cadence_check_syncoid_romeo_trove_level4.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-trove-level4.age;
+  age.secrets.cadence_check_syncoid_romeo_trove_level5.rekeyFile =
+    ../../secrets/store/cadence/checks/syncoid-romeo-trove-level5.age;
   age.secrets.cadence_check_zfs_scrub_romeo.rekeyFile =
     ../../secrets/store/cadence/checks/zfs-scrub-romeo.age;
 

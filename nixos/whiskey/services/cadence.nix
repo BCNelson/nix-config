@@ -34,6 +34,10 @@ let
     { slug = "syncoid-romeo-level1";     period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
     { slug = "syncoid-romeo-level2";     period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
     { slug = "syncoid-vor-NelsonData";   period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:vor" ]; }
+    { slug = "syncoid-romeo-VorLevel2";  period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
+    { slug = "syncoid-romeo-trove-level3"; period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
+    { slug = "syncoid-romeo-trove-level4"; period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
+    { slug = "syncoid-romeo-trove-level5"; period = "1h"; grace = "30m"; tags = [ "backup" "syncoid" "host:romeo" ]; }
 
     # ---- zfs scrub (monthly default) ----
     { slug = "zfs-scrub-romeo"; period = "720h"; grace = "168h"; tags = [ "zfs" "scrub" "host:romeo" ]; }
