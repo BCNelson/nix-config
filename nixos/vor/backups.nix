@@ -117,6 +117,12 @@ in
     };
   };
 
+  # Not at :00 with sanoid: syncoid's sync snapshot would land before the
+  # hourly autosnap, so each run carried the previous hour's and
+  # vault/Backups/NelsonData (and romeo's pull of it, at :20) ran 1-2h behind.
+  systemd.timers."syncoid-liveData-NelsonData-Local-Backup".timerConfig.OnCalendar =
+    lib.mkForce "*-*-* *:05:00";
+
   # romeo's syncoid runs these on vor over ssh (they must be on the login
   # PATH, not just the local syncoid units'): without mbuffer it warns and
   # sends/receives unbuffered.

@@ -242,13 +242,23 @@ in
       troveCopies;
   };
 
-  # The syncoid module has one global interval (hourly); keep this pull off the
-  # top of the hour so it never overlaps vor's local liveData -> vault sync.
+  # The syncoid module has one global interval (hourly, i.e. :00), which races
+  # sanoid's own :00 run: syncoid's sync snapshot lands a few seconds before
+  # the hourly autosnap, so every transfer carried the *previous* hour's
+  # autosnap and the targets sat 1-2h behind (past sanoid's 1h30m hourly_warn
+  # for half of every hour). So nothing replicates at :00.
+  #
+  # Pushes to vor: just after sanoid has snapshotted.
+  # Pulls from vor: after vor's own :05 liveData -> vault sync has finished
+  # (never overlapping it: see the NelsonData pull above), but early enough
+  # that the newest copy is never more than ~1h25m old.
   systemd.timers = {
-    "syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar = lib.mkForce "*-*-* *:30:00";
-    "syncoid-vor-liveData-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:40:00";
+    "syncoid-vor-vault-Backups-level1".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
+    "syncoid-vor-vault-Backups-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
+    "syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar = lib.mkForce "*-*-* *:20:00";
+    "syncoid-vor-liveData-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:25:00";
   }
-  # Local vault -> trove copies: after sanoid's :00 snapshots and the :00 pushes.
+  # Local vault -> trove copies: after sanoid's :00 snapshots and the :05 pushes.
   // lib.mapAttrs'
     (level: _: lib.nameValuePair "syncoid-trove-${level}" {
       timerConfig.OnCalendar = lib.mkForce "*-*-* *:15:00";
