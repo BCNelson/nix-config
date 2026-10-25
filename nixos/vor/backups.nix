@@ -55,6 +55,16 @@ in
         yearly = 5;
         useTemplate = [ "common" ];
       };
+      # Immich photos + its nightly DB dumps. romeo pulls these snapshots
+      # (--no-sync-snap), so they are the only copy points it has.
+      "liveData/level2" = {
+        hourly = 72;
+        daily = 31;
+        weekly = 52;
+        monthly = 24;
+        yearly = 10;
+        useTemplate = [ "common" ];
+      };
       # Replication targets: syncoid never prunes the receiving side, so each
       # of these needs its own retention policy or snapshots accumulate forever.
       "vault/Backups/NelsonData" = {
@@ -129,7 +139,11 @@ in
     serviceConfig = {
       Type = "oneshot";
       User = "root";
-      ExecStart = "${pkgs.zfs}/bin/zfs allow -u syncoid send,receive,hold,mount,snapshot,destroy,create vault";
+      ExecStart = [
+        "${pkgs.zfs}/bin/zfs allow -u syncoid send,receive,hold,mount,snapshot,destroy,create vault"
+        # romeo only reads live data: send, never receive/destroy.
+        "${pkgs.zfs}/bin/zfs allow -u syncoid send,hold liveData/level2"
+      ];
     };
     restartIfChanged = false;
   };
