@@ -25,7 +25,8 @@ let
     (job: map (sc: sc.labels.host or null) (job.static_configs or [ ]))
     config.services.prometheus.scrapeConfigs;
 
-  ntfyPort = 9095;
+  # Not 9095: that is Loki's gRPC port.
+  ntfyPort = 9098;
 
   coreRules = [
     {
