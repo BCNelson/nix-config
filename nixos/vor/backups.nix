@@ -117,11 +117,16 @@ in
     };
   };
 
-  # Not at :00 with sanoid: syncoid's sync snapshot would land before the
-  # hourly autosnap, so each run carried the previous hour's and
-  # vault/Backups/NelsonData (and romeo's pull of it, at :10) ran 1-2h behind.
-  systemd.timers."syncoid-liveData-NelsonData-Local-Backup".timerConfig.OnCalendar =
-    lib.mkForce "*-*-* *:05:00";
+  # sanoid starts the local sync once the hourly snapshot exists, instead of
+  # its own :00 timer: at the same :00 as sanoid, syncoid's sync snapshot
+  # landed before the autosnap, so each run carried the previous hour's and
+  # vault/Backups/NelsonData (and romeo's :05 pull of it) ran 1-2h behind.
+  # Wants, not OnSuccess: a failed prune shouldn't stop the copy.
+  systemd.services.sanoid = {
+    wants = [ "syncoid-liveData-NelsonData-Local-Backup.service" ];
+    before = [ "syncoid-liveData-NelsonData-Local-Backup.service" ];
+  };
+  systemd.timers."syncoid-liveData-NelsonData-Local-Backup".enable = false;
 
   # romeo's syncoid runs these on vor over ssh (they must be on the login
   # PATH, not just the local syncoid units'): without mbuffer it warns and

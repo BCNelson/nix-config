@@ -68,6 +68,11 @@ let
     level4 = "trove/vaultLevel4";
     level5 = "trove/vaultLevel5";
   };
+  # syncoid units that copy romeo's own snapshots; sanoid starts these.
+  afterSnapshot = [
+    "syncoid-vor-vault-Backups-level1"
+    "syncoid-vor-vault-Backups-level2"
+  ] ++ map (level: "syncoid-trove-${level}") (lib.attrNames troveCopies);
   borgReposSecrets =libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
     level1 = "";
     level2 = "";
@@ -246,24 +251,25 @@ in
   # sanoid's own :00 run: syncoid's sync snapshot lands a few seconds before
   # the hourly autosnap, so every transfer carried the *previous* hour's
   # autosnap and the targets sat 1-2h behind (past sanoid's 1h30m hourly_warn
-  # for half of every hour). So nothing replicates at :00.
+  # for half of every hour).
   #
-  # Everything that copies a :00 autosnap starts 5 minutes after it: the
-  # pushes to vor, the trove copies, and the liveData/level2 pull (vor's
-  # sanoid also runs at :00). The NelsonData pull copies a copy, so it goes 5
-  # minutes after vor's own :05 liveData -> vault sync, never overlapping it
-  # (see the NelsonData pull above).
-  systemd.timers = {
-    "syncoid-vor-vault-Backups-level1".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
-    "syncoid-vor-vault-Backups-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
+  # Jobs that copy romeo's own snapshots (the pushes to vor and the trove
+  # copies) have no timer: sanoid starts them, ordered after it, so they run
+  # the moment the hourly snapshot exists (also when sanoid fails, so a broken
+  # prune doesn't stop replication).
+  #
+  # The pulls copy vor's snapshots, which romeo's sanoid can't see being
+  # taken, so they keep a timer 5 minutes after vor's :00 sanoid run (vor's
+  # liveData -> vault sync follows that run the same way, so NelsonData is
+  # there by then too).
+  systemd.services.sanoid = {
+    wants = map (u: "${u}.service") afterSnapshot;
+    before = map (u: "${u}.service") afterSnapshot;
+  };
+  systemd.timers = lib.genAttrs afterSnapshot (_: { enable = false; }) // {
     "syncoid-vor-liveData-level2".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
-    "syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar = lib.mkForce "*-*-* *:10:00";
-  }
-  // lib.mapAttrs'
-    (level: _: lib.nameValuePair "syncoid-trove-${level}" {
-      timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
-    })
-    troveCopies;
+    "syncoid-vor-vault-Backups-NelsonData".timerConfig.OnCalendar = lib.mkForce "*-*-* *:05:00";
+  };
 
   age.secrets.borgbaseSshKey.rekeyFile = ../../secrets/store/romeo/borgbase_ssh_key.age;
 
