@@ -15,7 +15,14 @@
 mode=$1
 
 rc=0
-out=$(sanoid --configdir /etc/sanoid "--monitor-$mode" 2>&1) || rc=$?
+# --force-update: a --monitor-* run otherwise accepts a snapshot cache up to
+# 5 hours old, and only sanoid's own :00 run refreshes it. On a replication
+# target that run comes seconds before syncoid delivers the new snapshots, so
+# every received dataset read about an hour older than it was and crossed its
+# hourly limit once an hour. A fresh zfs list costs a second or two.
+force=()
+if [ "$mode" = snapshots ]; then force=(--force-update); fi
+out=$(sanoid --configdir /etc/sanoid "--monitor-$mode" "${force[@]}" 2>&1) || rc=$?
 # Drop the per-template config noise; keep the rest for the journal.
 out=$(grep -v '^ignored key' <<<"$out" || true)
 echo "$out"
