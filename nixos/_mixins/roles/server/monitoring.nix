@@ -138,7 +138,15 @@ in
         interval = "5m";
         alert = {
           # Missing snapshots come out as -1 so one rule covers both kinds.
-          expr = "sanoid_snapshot_age_seconds{${sel}} or (sanoid_snapshot_missing{${sel}} * -1)";
+          # Downtime never alerts here: ignoreDowntime covers this host, and
+          # the second `unless` drops a received dataset while the host it
+          # comes from is (or recently was) down. Both series are recorded on
+          # whiskey (alerting.nix).
+          expr = lib.concatStringsSep " " [
+            "(sanoid_snapshot_age_seconds{${sel}} or (sanoid_snapshot_missing{${sel}} * -1))"
+            ''unless on(host, dataset) (zfs_replication_source * on(source_host) group_left() label_replace(host:recently_down, "source_host", "$1", "host", "(.*)"))''
+          ];
+          ignoreDowntime = true;
           severity = "{{ $labels.level }}";
           # Replicated snapshots normally arrive a little after the hour, so
           # give a late syncoid run time to catch up before alerting.
@@ -155,6 +163,9 @@ in
         interval = "1h";
         alert = {
           expr = ''sanoid_pool_capacity_percent{${sel},status!="ok"}'';
+          # For Stale, really: a pool doesn't fill up while its host is down,
+          # and the 1h `for` already outlasts most of the grace period.
+          ignoreDowntime = true;
           severity = "{{ $labels.status }}";
           for = "1h";
           summary = "ZFS pool {{ $labels.pool }} is {{ $value }}% full";

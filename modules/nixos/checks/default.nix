@@ -105,11 +105,13 @@ let
       logs = "Logs: journalctl -u check-${name} on ${hostname}";
       staleAfter = if check.alert.staleAfter != null then check.alert.staleAfter else "${toString (3 * toSeconds check.interval)}s";
       scriptFailed = "check_success${sel} == 0";
+      # host:recently_down is recorded on whiskey (alerting.nix).
+      unlessDown = e: if check.alert.ignoreDowntime then "(${e}) unless on(host) host:recently_down" else e;
     in
     [
       {
         alert = "${base}Failing";
-        expr = if check.alert.expr == null then scriptFailed else check.alert.expr;
+        expr = unlessDown (if check.alert.expr == null then scriptFailed else check.alert.expr);
         inherit (check.alert) for;
         inherit labels;
         annotations = {
@@ -138,7 +140,7 @@ let
         alert = "${base}Stale";
         # absent() covers a check that has never reported (or whose host is
         # gone); the age test covers one that stopped.
-        expr = "absent(check_last_run_timestamp_seconds${sel}) or (time() - check_last_run_timestamp_seconds${sel}) > ${toString (toSeconds staleAfter)}";
+        expr = unlessDown "absent(check_last_run_timestamp_seconds${sel}) or (time() - check_last_run_timestamp_seconds${sel}) > ${toString (toSeconds staleAfter)}";
         for = "5m";
         labels = plainLabels;
         annotations = {
@@ -222,6 +224,16 @@ in
               type = lib.types.nullOr lib.types.str;
               default = null;
               description = "PromQL for the Failing rule in place of the script's exit status, usually over metrics the script wrote to $CHECK_METRICS.";
+            };
+            ignoreDowntime = lib.mkOption {
+              type = lib.types.bool;
+              default = false;
+              description = ''
+                Don't fire Failing or Stale while the host is down, or for a
+                grace period after it is back (or rebooted). For checks whose
+                result a host outage alone throws off, so the outage reports
+                only as HostDown. Broken still fires.
+              '';
             };
             staleAfter = lib.mkOption {
               type = lib.types.nullOr durationType;

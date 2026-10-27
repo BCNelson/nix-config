@@ -28,6 +28,58 @@ let
   # Not 9095: that is Loki's gRPC port.
   ntfyPort = 9098;
 
+  # ZFS alerts never fire just because a host was down. Snapshot ages are
+  # ignored while the dataset's host, or the host it replicates from, is down
+  # and for this long after it is back: sanoid's next hourly run plus the next
+  # syncoid copy, with room to spare. Past that a dataset that is still behind
+  # is a real problem (and alerts after the rule's own `for`).
+  downtimeGrace = "2h";
+  downtimeGraceSeconds = 7200;
+
+  # Which host each received dataset comes from, read off every host's syncoid
+  # commands: a pull names the remote source, a push the remote target. Both
+  # sides are given as [user@]address:dataset, and the address is mapped to a
+  # flake host through the scrape targets. Local copies need no entry: their
+  # source is the host itself.
+  addrToHost = lib.listToAttrs (lib.concatMap
+    (job: lib.concatMap
+      (sc: map (t: lib.nameValuePair (lib.head (lib.splitString ":" t)) sc.labels.host)
+        (lib.optionals (sc ? labels.host) sc.targets))
+      (job.static_configs or [ ]))
+    config.services.prometheus.scrapeConfigs);
+  parseRemote = s:
+    let m = builtins.match "([^@/:]+@)?([^@/:]+):(.+)" s;
+    in if m == null then null else { addr = builtins.elemAt m 1; dataset = builtins.elemAt m 2; };
+  lookupHost = addr: addrToHost.${addr} or (throw
+    "syncoid replicates with ${addr}, which no scrape target in nixos/whiskey/services/monitoring.nix has; add the host there so its ZFS alerts can tell downtime from failure.");
+  replications = lib.concatLists (lib.mapAttrsToList
+    (host: hostCfg:
+      lib.optionals hostCfg.config.services.syncoid.enable (lib.concatMap
+        (cmd:
+          let src = parseRemote cmd.source; dst = parseRemote cmd.target;
+          in
+          if src != null && dst == null then [{ inherit host; dataset = cmd.target; source_host = lookupHost src.addr; }]
+          else if dst != null && src == null then [{ host = lookupHost dst.addr; inherit (dst) dataset; source_host = host; }]
+          else [ ])
+        (lib.attrValues hostCfg.config.services.syncoid.commands)))
+    (otherHosts // { ${hostname} = { inherit config; }; }));
+
+  downtimeRules = [
+    {
+      # Present (per host) while a host is down, or was down or rebooted
+      # within the grace period. The boot time catches a reboot quick enough
+      # to fall between two scrapes.
+      record = "host:recently_down";
+      expr = ''max by (host) ((min_over_time(up{host!=""}[${downtimeGrace}]) == 0) or ((time() - node_boot_time_seconds{host!=""}) < ${toString downtimeGraceSeconds}))'';
+    }
+  ] ++ map
+    (r: {
+      record = "zfs_replication_source";
+      expr = "vector(1)";
+      labels = r;
+    })
+    replications;
+
   coreRules = [
     {
       alert = "HostDown";
@@ -100,7 +152,7 @@ in
   services.prometheus = {
     rules = [
       (builtins.toJSON {
-        groups = [{ name = "core"; rules = coreRules; }]
+        groups = [{ name = "core"; rules = coreRules; } { name = "downtime"; rules = downtimeRules; }]
           ++ lib.mapAttrsToList (host: rules: { name = "checks-${host}"; inherit rules; }) checkRules;
       })
     ];
