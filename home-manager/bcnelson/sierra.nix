@@ -24,6 +24,7 @@
     pkgs.libation
     pkgs.kobodl # Kobo ebook library downloader + DRM removal (libation, but for Kobo)
     pkgs.inkscape
+    pkgs.kicad
     pkgs.spec-kit
     pkgs.pince
     # Temporarily dropped: freecad-qt6's dep chain (vtk -> pdal -> gdal) is

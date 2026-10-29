@@ -254,11 +254,5 @@
         ];
       };
     };
-    stable = import inputs.nixpkgs24-05 {
-      inherit (final.stdenv.hostPlatform) system;
-      config = {
-        allowUnfree = true;
-      };
-    };
   };
 }
