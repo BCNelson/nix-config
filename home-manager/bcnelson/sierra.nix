@@ -1,5 +1,12 @@
-{ pkgs, ... }:
-
+{ pkgs, lib, ... }:
+let
+  routingTools = pkgs.kicad-routing-tools;
+  # The routing plugin's Python deps have to be on the wrapper's PYTHONPATH,
+  # which kicad sets (not prefixes) from pythonPath at build time.
+  kicad = pkgs.kicad.overrideAttrs (old: {
+    pythonPath = old.pythonPath ++ routingTools.pythonDeps;
+  });
+in
 {
   imports = [
     ../_mixins/programs/libreOffice.nix
@@ -24,7 +31,7 @@
     pkgs.libation
     pkgs.kobodl # Kobo ebook library downloader + DRM removal (libation, but for Kobo)
     pkgs.inkscape
-    pkgs.kicad
+    kicad
     pkgs.spec-kit
     pkgs.pince
     # Temporarily dropped: freecad-qt6's dep chain (vtk -> pdal -> gdal) is
@@ -34,6 +41,10 @@
     # overlays/default.nix which is needed for the minimal gdal test.
     # pkgs.freecad-qt6
   ];
+
+  # KiCad's per-user SWIG plugin dir (PCB Editor > Tools > External Plugins).
+  xdg.dataFile."kicad/${lib.versions.majorMinor kicad.version}/scripting/plugins/KiCadRoutingTools".source =
+    "${routingTools}/share/kicad/scripting/plugins/KiCadRoutingTools";
 
   programs.mcp.kubernetes.enable = false;
 }

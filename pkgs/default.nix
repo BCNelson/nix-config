@@ -6,6 +6,7 @@ pkgs: rec {
   mdns-reflector = pkgs.callPackage ./mdns-reflector.nix { };
   install-system = pkgs.callPackage ./install-system { };
   kobodl = pkgs.callPackage ./kobodl.nix { };
+  kicad-routing-tools = pkgs.callPackage ./kicad-routing-tools { };
   dolphin-shred = pkgs.callPackage ./dolphin-shred.nix { };
   mb4-extractor = pkgs.callPackage ./m4b-extractor { };
   opendeck = pkgs.callPackage ./opendeck.nix { };
