@@ -19,6 +19,15 @@ let
     extraCreateArgs = "--verbose --stats --checkpoint-interval 600";
     compression = "zstd,1";
     startAt = "*-*-* 0/6:00:00";
+    # Without this every 6-hourly archive was kept forever, including each
+    # multi-GB Forgejo dump in level3 (tar.zst barely dedups). The module runs
+    # prune, then compact, after each create, scoped to this job's
+    # archiveBaseName prefix so the levels never prune each other.
+    prune.keep = {
+      within = "90d"; # every 6-hourly run from the last 90 days
+      monthly = 36;
+      yearly = 10;
+    };
     postHook = cadencePostHook cadenceSlug;
   };
   borgReposSecrets = libx.getSecretWithDefault ./sensitive.nix "borgRepos" {
