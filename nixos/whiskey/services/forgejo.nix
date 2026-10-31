@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   dataDirs = {
     level3 = "/data/level3"; # High
@@ -101,11 +101,27 @@ in
         REQUEST_TIMEOUT = "10s";
         CACHE_TTL = "10m";
       };
+      # Crawlers (Meta's 2a03:2880::/32 fleet and friends) walk every commit's
+      # archive/<sha>.bundle link; each hit makes Forgejo build a ~12MB bundle
+      # into data/repo-archive, which churned ~5GB a day on whiskey's root disk.
+      # Nothing of ours fetches source archives (hosts and CI clone over git).
+      repository.DISABLE_DOWNLOAD_SOURCE_ARCHIVES = true;
     };
     dump = {
       enable = true;
       type = "tar.zst";
       backupDir = "${dataDirs.level3}/forgejo";
+      # The module's tmpfiles cleanup defaults to 4w, and daily dumps of several
+      # GB filled the 78G root disk. borg (backup.nix) ships /data/level3
+      # off-site every 6h without pruning, so older dumps still exist there.
+      age = "3d";
     };
   };
+
+  # The dump otherwise includes the repo-archive cache: regenerable downloads,
+  # and the reason dump sizes swung between 0.5 and 6GB.
+  systemd.services.forgejo-dump.serviceConfig.ExecStart = lib.mkForce (
+    "${lib.getExe config.services.forgejo.package} dump"
+    + " --type ${config.services.forgejo.dump.type} --skip-repo-archives"
+  );
 }
