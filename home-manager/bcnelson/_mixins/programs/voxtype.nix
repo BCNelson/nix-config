@@ -57,6 +57,17 @@ let
       # happens while you are still speaking, so it costs nothing perceptible
       # and keeps 573MB of VRAM free for games and ollama between dictations.
       on_demand_loading = true;
+
+      # Off by default, and without it short clips are the slow ones: a 5.8s
+      # clip took 3.75s to transcribe on the RX 6650 XT (every dictation under
+      # ~10s landed at 3.4-4.0s), against 0.5s with it on. A 17s clip was 0.8s
+      # either way. Same text out of both.
+      #
+      # context_window_optimization is the other speed knob and is deliberately
+      # left off: voxtype warns it can loop on large-v3-turbo, and on top of
+      # this it only saved another ~0.3s on short clips while making a 17s one
+      # slower (2.1s).
+      flash_attention = true;
     };
 
     output = {
@@ -78,6 +89,16 @@ let
       # key is held down. If some application ever starts dropping characters,
       # raise this rather than dropping back to 0.
       type_delay_ms = 1;
+
+      # voxtype maps the transcript's language to an XKB layout (en -> us) and
+      # hands it to dotool -- and any layout hint makes it bypass dotoolc,
+      # which cannot forward one, for a cold `dotool` per dictation. That
+      # quietly defeated the dotoold unit below: every transcript logged
+      # "typed via dotool", not dotoolc, and even a 1-character one took
+      # 0.8s to appear. An empty map is the documented off switch; the
+      # session layout is US anyway.
+      language_to_layout = { };
+
       notification = {
         on_recording_start = true;
         on_recording_stop = true;
@@ -114,8 +135,9 @@ in
   # more than a third of the total typing time. dotoold pays that once at login
   # and keeps one dotool alive reading a FIFO; dotoolc then just writes to it.
   # voxtype probes for the FIFO on each output() and switches to dotoolc by
-  # itself, so nothing here has to tell it to, and if this unit is dead it
-  # silently goes back to spawning dotool directly.
+  # itself, as long as no XKB layout is in play (see language_to_layout above),
+  # and if this unit is dead it silently goes back to spawning dotool directly.
+  # The journal names the binary: "Text typed via dotoolc" is the fast path.
   #
   # The pipe has to leave dotool's default /tmp/dotool-pipe: the voxtype unit
   # below sets PrivateTmp, so its /tmp is not the one dotoold writes to. %t is
