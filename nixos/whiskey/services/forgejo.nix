@@ -29,6 +29,25 @@ in
         locations = {
           "/" = {
             proxyPass = "http://localhost:3000";
+            # Meta's link-preview crawler made ~200k requests a day (73% of all
+            # traffic), walking src/commits/raw/blame for every commit. It
+            # ignores robots.txt, so turn it away here. It still sends a
+            # browser User-Agent, but appends its docs URL, which is what this
+            # matches. Unlogged: those lines were most of the 450MB/week
+            # access.log.
+            extraConfig = ''
+              if ($http_user_agent ~* "facebookexternalhit|developers\.facebook\.com/docs/sharing") {
+                access_log off;
+                return 403;
+              }
+            '';
+          };
+          # Every runner long-polls FetchTask; ~55k unlogged lines a day.
+          "/api/actions/runner.v1.RunnerService/" = {
+            proxyPass = "http://localhost:3000";
+            extraConfig = ''
+              access_log off;
+            '';
           };
         };
       };

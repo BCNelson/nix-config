@@ -52,6 +52,11 @@
     olderThanDays = null;
   };
 
+  # journald's default cap is 10% of the filesystem up to 4G, and whiskey sat at
+  # the full 4G. Alloy already ships this journal into Loki (30 days, on this
+  # same disk), so the local copy only needs to cover Loki being down.
+  services.journald.settings.Journal.SystemMaxUse = "1G";
+
   # whiskey is a headless server, not a dev box: it has no nix-direnv shells to
   # protect, so it doesn't need build-time deps kept rooted. common.nix enables
   # these (helpful on workstations); here they pinned ~64k .drv + their outputs
