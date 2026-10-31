@@ -3,6 +3,7 @@
 {
   imports = [
     ../_mixins/programs/audacity.nix
+    ../_mixins/programs/vlc.nix
     ../_mixins/suites/photography.nix
   ];
 

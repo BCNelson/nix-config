@@ -8,6 +8,7 @@
   imports = [
     ./k8s.nix
     ../../_mixins/programs/libreOffice.nix
+    ../../_mixins/programs/vlc.nix
     ./mcp
     ./mcp/playwrite.nix
     ./mcp/pulumi.nix
@@ -33,7 +34,6 @@
     inputs.scaffold.packages.${pkgs.stdenv.hostPlatform.system}.default
     (config.lib.nixGL.wrap pkgs.todoist-electron)
     pkgs.yt-dlp
-    (config.lib.nixGL.wrap pkgs.vlc)
   ];
 
   # These hosts used to force `RemoteCommand = "tmux a"` so that every ssh landed
