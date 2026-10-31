@@ -47,5 +47,21 @@
     exec ${pkgs.util-linux}/bin/logger -t mdadm -p daemon.warning -- "$@"
   ''}";
 
+  # Subnet router for vor's LAN (the router at .1, UniFi gear, anything else
+  # there) plus the exit node that used to be set by hand with `tailscale up`
+  # and lived only in tailscaled's state. `--advertise-routes` replaces the
+  # whole list, and the exit node is just 0.0.0.0/0 + ::/0 in that list, so
+  # both flags have to be set together or one silently drops the other.
+  # "server" turns on IPv4 and IPv6 forwarding; v6 was off, so exit-node
+  # traffic over IPv6 never left vor. The new route still needs approving in
+  # the Tailscale admin console unless an ACL autoApprover covers it.
+  services.tailscale = {
+    useRoutingFeatures = "server";
+    extraSetFlags = [
+      "--advertise-routes=192.168.138.0/24"
+      "--advertise-exit-node"
+    ];
+  };
+
   networking.hostId = "d80836c3";
 }
