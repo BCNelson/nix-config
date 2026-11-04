@@ -39,6 +39,7 @@ in {
     ./trilium.nix
     ./peertube.nix
     ./factorio.nix
+    ./tendant.nix
   ];
 
   systemd.timers.podman-auto-update = {

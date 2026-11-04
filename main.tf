@@ -566,6 +566,14 @@ resource "porkbun_dns_record" "gym_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 
+# tendant  CNAME  h.b.nel.family.   (tendant on romeo; LAN answered by romeo's unbound)
+resource "porkbun_dns_record" "tendant_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "tendant"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 resource "porkbun_dns_record" "journal_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "journal"

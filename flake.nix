@@ -86,6 +86,13 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # Home First monorepo: tendant (+ Laya) NixOS modules and packages, run on
+    # romeo (nixos/romeo/services/tendant.nix). Deliberately NOT following our
+    # nixpkgs: its packages are built against its own pinned nixpkgs and pushed
+    # to home-first.cachix.org, so overriding nixpkgs would mean compiling the
+    # Flutter web bundle, Go server and Laya's torch stack locally.
+    homefirst.url = "git+https://git.bcnelson.dev/home-first/homefirst";
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
