@@ -1,6 +1,7 @@
 {
   config,
   inputs,
+  lib,
   ...
 }:
 # tendant (Home First) — the household task agent, at tendant.nel.family behind
@@ -153,6 +154,12 @@ in {
     # Leave most of the 32 threads to frigate/ollama/builds.
     threads = 8;
   };
+
+  # homefirst's shared hardening sets ProcSubset=pid, which hides /proc/cpuinfo;
+  # torch's cpuinfo then fails to initialise and every checkpoint load throws
+  # ("Failed to initialize cpuinfo!"), so laya crash-loops. Fine for the Go
+  # servers, fatal for torch. Drop this once laya.nix overrides it upstream.
+  systemd.services.laya.serviceConfig.ProcSubset = lib.mkForce "all";
 
   systemd.services.tendant = {
     after = ["cli-proxy-api.service" "ollama.service"];
