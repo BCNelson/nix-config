@@ -10,7 +10,6 @@
   nodejs-slim_22,
   makeWrapper,
   versionCheckHook,
-  rolldown,
   installShellFiles,
 }:
 # Derived from nixpkgs' pkgs/by-name/op/openclaw/package.nix, carried here
@@ -193,8 +192,6 @@ in
         --replace-fail '"bundledDist": false' '"bundledDist": true'
     '';
 
-    buildInputs = [rolldown];
-
     nativeBuildInputs = [
       pnpmConfigHook
       pnpm
@@ -208,16 +205,14 @@ in
 
       pnpm install --frozen-lockfile
 
-      # Replace pnpm-installed rolldown with the Nix-built version
-      rm -rf node_modules/rolldown node_modules/@rolldown/pluginutils
-      mkdir -p node_modules/@rolldown node_modules/.pnpm/node_modules/@rolldown
-      cp -r ${rolldown}/lib/node_modules/rolldown node_modules/rolldown
-      cp -r ${rolldown}/lib/node_modules/@rolldown/pluginutils node_modules/@rolldown/pluginutils
-      cp -r ${rolldown}/lib/node_modules/rolldown node_modules/.pnpm/node_modules/rolldown
-      cp -r ${rolldown}/lib/node_modules/@rolldown/pluginutils node_modules/.pnpm/node_modules/@rolldown/pluginutils
-      chmod -R u+w node_modules/rolldown node_modules/@rolldown/pluginutils \
-        node_modules/.pnpm/node_modules/rolldown node_modules/.pnpm/node_modules/@rolldown/pluginutils
-
+      # nixpkgs' recipe swaps the lockfile's rolldown for nixpkgs' from-source
+      # build here. We keep the lockfile's (1.1.4, with its prebuilt
+      # @rolldown/binding-linux-x64-gnu from pnpmDeps) instead: the swap ties
+      # openclaw's bundler to whatever nixpkgs ships, and rolldown 1.2.15
+      # (nixpkgs, 2026-11) splits install.runtime into dozens of chunks that
+      # scripts/write-cli-compat.ts cannot map back to daemon-cli, failing the
+      # build with "Could not resolve daemon-cli export aliases from dist
+      # bundles". 1.2.9 still worked; 1.1.4 is what this release is built with.
       pnpm build
       pnpm ui:build
 
