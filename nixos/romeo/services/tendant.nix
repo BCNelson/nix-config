@@ -64,15 +64,6 @@ in {
     enable = true;
     httpAddr = "127.0.0.1:${toString port}";
 
-    # homefirst main (35599b2) added migration 00052 without bumping tendant's
-    # vendorHash. The in-repo db module (which embeds the migrations) is
-    # vendored, so the stale fixed-output goModules is reused and 00052 never
-    # reaches the binary: tendant then fails on the missing source columns.
-    # Harmless once upstream carries this same hash; drop it then.
-    package = inputs.homefirst.packages.${config.nixpkgs.hostPlatform.system}.tendant.overrideAttrs (_: {
-      vendorHash = "sha256-k56YXbcbK14wpwZwhuGoG1dSh17FcCpGNnPkhAYwUSw=";
-    });
-
     credentials = {
       TENDANT_PASSWORD = config.age.secrets.tendant-password.path;
       TENDANT_CREDENTIALS_KEY = config.age.secrets.tendant-credentials-key.path;
