@@ -924,11 +924,11 @@
         "rust-overlay": "rust-overlay_3"
       },
       "locked": {
-        "lastModified": 1793755687,
-        "narHash": "sha256-BNAKxX42OZhFgldh911MNTGuiWBoGVD+iTPV2Cc258w=",
+        "lastModified": 1793757240,
+        "narHash": "sha256-+HisXZCXJ7MQqoOBgwWtPt4cGx3D2Ue+SHdaL0YaTHg=",
         "ref": "refs/heads/main",
-        "rev": "0f040c9e8d926435f477e4beaa3d13c6deefa091",
-        "revCount": 285,
+        "rev": "143859469519abd292eef80de7201526c10039d8",
+        "revCount": 286,
         "type": "git",
         "url": "https://git.bcnelson.dev/home-first/homefirst"
       },
