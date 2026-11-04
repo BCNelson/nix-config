@@ -114,7 +114,11 @@ in {
       # sealed under the credentials key above; enrol it once with a one-time
       # code in Settings → Connected accounts (never put the code here: the
       # store is world-readable). Unreachable or unenrolled ⇒ push sources poll.
-      cloud.addr = "connect.homefirst.cloud:443";
+      cloud = {
+        addr = "connect.homefirst.cloud:443";
+        # The id enrollment codes are issued for (`homefirst-cloud enroll-code romeo`).
+        server_id = "romeo";
+      };
 
       # Already pulled on romeo's Ollama for openclaw (see ./ollama.nix): small
       # enough to stay resident next to gemma4 on the B580.
