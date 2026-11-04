@@ -64,6 +64,15 @@ in {
     enable = true;
     httpAddr = "127.0.0.1:${toString port}";
 
+    # homefirst main (35599b2) added migration 00052 without bumping tendant's
+    # vendorHash. The in-repo db module (which embeds the migrations) is
+    # vendored, so the stale fixed-output goModules is reused and 00052 never
+    # reaches the binary: tendant then fails on the missing source columns.
+    # Harmless once upstream carries this same hash; drop it then.
+    package = inputs.homefirst.packages.${config.nixpkgs.hostPlatform.system}.tendant.overrideAttrs (_: {
+      vendorHash = "sha256-k56YXbcbK14wpwZwhuGoG1dSh17FcCpGNnPkhAYwUSw=";
+    });
+
     credentials = {
       TENDANT_PASSWORD = config.age.secrets.tendant-password.path;
       TENDANT_CREDENTIALS_KEY = config.age.secrets.tendant-credentials-key.path;
@@ -119,6 +128,34 @@ in {
         # The id enrollment codes are issued for (`homefirst-cloud enroll-code romeo`).
         server_id = "romeo";
       };
+
+      # Intake sources, reconciled by id at every boot (non-destructive: a
+      # source dropped from this list stays in the database until deleted).
+      # Declaring any source also stops tendant seeding its example webhook-in
+      # source. The id IS the public ingress path (POST
+      # https://tendant.nel.family/intake/webhook/<id>), so it must be random
+      # (uuidgen), never sequential. Deliveries are additionally signed with
+      # the source's webhook secret, which tendant generates and only the
+      # owner can read (Settings → Sources), so it stays out of the store.
+      # name/description reach every agent and triage; route a webhook to a
+      # dedicated agent with
+      #   eligibility.pred = { op = "eq"; field = "source_name"; value = "general"; };
+      sources = [
+        {
+          id = "a28bfe6e-0104-4e83-9d33-2865dad721a0";
+          type = "webhook-in";
+          name = "general";
+          description = "General-purpose webhook intake; not yet tied to a particular sender";
+          # Polls only dispose what the ingress route already ingested.
+          schedule = "0 * * * * *";
+          enabled = true;
+          disposition_rules = {
+            confidence_floor = 0.85;
+            stakes_ceiling = 0.30;
+            llm_judge_per_poll = 5;
+          };
+        }
+      ];
 
       # Already pulled on romeo's Ollama for openclaw (see ./ollama.nix): small
       # enough to stay resident next to gemma4 on the B580.
