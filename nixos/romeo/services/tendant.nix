@@ -109,6 +109,13 @@ in {
       # requests, ...), so it gets the strongest model, not the local one.
       overseer.connection = "proxy";
 
+      # homefirst.cloud: event push and connected accounts via the hosted
+      # proxy. Read at boot only. The server is identified by its own key pair,
+      # sealed under the credentials key above; enrol it once with a one-time
+      # code in Settings → Connected accounts (never put the code here: the
+      # store is world-readable). Unreachable or unenrolled ⇒ push sources poll.
+      cloud.addr = "connect.homefirst.cloud:443";
+
       # Already pulled on romeo's Ollama for openclaw (see ./ollama.nix): small
       # enough to stay resident next to gemma4 on the B580.
       embedding = {
