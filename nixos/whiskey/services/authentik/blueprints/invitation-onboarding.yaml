@@ -142,6 +142,9 @@ entries:
       name: nel-family-enrollment-user-login
     id: stage-user-login
     model: authentik_stages_user_login.userloginstage
+    # 30 days, matching 03-session-duration.yaml (default is browser-session).
+    attrs:
+      session_duration: days=30
 
   ##########################################################################
   # Flow stage bindings

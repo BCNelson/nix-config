@@ -1,0 +1,26 @@
+# Keep people signed in to authentik for 30 days.
+#
+# The user-login stage's session_duration defaults to `seconds=0`, which makes
+# the authentik session a browser-session cookie: closing the browser (or a
+# phone killing it) signs you out, and every SSO app bounces you back to the
+# password prompt. Upstream's default-authentication-flow.yaml declares the
+# stage with no attrs, so it never clobbers this patch on reapply.
+#
+# This is authentik's own session only. Each app (Grafana, Trilium, ...) still
+# keeps its own session, but when that lapses the redirect to authentik now
+# completes silently instead of asking for a password.
+#
+# The recovery and enrollment flows' login stages carry the same value in
+# their own blueprints (recovery-email.yaml, invitation-onboarding.yaml).
+#
+# metadata.name must stay unique across blueprints -- a duplicate aborts the
+# whole discovery run (see 02-branding.yaml).
+version: 1
+metadata:
+  name: nel-family-session-duration
+entries:
+  - model: authentik_stages_user_login.userloginstage
+    identifiers:
+      name: default-authentication-login
+    attrs:
+      session_duration: days=30
