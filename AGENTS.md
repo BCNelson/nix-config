@@ -237,6 +237,14 @@ For anything else on a host (logs, systemctl), use the `ssh` MCP server
 whiskey can hang on a Tailscale SSH "check" re-auth; that is a login prompt, not
 a dead host -- hand the human `ssh bcnelson@whiskey.b.nel.family true`.
 
+## Private repos on git.bcnelson.dev
+
+On workstations (sierra, golf-*, redo-3) a read-only Forgejo token lets agents
+read private repos: `fj` (forgejo-cli; `fj repo view owner/name`, `fj issue
+...`, `fj pr ...`) and plain `git clone https://git.bcnelson.dev/owner/repo`.
+The token can't write -- push over ssh as usual. Wiring:
+`home-manager/bcnelson/_mixins/forgejo-cli.nix`.
+
 ## Guardrails
 
 `scripts/agent-guard` (→ `nixcfg guard`) runs before shell and file-read tool

@@ -1,5 +1,8 @@
 { lib, ... }:
 {
+  # Read-only Forgejo token for fj / git over HTTPS; see the module.
+  imports = [ ../nixos/_mixins/roles/forgejo-agent-token.nix ];
+
   config = {
     system-manager.allowAnyDistro = true;
 

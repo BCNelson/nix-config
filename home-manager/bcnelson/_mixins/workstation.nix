@@ -23,6 +23,7 @@
     ./programs/trillium.nix
     ./build-cache.nix
     ./lowprio.nix
+    ./forgejo-cli.nix
   ];
 
   home.packages = [
