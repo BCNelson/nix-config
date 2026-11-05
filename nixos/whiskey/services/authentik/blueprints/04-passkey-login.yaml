@@ -33,9 +33,15 @@ entries:
       not_configured_action: deny
 
   # Upstream's identification stage (flow-default-authentication-flow.yaml).
-  # Only webauthn_stage is set; user_fields etc. stay as upstream has them.
+  # user_fields repeats upstream's value: the serializer validates this entry
+  # as a partial update and rejects it ("When no user fields are selected, at
+  # least one source must be selected") unless user_fields is present, even
+  # though the stored stage already has them.
   - model: authentik_stages_identification.identificationstage
     identifiers:
       name: default-authentication-identification
     attrs:
+      user_fields:
+        - email
+        - username
       webauthn_stage: !KeyOf passkey-validation
