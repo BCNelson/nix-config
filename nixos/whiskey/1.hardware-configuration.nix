@@ -40,9 +40,17 @@
   # gets new ones, and the AAAA records in main.tf must move with them. The
   # gateway is outside the /128, hence the explicit on-link route to it.
   #
-  # This profile outranks the auto-created "Wired connection 1" but does not
-  # take over an already-active connection: it applies at the next boot (or
-  # `nmcli con up ens3`), so the deploy itself never drops the network.
+  # Priority alone never made this profile win. ensureProfiles writes it to
+  # /run (tmpfs) from a unit ordered After=NetworkManager, so on every boot NM
+  # starts first, finds no profile for ens3, auto-creates "Wired connection 1"
+  # (IPv4 DHCP, IPv6 auto) and activates it ~100ms before this profile exists.
+  # NM never preempts an active connection for a higher-priority one, so ens3
+  # stayed v6-less across reboots (seen 2026-11-04: rebooted at 10:26, still on
+  # "Wired connection 1"). no-auto-default stops NM making that fallback for
+  # ens3; the device waits the ~100ms for ensure-profiles, then autoconnects
+  # this profile. A deploy doesn't swap a live connection: it applies at the
+  # next boot, or immediately with `sudo nmcli con up ens3`.
+  networking.networkmanager.settings.main.no-auto-default = "interface-name:ens3";
   networking.networkmanager.ensureProfiles.profiles.ens3 = {
     connection = {
       id = "ens3";
