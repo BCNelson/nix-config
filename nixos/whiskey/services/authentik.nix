@@ -155,6 +155,8 @@ in {
     # 'self') allows them. Referenced from the default brand's
     # branding_default_flow_background in authentik/blueprints/branding.yaml.
     # Longest-prefix match means this wins over the "/" proxy for these paths.
+    # Also holds passkey-test.html, a temporary passkey-autofill diagnostic
+    # (see its header); remove it once that question is settled.
     locations."/custom-static/" = {
       alias = "${./authentik/static}/";
       extraConfig = ''
