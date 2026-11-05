@@ -1,9 +1,20 @@
 { pkgs, ... }:
+let
+  # opencode 2.2.5's node_modules hash in nixpkgs is stale: the bun install
+  # runs ~7 minutes, then fails with a hash mismatch, and since nothing is
+  # cached it took the whole system rebuild down with it on every desktop.
+  # Fixed on nixpkgs master in c399e1b7fb ("opencode: fix hash"). Rather than
+  # carry that fix, leave opencode out until the channel has it: comparing
+  # the hash only evaluates, it builds nothing, so the first flake bump that
+  # brings in a new hash (that fix or a version bump) turns opencode back on
+  # by itself. Drop this guard then.
+  staleHash = "sha256-xfOVcw1+waLVNhFDwzOtzxrUSQEogvn88YomydOlhwc=";
+in
 {
   # https://opencode.ai - the herdr integration lives in ../herdr, alongside
   # claude's and codex's, so all three agents report pane state the same way.
   programs.opencode = {
-    enable = true;
+    enable = pkgs.opencode.node_modules.outputHash != staleHash;
 
     # Pulls programs.mcp.servers into opencode.json's `mcp` block, same as
     # claude-code and codex do. See ../mcp.
