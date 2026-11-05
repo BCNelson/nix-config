@@ -1,0 +1,41 @@
+# Passkey-first sign-in via WebAuthn conditional mediation ("passkey autofill").
+#
+# Setting webauthn_stage on the identification stage makes the login page call
+# navigator.credentials.get({mediation: "conditional"}) as soon as it loads.
+# That is the quiet kind of WebAuthn request: the browser never opens a modal,
+# it only offers a passkey for auth.nel.family in the username field's autofill
+# dropdown -- and only if one is actually available. With none, the page looks
+# and behaves exactly as before (username, then password).
+#
+# A passkey picked there authenticates the user outright: the identification
+# stage sets auth_method=auth_webauthn_pwl and attaches a backend to the
+# pending user, which is exactly what upstream's default-authentication-flow
+# policies check to skip the password stage and the MFA validation stage.
+#
+# The validate stage below is only used to build and check that challenge.
+# It is passkey-only and requires user verification (PIN/biometric): this
+# passkey is the sole factor, so a bare "touch the key" presence check is not
+# enough. The MFA stage after a password login keeps its own, looser settings.
+#
+# metadata.name must stay unique across blueprints (see 02-branding.yaml).
+version: 1
+metadata:
+  name: nel-family-passkey-login
+entries:
+  - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+    id: passkey-validation
+    identifiers:
+      name: nel-family-passkey-validation
+    attrs:
+      device_classes:
+        - webauthn
+      webauthn_user_verification: required
+      not_configured_action: deny
+
+  # Upstream's identification stage (flow-default-authentication-flow.yaml).
+  # Only webauthn_stage is set; user_fields etc. stay as upstream has them.
+  - model: authentik_stages_identification.identificationstage
+    identifiers:
+      name: default-authentication-identification
+    attrs:
+      webauthn_stage: !KeyOf passkey-validation
