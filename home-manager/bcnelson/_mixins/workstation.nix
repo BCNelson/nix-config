@@ -4,6 +4,27 @@
   inputs,
   ...
 }:
+let
+  # zoom-us is a buildFHSEnv. Its bundled xdg-open sees XDG_CURRENT_DESKTOP=KDE
+  # and execs `kde-open`, which isn't in the sandbox -- so "Sign in with SSO"
+  # (and every other link) silently opens nothing. Rather than pull KDE
+  # Frameworks into the FHS and start a browser inside zoom's namespace, give it
+  # a `kde-open` that hands the URL to the desktop portal over the session bus
+  # (which the sandbox shares). The host's own default browser opens it, and
+  # the zoomus:// redirect comes back through the normal scheme handler.
+  #
+  # Only URLs: the portal refuses file:// on OpenURI (that's OpenFile, which
+  # needs fd passing), so "open recordings folder" style actions still no-op.
+  portalOpen = pkgs.writeShellScriptBin "kde-open" ''
+    uri="''${1:?usage: kde-open <url>}"
+    exec ${pkgs.glib.bin}/bin/gdbus call --session \
+      --dest org.freedesktop.portal.Desktop \
+      --object-path /org/freedesktop/portal/desktop \
+      --method org.freedesktop.portal.OpenURI.OpenURI \
+      "" "$uri" "{}" >/dev/null
+  '';
+  zoom = pkgs.zoom-us.override { targetPkgsFixed = [ portalOpen ]; };
+in
 {
   imports = [
     ./k8s.nix
@@ -30,7 +51,7 @@
     (config.lib.nixGL.wrap pkgs.winbox4)
     (config.lib.nixGL.wrap pkgs.kdePackages.merkuro)
     pkgs.mb4-extractor
-    (config.lib.nixGL.wrap pkgs.zoom-us)
+    (config.lib.nixGL.wrap zoom)
     pkgs.gh
     inputs.scaffold.packages.${pkgs.stdenv.hostPlatform.system}.default
     (config.lib.nixGL.wrap pkgs.todoist-electron)
