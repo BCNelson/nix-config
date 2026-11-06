@@ -26,6 +26,22 @@
   # both target foreign distros; wrong everywhere else. mkDefault so an
   # individual user can still override.
   targets.genericLinux.enable = lib.mkDefault genericLinux;
+
+  # buildFHSEnv apps (zoom-us) bind the host's /etc/fonts but replace /usr with
+  # their own, so on a foreign distro the fonts that config points at
+  # (/usr/share/fonts) vanish and every glyph renders as a box. Put a font set
+  # in the nix profile and let home-manager register it in
+  # ~/.config/fontconfig/conf.d, which the distro's fonts.conf already includes
+  # and the sandbox can see. NixOS's /etc/fonts points into /nix/store, so this
+  # isn't needed there.
+  fonts.fontconfig.enable = lib.mkIf genericLinux true;
+  home.packages = lib.optionals genericLinux [
+    pkgs.dejavu_fonts # fontconfig's own last-resort fallback
+    pkgs.liberation_ttf # metric-compatible Arial/Times/Courier
+    pkgs.noto-fonts
+    pkgs.noto-fonts-cjk-sans # names and chat in CJK scripts
+    pkgs.noto-fonts-color-emoji
+  ];
   home.username = lib.mkDefault username;
   home.homeDirectory = lib.mkDefault (if pkgs.stdenv.isDarwin then "/Users/${username}" else "/home/${username}");
 }
