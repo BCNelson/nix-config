@@ -183,6 +183,10 @@
       users = [ "bcnelson" ];
     };
 
+    # /run/opengl-driver for buildFHSEnv apps (zoom-us), which lose the nixGL
+    # wrap's LD_LIBRARY_PATH. See ./_mixins/graphics.nix.
+    hardware.graphics.enable = true;
+
     # Strip Fedora's `--no-timeout` from fprintd. The Goodix reader's libusb
     # state gets stuck after a system suspend/resume; if fprintd stays
     # running, every later kscreenlocker auth silently fails on a wedged
