@@ -169,62 +169,35 @@ in
     pkgs.dolphin-shred
   ];
 
-  # Plasma finds applications through ksycoca, a cache it only rebuilds when
-  # KDirWatch notices a change under one of the XDG application directories.
-  # A home-manager switch swaps the whole ~/.nix-profile symlink chain rather
-  # than touching those directories, so the watch never fires and a newly
-  # installed package's .desktop entry stays invisible to KRunner and the
-  # launcher until the next login. Rebuild the cache at the end of activation
-  # instead -- it is a ~0.2s directory scan, cheap enough to run every time.
+  # Plasma finds applications through ksycoca, a cache each process (and each
+  # thread -- KRunner's app runner has its own) treats as stale only when one
+  # of the directories it scanned has a newer mtime than at the last build.
+  # It stats those through the profile symlinks, so they resolve into
+  # /nix/store, where every mtime is 1: repointing ~/.nix-profile is invisible
+  # to it, and a newly installed app stays out of KRunner and the launcher
+  # until KRunner restarts or the user logs out.
   #
-  # Two things make this fiddlier than calling kbuildsycoca6:
+  # Bump the mtime of a scanned directory that is *not* in the store instead.
+  # Every Plasma process then notices on its next lookup (the check is
+  # throttled to once per 1.5s) and rebuilds the cache in-process, with its own
+  # environment -- so the cache lands under the hash the session reads and is
+  # built by the running Plasma's own ksycoca version, whether that is NixOS's
+  # or Fedora's. KRunner's app runner does the check itself at the start of
+  # each query, so the first query after a switch can still miss a new app and
+  # the next one has it.
   #
-  #   * The cache file is named for a hash of XDG_DATA_DIRS plus the language,
-  #     so it has to run with the *session's* environment. Invoked from a
-  #     `just update-home` shell -- which carries a devshell's XDG_DATA_DIRS --
-  #     or over ssh, it would write a differently-hashed cache that the running
-  #     session never reads, and silently appear to work.
-  #   * ksycoca is versioned, so the builder must match the running Plasma. On
-  #     this genericLinux host that is Fedora's /usr/bin/kbuildsycoca6, not
-  #     anything from nixpkgs.
+  # Tested on sierra, 2026-10-31, one change at a time against a running
+  # KRunner: a profile flip alone never shows the app; deleting the caches
+  # (what NixOS's plasma6 activation does) works once on a freshly started
+  # KRunner and then never again, because its file watcher is left on the
+  # unlinked inode it still has mmapped; running kbuildsycoca6 from here
+  # writes a cache under a different hash (nixpkgs wraps it with extra
+  # XDG_DATA_DIRS) that the session never reads. Touching this directory
+  # worked every time, including on a KRunner the deletions had wedged.
   #
-  # Lifting PATH and the session variables off plasmashell itself satisfies
-  # both, and gives a natural no-op when there is no session to update.
-  #
-  # After installPackages, since that is the step that repoints ~/.nix-profile
-  # and so the step that makes the new .desktop files exist.
-  home.activation.rebuildKsycoca = lib.hm.dag.entryAfter [ "installPackages" ] ''
-    plasmaPid=$(${pkgs.procps}/bin/pgrep -x -u "$(${pkgs.coreutils}/bin/id -u)" plasmashell | ${pkgs.coreutils}/bin/head -n1 || true)
-
-    if [ -z "$plasmaPid" ] || [ ! -r "/proc/$plasmaPid/environ" ]; then
-      verboseEcho "No Plasma session of our own; skipping ksycoca rebuild"
-    else
-      # Only the variables ksycoca's cache identity and D-Bus notification
-      # depend on. Read line-wise off the NUL-separated environ -- none of
-      # these ever contain a newline.
-      sessionEnv=()
-      sessionPath=""
-      while IFS= read -r envVar; do
-        case "$envVar" in
-          PATH=*)
-            sessionPath="''${envVar#PATH=}"
-            sessionEnv+=("$envVar")
-            ;;
-          LANG=* | LANGUAGE=* | LC_ALL=* | XDG_DATA_DIRS=* | XDG_DATA_HOME=* | XDG_CURRENT_DESKTOP=* | XDG_RUNTIME_DIR=* | DBUS_SESSION_BUS_ADDRESS=*)
-            sessionEnv+=("$envVar")
-            ;;
-        esac
-      done < <(${pkgs.coreutils}/bin/tr '\0' '\n' < "/proc/$plasmaPid/environ")
-
-      # Resolved against the session's PATH so we get the same KDE build that
-      # is running, whether that is Fedora's or a NixOS system profile's.
-      kbuildsycoca=$(PATH="$sessionPath" command -v kbuildsycoca6 2>/dev/null || true)
-
-      if [ -z "$kbuildsycoca" ]; then
-        verboseEcho "kbuildsycoca6 not on the Plasma session's PATH; skipping ksycoca rebuild"
-      else
-        run ${pkgs.coreutils}/bin/env "''${sessionEnv[@]}" "$kbuildsycoca"
-      fi
-    fi
+  # After installPackages, since that is the step that repoints ~/.nix-profile.
+  home.activation.touchApplicationsDir = lib.hm.dag.entryAfter [ "installPackages" ] ''
+    run ${pkgs.coreutils}/bin/mkdir -p "${config.xdg.dataHome}/applications"
+    run ${pkgs.coreutils}/bin/touch "${config.xdg.dataHome}/applications"
   '';
 }

@@ -67,8 +67,19 @@ func newStatusEntry(r *pipeline.Result, at time.Time) statusEntry {
 	return e
 }
 
+// statusCacheVersion versions what this build writes into the cache. Every
+// open Claude session runs the status line (and its refreshes, and its MCP
+// server's waits) from whatever nixcfg was on PATH when it started, so
+// several builds share one cache; the text is rendered when written, so they
+// took turns overwriting each other's wording. Bump it whenever the rendered
+// text or the format changes: an older build never overwrites a newer one's
+// cache (update), and a format change also gets a new file (statusCachePath)
+// so builds from before the version field existed can't touch it.
+const statusCacheVersion = 2
+
 type statusCache struct {
-	Head string `json:"head"` // the origin/main commit Entries were chosen for
+	Version int    `json:"version"`
+	Head    string `json:"head"` // the origin/main commit Entries were chosen for
 	// Entries are the deploying commits from Head back, newest first: the
 	// ones still moving, then the newest settled one (see pipelineCommits).
 	Entries   []statusEntry `json:"entries"`
@@ -76,7 +87,7 @@ type statusCache struct {
 	FetchedAt time.Time     `json:"fetched_at"` // last fetch attempt
 }
 
-func statusCachePath() string { return config.StateDir("statusline.json") }
+func statusCachePath() string { return config.StateDir("statusline.v2.json") }
 
 func loadStatusCache() statusCache {
 	var c statusCache
@@ -158,7 +169,15 @@ func update(fn func(*statusCache) bool) bool {
 			continue
 		}
 		c := loadStatusCache()
+		if c.Version > statusCacheVersion {
+			lock.Close()
+			return false // a newer build owns the cache; don't undo its wording
+		}
+		if c.Version < statusCacheVersion {
+			c = statusCache{FetchedAt: c.FetchedAt} // older text: rebuild it
+		}
 		if fn(&c) {
+			c.Version = statusCacheVersion
 			c.save()
 		}
 		lock.Close() // releases the flock
