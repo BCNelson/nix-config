@@ -55,10 +55,10 @@ let
   };
 in
 {
-  home.packages = [
-    herdr-desktop
-    # `hc` on PATH too, so the app finds the same core from a terminal and
-    # agents can be pointed at `hc --skill`.
-    pkgs.herdr-core
-  ];
+  # `hc` on PATH too (from ./hc.nix, with its Tailscale transport), so the app
+  # finds the same core from a terminal and agents can be pointed at
+  # `hc --skill`.
+  imports = [ ./hc.nix ];
+
+  home.packages = [ herdr-desktop ];
 }

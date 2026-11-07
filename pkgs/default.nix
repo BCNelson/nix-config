@@ -15,6 +15,7 @@ pkgs: rec {
   config-merge = pkgs.callPackage ./config-merge { };
   mcpproxy = pkgs.callPackage ./mcpproxy { };
   ssh-mcp = pkgs.callPackage ./ssh-mcp { };
+  hc-tailscale = pkgs.callPackage ./hc-tailscale { };
   nixcfg-mcp = pkgs.callPackage ./nixcfg-mcp { };
   devenv-mcp = pkgs.callPackage ./devenv-mcp { };
   spool = pkgs.callPackage ./spool { };

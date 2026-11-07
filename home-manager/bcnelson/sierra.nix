@@ -22,6 +22,8 @@ in
     # Phone/browser access to herdr; served to the tailnet by
     # nixos/sierra/herdr-web-ui.nix.
     ./_mixins/herdr/web-ui.nix
+    # herdr-core (`hc`), reaching machines over a tsnet node.
+    ./_mixins/herdr/hc.nix
   ];
 
   home.packages = [
