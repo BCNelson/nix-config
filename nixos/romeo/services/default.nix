@@ -9,6 +9,7 @@ in {
     ./actual.nix
     ./audiobookshelf.nix
     ./calibre-web-automated.nix
+    ./eplustv.nix
     ./fastenhealth.nix
     ./foundryvtt.nix
     ./homebox.nix
