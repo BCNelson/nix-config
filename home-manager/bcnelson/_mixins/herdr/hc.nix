@@ -32,9 +32,31 @@
 #
 # The devices show up as <machine>-hc[-<slot>] owned by whoever logged in, so
 # the tailnet's SSH policy treats them like that user's other devices.
+let
+  # Whichever `hc` call first finds no core running starts it (systemd-run
+  # --user hc-serve-*), handing it the caller's environment, and the core
+  # passes that on to every terminal it opens. When that caller is an agent's
+  # shell, the core carries CLAUDE_CODE_CHILD_SESSION and friends forever, and
+  # every `claude` started in the desktop app then believes it is a
+  # sub-session and stops saving transcripts. Strip CLAUDE* on the way in;
+  # herdr-core reads none of them. The app finds `hc` on PATH before its
+  # built-in store path, so this covers the cores it starts too. The wrapper
+  # execs the real binary, so /proc/self/exe and its build id are unchanged.
+  herdr-core = pkgs.symlinkJoin {
+    name = "herdr-core-clean-env-${pkgs.herdr-core.version}";
+    paths = [ pkgs.herdr-core ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      for b in hc herdr-core; do
+        wrapProgram $out/bin/$b --run 'for v in ''${!CLAUDE@}; do unset "$v"; done'
+      done
+    '';
+    inherit (pkgs.herdr-core) meta;
+  };
+in
 {
   home.packages = [
-    pkgs.herdr-core
+    herdr-core
     pkgs.hc-tailscale
   ];
 
