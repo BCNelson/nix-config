@@ -22,8 +22,9 @@ in
     # Phone/browser access to herdr; served to the tailnet by
     # nixos/sierra/herdr-web-ui.nix.
     ./_mixins/herdr/web-ui.nix
-    # herdr-core (`hc`), reaching machines over a tsnet node.
-    ./_mixins/herdr/hc.nix
+    # herdr desktop app plus herdr-core (`hc`, with the tsnet transport from
+    # ./_mixins/herdr/hc.nix, which desktop.nix imports).
+    ./_mixins/herdr/desktop.nix
   ];
 
   home.packages = [
