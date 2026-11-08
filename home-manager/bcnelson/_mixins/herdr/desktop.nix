@@ -58,7 +58,30 @@ in
   # `hc` on PATH too (from ./hc.nix, with its Tailscale transport), so the app
   # finds the same core from a terminal and agents can be pointed at
   # `hc --skill`.
-  imports = [ ./hc.nix ];
+  # ./app.nix provides local.herdrApp, for declaring mods, layouts and keys.
+  imports = [ ./hc.nix ./app.nix ];
 
   home.packages = [ herdr-desktop ];
+
+  local.herdrApp = {
+    mods = {
+      # New worktree from the repo's default branch (fetched first) rather
+      # than from HEAD, which is all the shipped worktree mod offers.
+      worktree-main = ./app/mods/worktree-main;
+
+      # The space right-click menu is the shipped `menu`, opened by the
+      # shipped `spaces` sidebar, used by the shipped `main` layout -- each
+      # names the next, and the app replaces all three on every start. So
+      # adding "New worktree from main" to it takes a clone of each:
+      # my-menu (the item), my-spaces (opens my-menu), and layouts.my-main
+      # below (uses my-spaces). Clones never get upstream updates; re-clone
+      # from a newer app with `herdr-app do mod.clone` and reapply the change.
+      my-menu = ./app/mods/my-menu;
+      my-spaces = ./app/mods/my-spaces;
+    };
+
+    layouts.my-main = ./app/layouts/my-main.json;
+
+    keys.global."ctrl-shift-g" = "mod.open:worktree-main";
+  };
 }
