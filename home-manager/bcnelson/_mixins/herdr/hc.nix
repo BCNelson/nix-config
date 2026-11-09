@@ -42,13 +42,30 @@ let
   # herdr-core reads none of them. The app finds `hc` on PATH before its
   # built-in store path, so this covers the cores it starts too. The wrapper
   # execs the real binary, so /proc/self/exe and its build id are unchanged.
+  #
+  # PATH gets the same treatment. The desktop app prepends its own guesses
+  # (~/.local/bin, /opt/homebrew/bin, /run/current-system/sw/bin, ...) before
+  # running `hc`, which lands /run/current-system/sw/bin ahead of
+  # /run/wrappers/bin. Every terminal then finds the plain, non-setuid sudo
+  # from systemPackages first and fails with "must be owned by uid 0 and have
+  # the setuid bit set". The app's code can't be changed, so the core is
+  # handed /run/wrappers/bin first again here, as a NixOS login shell has it.
+  cleanEnv = ''
+    for v in ''${!CLAUDE@}; do unset "$v"; done
+    if [ -d /run/wrappers/bin ]; then
+      p=":$PATH:"
+      while [[ $p == *:/run/wrappers/bin:* ]]; do p=''${p//:\/run\/wrappers\/bin:/:}; done
+      p=''${p#:}; p=''${p%:}
+      export PATH="/run/wrappers/bin''${p:+:$p}"
+    fi
+  '';
   herdr-core = pkgs.symlinkJoin {
     name = "herdr-core-clean-env-${pkgs.herdr-core.version}";
     paths = [ pkgs.herdr-core ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
     postBuild = ''
       for b in hc herdr-core; do
-        wrapProgram $out/bin/$b --run 'for v in ''${!CLAUDE@}; do unset "$v"; done'
+        wrapProgram $out/bin/$b --run ${lib.escapeShellArg cleanEnv}
       done
     '';
     inherit (pkgs.herdr-core) meta;
