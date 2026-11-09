@@ -50,8 +50,6 @@ in
     # Chat
     (config.lib.nixGL.wrap pkgs.unstable.discord)
 
-    (config.lib.nixGL.wrap pkgs.newsflash)
-
     #Dignostic tools
     pkgs.vulkan-tools
     pkgs.libva-utils

@@ -13,34 +13,41 @@
 
     # Codex releases faster than nixpkgs can currently package them. Use the
     # official release binary while the channel is behind, then fall back to
-    # nixpkgs automatically once it catches up.
+    # nixpkgs automatically once it overtakes the pin.
+    #
+    # The pin also wins a tie: nixpkgs' 0.167.0 source build fails in
+    # aws-lc-sys ("AWS_LC_SYS_USE_SYSTEM=1 requires a system-installed
+    # AWS-LC, but none was found" -- it only finds openssl), so nothing
+    # caches it and every host that pulls codex fails to build. Hand-off to
+    # nixpkgs therefore happens only once the channel ships a *newer* codex;
+    # check that one builds before letting it through.
     codex =
       let
-        pinnedVersion = "0.153.4";
+        pinnedVersion = "0.167.0";
         targets = {
           x86_64-linux = {
             target = "x86_64-unknown-linux-musl";
-            sha256 = "f479424eca092484dc40d87ae28c44f4cc40234a60045d6131e493800d814a30";
-            codeModeHostSha256 = "f95830a869590957664bbfc67bccb08773806b693670baf15908176f89b4cd31";
+            sha256 = "9d64836106d5b374e90ee4454c7ebcde7ca7106558bd7e41a34b9f26ebda251a";
+            codeModeHostSha256 = "b5074d5dd64643b2c073927e494a588eff31c1f5a27f12c1e2c45f9a6cf07dd4";
           };
           aarch64-linux = {
             target = "aarch64-unknown-linux-musl";
-            sha256 = "5cda6182bd94c3a30f2eb63a495489ebf7f691fddb14d70f48c6c1a5071b6cde";
-            codeModeHostSha256 = "d8047b8d33370d6090e729d27eb76de60a2686baa1c143c138c9b05dc70d813b";
+            sha256 = "843489acb4d4b1079745c36b03c5963b887b83155af208fd53584e33ee8eb281";
+            codeModeHostSha256 = "6e99948fa20ca816a01f222a56afa261b321e00cbed611d76bb92c765fd11ec6";
           };
           x86_64-darwin = {
             target = "x86_64-apple-darwin";
-            sha256 = "d69200f0bf841b1d1a07f80b80cf742a2e4fc2bab91ae8a44b1042f8e8ca9fa4";
-            codeModeHostSha256 = "2ffaebd0103d976232c358419a508859da862e128f3ca0bb071541346fbe3bf7";
+            sha256 = "d8eb4a865a0b17319cde10347523e5bab0978d01725b39f4a639f40905e01221";
+            codeModeHostSha256 = "612d0dc2c7316fbf05ee922796f4d740a285b76a55d4c78e1b946ba621bdcc91";
           };
           aarch64-darwin = {
             target = "aarch64-apple-darwin";
-            sha256 = "8cf911ea676523bfb2121ec561848d2aba564890ad536db4d8a3353f2b9850b1";
-            codeModeHostSha256 = "45a9b0fdf53b98b85a6bb91e175dd90e961328a7a14fb50a40902205199df1df";
+            sha256 = "4b22a2a971be2791c3e31f912f3e77a88ebd64a65812a7289ccba65dd6425fe9";
+            codeModeHostSha256 = "876a3e263348ef0edaeae5cf5bc52a5c121141cefd15157ab0eeca305f3eb563";
           };
         };
         platform = targets.${final.stdenv.hostPlatform.system};
-        usePin = builtins.compareVersions prev.codex.version pinnedVersion < 0;
+        usePin = builtins.compareVersions prev.codex.version pinnedVersion <= 0;
       in
       if usePin then
         final.stdenvNoCC.mkDerivation {
@@ -137,6 +144,23 @@
       prev.trilium-server.overrideAttrs (old: {
         nativeBuildInputs = [ patchelf ] ++ (old.nativeBuildInputs or [ ]);
       });
+
+    # nixpkgs' cargoSetupHook now forces -sys crates onto the system copies of
+    # common C libraries (ZSTD_SYS_USE_PKG_CONFIG=1 among them; 26.11 release
+    # notes), but herdr-desktop 0.1.10 never got zstd in its buildInputs, so
+    # zstd-sys panics with "Can't probe for zstd in pkg-config". Supply it.
+    # Drop this once nixpkgs' herdr-desktop lists zstd itself.
+    herdr-desktop = prev.herdr-desktop.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or [ ]) ++ [ final.zstd ];
+    });
+
+    # Same hook, LIBSQLITE3_SYS_USE_PKG_CONFIG=1: voxtype 1.1.1 has no sqlite
+    # in its buildInputs, so its binaries fail to link (`cannot find
+    # -lsqlite3`). voxtype-vulkan (used on redo-3) inherits this override.
+    # Drop once nixpkgs' voxtype lists sqlite itself.
+    voxtype = prev.voxtype.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or [ ]) ++ [ final.sqlite ];
+    });
 
     # GAM 7.43.04 pins chardet==5.2.0 in its pyproject, but nixpkgs now ships
     # chardet 6.0.0, so pythonRuntimeDepsCheckHook fails with

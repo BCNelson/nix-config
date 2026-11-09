@@ -1,6 +1,7 @@
 {
   lib,
   rustPlatform,
+  aws-lc,
   fetchFromGitHub,
   cacert,
   callPackage,
@@ -10,6 +11,7 @@
   runCommand,
   writeShellScriptBin,
   zig_0_15,
+  zstd,
 }:
 let
   # don depends on libghostty-vt, whose -sys crate builds ghostty's terminal
@@ -69,6 +71,15 @@ rustPlatform.buildRustPackage (finalAttrs: {
     installShellFiles
     pkg-config
     zigBaseline
+  ];
+
+  # nixpkgs' cargoSetupHook now forces -sys crates onto the system copies of
+  # common C libraries (AWS_LC_SYS_USE_SYSTEM, ZSTD_SYS_USE_PKG_CONFIG, ...)
+  # instead of building the vendored ones, so the libraries behind don's
+  # aws-lc-sys (via rustls) and zstd-sys have to be in buildInputs.
+  buildInputs = [
+    aws-lc
+    zstd
   ];
 
   env.GHOSTTY_ZIG_SYSTEM_DIR = ghosttyZigDeps;
