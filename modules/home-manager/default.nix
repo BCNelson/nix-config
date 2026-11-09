@@ -5,4 +5,5 @@
   # List your module files here
   autostart = import ./autostart.nix;
   spool = import ./spool.nix;
+  herdr-agent-parser = import ./herdr-agent-parser.nix;
 }

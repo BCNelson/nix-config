@@ -93,6 +93,15 @@
     # Flutter web bundle, Go server and Laya's torch stack locally.
     homefirst.url = "git+https://git.bcnelson.dev/home-first/homefirst";
 
+    # The Android herdr-core client's repo. Only its overlay is used, for
+    # herdr-agent-parser (modules/home-manager/herdr-agent-parser.nix); the
+    # overlay builds with our nixpkgs. Its devenv input (for its dev shell)
+    # still shows up in flake.lock, but is never fetched: nothing here reads it.
+    herdr-android = {
+      url = "git+https://git.bcnelson.dev/bcnelson/herdr-android";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

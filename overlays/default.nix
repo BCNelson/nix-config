@@ -2,7 +2,8 @@
 { inputs, ... }:
 {
   # This one brings our custom packages from the 'pkgs' directory
-  additions = final: _prev: import ../pkgs final.pkgs;
+  # plus herdr-agent-parser, packaged in the herdr-android repo.
+  additions = final: prev: import ../pkgs final.pkgs // inputs.herdr-android.overlays.default final prev;
 
   # This one contains whatever you want to overlay
   # You can change versions, add patches, set compilation flags, anything really.

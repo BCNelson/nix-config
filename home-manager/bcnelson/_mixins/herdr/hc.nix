@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ lib, outputs, pkgs, ... }:
 
 # herdr-core (`hc`) and a Tailscale transport for reaching other machines from
 # it.
@@ -72,6 +72,12 @@ let
   };
 in
 {
+  # Structured agent sessions for the Android app and herdr-app mods, beside
+  # this machine's core. See the module for what it does and why it is a user
+  # service.
+  imports = [ outputs.homeModules.herdr-agent-parser ];
+  services.herdr-agent-parser.enable = true;
+
   home.packages = [
     herdr-core
     pkgs.hc-tailscale
