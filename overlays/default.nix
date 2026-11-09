@@ -159,14 +159,32 @@
         nativeBuildInputs = [ patchelf ] ++ (old.nativeBuildInputs or [ ]);
       });
 
-    # nixpkgs' cargoSetupHook now forces -sys crates onto the system copies of
-    # common C libraries (ZSTD_SYS_USE_PKG_CONFIG=1 among them; 26.11 release
-    # notes), but herdr-desktop 0.1.10 never got zstd in its buildInputs, so
-    # zstd-sys panics with "Can't probe for zstd in pkg-config". Supply it.
-    # Drop this once nixpkgs' herdr-desktop lists zstd itself.
-    herdr-desktop = prev.herdr-desktop.overrideAttrs (old: {
-      buildInputs = (old.buildInputs or [ ]) ++ [ final.zstd ];
-    });
+    # herdr-core and herdr-desktop: pkgs/herdr-{core,desktop}/package.nix are
+    # copied verbatim from nixpkgs PR #584646 (core 0.1.18, desktop 0.1.13,
+    # head a2008e93). Whichever is newer wins, so once the channel ships that
+    # PR (or something later) these hand back to nixpkgs and its binary cache
+    # on their own; delete the vendored files then. The copy is whole files
+    # rather than an overrideAttrs bump because the PR also changes the
+    # postPatch substitutions and test skips that the new sources need.
+    #
+    # The vendored desktop also lists zstd in buildInputs, which nixpkgs'
+    # 0.1.10 lacks: cargoSetupHook forces ZSTD_SYS_USE_PKG_CONFIG=1 (26.11),
+    # so the channel's own build panics in zstd-sys. That was an overlay
+    # override here until now.
+    #
+    # callPackage resolves against final, so the desktop build is handed
+    # whichever herdr-core this picked, and the app launches that core.
+    herdr-core =
+      let
+        ours = final.callPackage ../pkgs/herdr-core/package.nix { };
+      in
+      if final.lib.versionOlder prev.herdr-core.version ours.version then ours else prev.herdr-core;
+
+    herdr-desktop =
+      let
+        ours = final.callPackage ../pkgs/herdr-desktop/package.nix { };
+      in
+      if final.lib.versionOlder prev.herdr-desktop.version ours.version then ours else prev.herdr-desktop;
 
     # Same hook, LIBSQLITE3_SYS_USE_PKG_CONFIG=1: voxtype 1.1.1 has no sqlite
     # in its buildInputs, so its binaries fail to link (`cannot find
