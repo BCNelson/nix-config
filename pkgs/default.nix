@@ -40,6 +40,7 @@ pkgs: rec {
   upwindctl = pkgs.callPackage ./upwindctl.nix { };
   herdr-mirror = pkgs.callPackage ./herdr-mirror { };
   herdr-web-ui = pkgs.callPackage ./herdr-web-ui { };
+  herdr-busybar = pkgs.callPackage ./herdr-busybar { };
   lowprio = pkgs.callPackage ./lowprio { };
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };
