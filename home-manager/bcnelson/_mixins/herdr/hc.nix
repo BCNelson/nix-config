@@ -83,6 +83,16 @@ in
     pkgs.hc-tailscale
   ];
 
+  # New terminals otherwise get $SHELL, as handed to whichever process first
+  # started the core -- bash on redo-3, whose login shell belongs to Fedora.
+  # fish matches the herdr TUI (terminal.default_shell in ./core.nix), by
+  # absolute path for the same reason: the core's PATH is whatever its
+  # starter had. Core reads this file fresh for every terminal and never
+  # writes it, so a read-only link is fine and needs no core restart.
+  xdg.configFile."herdr-core/config.toml".source = (pkgs.formats.toml { }).generate "herdr-core-config.toml" {
+    shell = [ "${pkgs.fish}/bin/fish" ];
+  };
+
   systemd.user.services.hc-tailscale = {
     Unit.Description = "Tailscale (tsnet) transport for herdr-core";
     Service = {
