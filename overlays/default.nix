@@ -120,6 +120,20 @@
         niquests = pyPrev.niquests.overridePythonAttrs (old: {
           disabledTests = (old.disabledTests or [ ]) ++ [ "test_use_proxy_from_environment" ];
         });
+
+        # The cargoSetupHook change described at herdr-desktop below
+        # (nixpkgs#537108) also hits chromadb 1.5.9 (romeo, services.chromadb
+        # for odysseus): its Rust core links sqlx-sqlite (`cannot find
+        # -lsqlite3`) and tikv-jemalloc-sys, whose JEMALLOC_OVERRIDE the hook
+        # sets to a sentinel path that never exists unless something else set
+        # it first. rust-jemalloc-sys is that something: jemalloc built with the
+        # _rjem_ symbol prefix tikv-jemalloc-sys expects (plain `jemalloc` is
+        # unprefixed and would not link), and a setup hook that exports the
+        # real JEMALLOC_OVERRIDE before the cargo hook runs. Drop once nixpkgs'
+        # chromadb lists both itself.
+        chromadb = pyPrev.chromadb.overridePythonAttrs (old: {
+          buildInputs = (old.buildInputs or [ ]) ++ [ final.sqlite final.rust-jemalloc-sys ];
+        });
       })
     ];
 
