@@ -19,6 +19,7 @@ let
       gym.nel.family A 192.168.3.7
       tendant.nel.family A 192.168.3.7
       tube.nel.family A 192.168.3.7
+      links.nel.family A 192.168.3.7
     '';
     destination = "/localOverride";
   };

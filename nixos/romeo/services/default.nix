@@ -41,6 +41,7 @@ in {
     ./peertube.nix
     ./factorio.nix
     ./tendant.nix
+    ./linkwarden.nix
   ];
 
   systemd.timers.podman-auto-update = {

@@ -574,6 +574,14 @@ resource "porkbun_dns_record" "tendant_nel_family-CNAME" {
   content = "h.b.nel.family"
 }
 
+# links    CNAME  h.b.nel.family.   (Linkwarden on romeo; LAN answered by romeo's unbound)
+resource "porkbun_dns_record" "links_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "links"
+  type    = "CNAME"
+  content = "h.b.nel.family"
+}
+
 resource "porkbun_dns_record" "journal_nel_family-CNAME" {
   domain  = "nel.family"
   name    = "journal"

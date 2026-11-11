@@ -66,6 +66,13 @@ in {
     generator.script = "alnum";
   };
 
+  # OAuth2 client secret for the Linkwarden provider — same rekeyFile as
+  # nixos/romeo/services/linkwarden.nix, so the two sides can never drift.
+  age.secrets.linkwarden-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/linkwarden_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # OAuth2 client secret for the Grafana provider. Grafana (grafana.nix) runs
   # as its static `grafana` user on this host and reads the file directly
   # through its group; authentik gets it via the env file below.
@@ -88,6 +95,7 @@ in {
       PEERTUBE_SECRET = config.age.secrets.peertube-oauth-client-secret.path;
       TRILIUM_SECRET = config.age.secrets.trilium-oauth-client-secret.path;
       TENDANT_SECRET = config.age.secrets.tendant-oauth-client-secret.path;
+      LINKWARDEN_SECRET = config.age.secrets.linkwarden-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
@@ -99,6 +107,7 @@ in {
       PEERTUBE_OAUTH_CLIENT_SECRET=$PEERTUBE_SECRET
       TRILIUM_OAUTH_CLIENT_SECRET=$TRILIUM_SECRET
       TENDANT_OAUTH_CLIENT_SECRET=$TENDANT_SECRET
+      LINKWARDEN_OAUTH_CLIENT_SECRET=$LINKWARDEN_SECRET
     '';
   };
 
