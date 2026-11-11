@@ -12,7 +12,6 @@
 #   Go only self-trims a build cache when it runs against it, so abandoned
 #   projects otherwise keep theirs forever.
 let
-  home = config.home.homeDirectory;
 
   sweep = pkgs.writeShellApplication {
     name = "build-cache-sweep";

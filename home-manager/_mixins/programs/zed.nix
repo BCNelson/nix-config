@@ -39,6 +39,19 @@ in
       buffer_font_family = "Monaspace Neon";
       buffer_font_size = 14;
       ui_font_size = 16;
+      lsp.tailwindcss-language-server.settings.files.exclude = [
+        # Tailwind's defaults; setting the list replaces them.
+        "**/.git/**"
+        "**/node_modules/**"
+        "**/.hg/**"
+        "**/.svn/**"
+        # Bazel's convenience symlinks (bazel-bin, bazel-out, bazel-<ws>, ...)
+        # point into the output base. The server follows them while globbing
+        # for Tailwind configs, and in the redo monorepo that walk ran node
+        # out of heap within two minutes of opening the project.
+        "**/bazel-*/**"
+        "**/target/**"
+      ];
       language_models = {
         ollama = {
           api_url = "http://romeo.b.nel.family:11434";
