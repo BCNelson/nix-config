@@ -393,11 +393,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792526520,
-        "narHash": "sha256-3hSJlv8mUVnZPMWK2+CM7a9O+nR6Z4mCh27NfLCmTPc=",
+        "lastModified": 1794328522,
+        "narHash": "sha256-h2BYMW4nTFpIqnMd8gwAPFmJAp/1wWLQ6vT0NfL5qt4=",
         "owner": "nix-community",
         "repo": "disko",
-        "rev": "cedd626e11b635470fa6f9fdb8ad79b0075dd7f9",
+        "rev": "1dd30c29c88d99ce295f15e27f93c49bc5fbae07",
         "type": "github"
       },
       "original": {
@@ -1031,11 +1031,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794200016,
-        "narHash": "sha256-j6+kt9uEIw1kV72gGc1IJ2IrMdwRiD29MsOfDeje45k=",
+        "lastModified": 1794366749,
+        "narHash": "sha256-W+wyF0mZhoKJZCymO0avXjWxizGWLREirIKyRgLTD7s=",
         "ref": "refs/heads/main",
-        "rev": "0d273b31cdf72d3f51037106e58f976973209f74",
-        "revCount": 52,
+        "rev": "88b7d0c7cd867c027ac9121ff9d3c87b55e0bc16",
+        "revCount": 58,
         "type": "git",
         "url": "https://git.bcnelson.dev/bcnelson/herdr-android"
       },
@@ -1637,11 +1637,11 @@
     },
     "nixpkgs-unstable-small": {
       "locked": {
-        "lastModified": 1794272644,
-        "narHash": "sha256-YvRVc0mtXsVF8eb9VxD6kigOHZzcavfEQttTu/mEOuM=",
+        "lastModified": 1794378162,
+        "narHash": "sha256-gJGP/BWdmF1pbjAzbuICPSeGkMncAiDt9PRe7L13664=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "62c4d39509125c04b6aba03eb3dd0ee5b955cc9c",
+        "rev": "c24da8b1d51f447e8faedcb5cb823b3f84346a60",
         "type": "github"
       },
       "original": {
@@ -1807,11 +1807,11 @@
         "nixpkgs": "nixpkgs_8"
       },
       "locked": {
-        "lastModified": 1794301096,
-        "narHash": "sha256-XQmpcvEiRYWDhecP/PGqcYfOa856JmrUEm2mJ/wPpqI=",
+        "lastModified": 1794385825,
+        "narHash": "sha256-3b5me/rbMtbVhPKs2mT6cuE16Zb1g/Y48VTl2kYE6d8=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "cd43101f0acca8e8457242ce242d9a86f9e3c80f",
+        "rev": "c75cd49a359092e60d9fa46a3d865915ef89d3d8",
         "type": "github"
       },
       "original": {
@@ -2154,11 +2154,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794216702,
-        "narHash": "sha256-J+4v+Olc/2mN/bSc9CuAQ/PB7c0w1mzDJK8JvS7rKmM=",
+        "lastModified": 1794303164,
+        "narHash": "sha256-UZMtOt43/HRVssXPSuPv8t11Toq9+CjyWUfYQ3tqGVE=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "b70538330f20adc9665afa2976471eb5b85ebd1f",
+        "rev": "89750a2ef1c6a44db9f4251b16c23deffdcfddff",
         "type": "github"
       },
       "original": {
@@ -2480,11 +2480,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794215717,
-        "narHash": "sha256-es8MSf8k9iRKAW0ny1Dfqo09imWwx0w561wbuz4u5Xk=",
+        "lastModified": 1794387353,
+        "narHash": "sha256-Ql0U7BKTyl6Wxc1U4u35xe9jEBJ6M5T6uPxQM/1WnGQ=",
         "owner": "0xc000022070",
         "repo": "zen-browser-flake",
-        "rev": "3c9c2843c3ca92de0c82f98e1c4641d95e7163f2",
+        "rev": "ac0155d88f51742337bed39a2dba8d3eef17d403",
         "type": "github"
       },
       "original": {
