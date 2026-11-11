@@ -394,7 +394,13 @@ func (a *App) Preseed(ctx context.Context, host string) (*jobs.Job, error) {
 		"out=$(nix build " + attr + " --no-link --print-out-paths --print-build-logs)",
 		"echo \"built $out\"",
 		"export NIX_SSHOPTS='-o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4'",
-		"timeout 2h nix copy --to ssh-ng://" + builder + " \"$out\"",
+		// --no-check-sigs: the workstation has no secret-key-files, so what it
+		// builds is unsigned, and by default `nix copy` asks the remote to check
+		// signatures even over a trusted connection -- romeo (require-sigs) then
+		// rejects every path with "lacks a signature by a trusted key". The
+		// builder user is in romeo's trusted-users, which is what makes skipping
+		// the check allowed.
+		"timeout 2h nix copy --no-check-sigs --to ssh-ng://" + builder + " \"$out\"",
 		"echo \"copied $out to " + builder + "\"",
 	}, "\n")
 	return jobs.Start("preseed", h.Name, []string{"bash", "-c", script}, root, map[string]string{"commit": head, "builder": builder})
