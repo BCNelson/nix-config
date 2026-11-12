@@ -128,5 +128,10 @@
   # including for buffered writeback (ext4 cgroup writeback).
   services.udev.extraRules = ''
     ACTION=="add|change", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/scheduler}="bfq"
+
+    # WCH CH55x/CH32 ISP bootloader (wchisp). bcnelson isn't in plugdev here;
+    # TAG+="uaccess" is what grants the logged-in seat user access.
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55e0", MODE="0660", GROUP="plugdev", TAG+="uaccess"
   '';
 }
