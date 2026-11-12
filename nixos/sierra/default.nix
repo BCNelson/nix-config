@@ -105,13 +105,6 @@
     user = "bcnelson";
   };
 
-  services.bcnelson.happy-daemon = {
-    enable = true;
-    user = "bcnelson";
-    extraPackages = with pkgs; [ claude-code codex ];
-    ntfyTopicFile = config.age.secrets.happy_ntfy_topic.path;
-  };
-
   # ventoy-full ships vendor binary blobs, so nixpkgs marks it insecure
   # (https://github.com/NixOS/nixpkgs/issues/404663). A predicate is used
   # instead of permittedInsecurePackages = [ "ventoy-<version>" ] so a routine

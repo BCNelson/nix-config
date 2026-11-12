@@ -346,7 +346,7 @@ in
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     # Fires itself on a host that has never been authenticated, so the first
-    # deploy sends the code unprompted. Same gate as happy-auth-bootstrap.
+    # deploy sends the code unprompted.
     # kobodl only creates this file on its first successful Save().
     wantedBy = [ "multi-user.target" ];
     unitConfig.ConditionPathExists = "!${configFile}";

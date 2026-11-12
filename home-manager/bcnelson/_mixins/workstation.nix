@@ -40,7 +40,6 @@ in
     ./codex
     ./opencode
     ./herdr
-    ./happy
     ./programs/trillium.nix
     ./build-cache.nix
     ./lowprio.nix

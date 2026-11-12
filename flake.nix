@@ -15,10 +15,6 @@
     # Pinned by rev so the daily bump can't move it. Remove with that overlay.
     nixpkgs-patchelf-0_15.url = "github:nixos/nixpkgs/f5c082a40f7571c266e74e80ae2e68aadd8a9fc7";
 
-    # happy-coder PR #492656 — monorepo migration, brings 1.1.x without bundled
-    # claude-code. Remove once merged into unstable.
-    nixpkgs-happy-coder.url = "github:colonelpanic8/nixpkgs/happy-coder-monorepo-migration";
-
     # Home manager - always use unstable
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";

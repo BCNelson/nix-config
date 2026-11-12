@@ -1,4 +1,4 @@
-{ inputs, config, pkgs, ... }:
+{ inputs, pkgs, ... }:
 {
   imports = [
     inputs.lanzaboote.nixosModules.lanzaboote
@@ -32,13 +32,6 @@
   services= {
     pcscd.enable = true;
     kmscon.enable = true;
-  };
-
-  services.bcnelson.happy-daemon = {
-    enable = true;
-    user = "bcnelson";
-    extraPackages = with pkgs; [ claude-code codex ];
-    ntfyTopicFile = config.age.secrets.happy_ntfy_topic.path;
   };
 
   programs.nix-ld.enable = true;

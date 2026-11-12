@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 {
   imports = [
     ../_mixins/roles/docker.nix
@@ -42,13 +42,6 @@
       uuidFile = config.age.secrets.cadence_check_auto_update_golf.path;
     };
     user = "bcnelson";
-  };
-
-  services.bcnelson.happy-daemon = {
-    enable = true;
-    user = "bcnelson";
-    extraPackages = with pkgs; [ claude-code codex ];
-    ntfyTopicFile = config.age.secrets.happy_ntfy_topic.path;
   };
 
   zramSwap.enable = true;

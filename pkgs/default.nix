@@ -27,7 +27,6 @@ pkgs: rec {
   gamestream-agent-test = pkgs.callPackage ./gamestream-agent/nixos-test.nix {
     inherit gamestream-agent;
   };
-  happy-auth-notify = pkgs.callPackage ./happy-auth-notify { };
   kwin-adaptive-workspaces = pkgs.callPackage ./kwin-adaptive-workspaces { };
   spec-kit = pkgs.callPackage ./spec-kit.nix { };
   pince = pkgs.callPackage ./pince { };
