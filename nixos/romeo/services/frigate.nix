@@ -97,6 +97,14 @@ in
       # Frigate 0.18 defaults detect.enabled to false; without this the
       # cameras only record, and no objects are ever detected or tracked.
       detect.enabled = true;
+      # Match the Reolink sub streams (896x672, 4:3). Frigate's default of
+      # 1280x720 made ffmpeg upscale every detect frame ~1.5x in software and
+      # squash it to 16:9, which costs CPU and distorts what the model sees.
+      # Zones and masks are relative, so they carry over unchanged.
+      detect = {
+        width = 896;
+        height = 672;
+      };
       detectors = {
         ov = {
           type = "openvino";
@@ -217,6 +225,13 @@ in
     # "radeonsi") so vainfo is never run, and it matches the driver the A380
     # decode already uses.
     LIBVA_DRIVER_NAME = "iHD";
+    # nixpkgs' OpenCV/OpenBLAS use OpenMP (libgomp), which sizes its pool to
+    # all 32 cores. Each frigate.process:<camera> ran 31 gomp workers that
+    # spin in gomp_barrier_wait_end after every tiny per-frame op, burning
+    # ~0.7 core per camera on 5 fps sub streams. The upstream image's pip
+    # OpenCV doesn't use OpenMP, so it never sees this. Detection runs on
+    # the A380, so nothing here needs CPU parallelism.
+    OMP_NUM_THREADS = "1";
   };
 
   services.nginx.virtualHosts."${config.services.frigate.hostname}" = {
