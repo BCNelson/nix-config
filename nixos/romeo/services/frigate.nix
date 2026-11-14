@@ -21,6 +21,13 @@ in
           (old.passthru.python3Packages.makePythonPath finalAttrs.finalPackage.dependencies)
           + ":${finalAttrs.finalPackage}/${old.passthru.python.sitePackages}";
       };
+      # Being an override, this is never in the binary cache: romeo rebuilds it
+      # on every nixpkgs bump, and the test suite alone takes ~1h there. Some
+      # of its tests are wall-clock bounds (event loop not blocked, regexp
+      # under 3s, worker queue timeouts) that fail when romeo is busy with the
+      # rest of the rebuild, which sank 06d76f3. nixpkgs' Hydra runs them on
+      # the unmodified package.
+      doInstallCheck = false;
       postPatch = (old.postPatch or "") + ''
         substituteInPlace frigate/detectors/detection_runners.py \
           --replace-fail \
