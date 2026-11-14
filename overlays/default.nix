@@ -97,53 +97,6 @@
       ];
     });
 
-    # urllib3-future 2.25.902 fails its own suite in the sandbox: 34 failures,
-    # all in test/contrib/test_socks.py (MaxRetryError / ConnectTimeoutError
-    # against the SOCKS dummy servers). Hydra hits the same thing, so nothing
-    # caches it, and the suite takes ~95 minutes before failing -- longer on
-    # romeo, which builds it for niquests -> caldav -> odysseus-ai. Skip the
-    # tests rather than deselecting the SOCKS file, so the build is minutes
-    # instead of an hour and a half; pythonImportsCheck still runs. Drop this
-    # once Hydra builds it again (hydra.nixos.org job
-    # nixpkgs/unstable/python314Packages.urllib3-future.x86_64-linux).
-    #
-    # niquests 3.21.2 on top of it then fails test_use_proxy_from_environment
-    # (all 8 variants: the fake proxy never sees a connection). Hydra never got
-    # that far -- niquests and caldav show "dependency failed" there. Together
-    # with the SOCKS failures this looks like a real proxy regression in this
-    # urllib3-future, not sandbox noise. odysseus-ai (the only consumer, on
-    # romeo) runs with no *_proxy variables, so it is not affected; anything
-    # that starts relying on proxies through niquests should re-check this.
-    pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-      (_pyFinal: pyPrev: {
-        urllib3-future = pyPrev.urllib3-future.overridePythonAttrs { doCheck = false; };
-        niquests = pyPrev.niquests.overridePythonAttrs (old: {
-          disabledTests = (old.disabledTests or [ ]) ++ [ "test_use_proxy_from_environment" ];
-        });
-        # Built on top of the two overrides above, caldav is never cached
-        # either, so romeo rebuilds it on every bump and its suite takes ~1h
-        # there. It includes wall-clock bounds (test_vcal's "vcal.fix() must
-        # not be quadratic" asserts < 1s) that fail when romeo is busy with
-        # the rest of the rebuild -- it took 1.1s and sank b777dd2. Skip the
-        # suite; pythonImportsCheck still runs.
-        caldav = pyPrev.caldav.overridePythonAttrs { doCheck = false; };
-
-        # The cargoSetupHook change described at herdr-desktop below
-        # (nixpkgs#537108) also hits chromadb 1.5.9 (romeo, services.chromadb
-        # for odysseus): its Rust core links sqlx-sqlite (`cannot find
-        # -lsqlite3`) and tikv-jemalloc-sys, whose JEMALLOC_OVERRIDE the hook
-        # sets to a sentinel path that never exists unless something else set
-        # it first. rust-jemalloc-sys is that something: jemalloc built with the
-        # _rjem_ symbol prefix tikv-jemalloc-sys expects (plain `jemalloc` is
-        # unprefixed and would not link), and a setup hook that exports the
-        # real JEMALLOC_OVERRIDE before the cargo hook runs. Drop once nixpkgs'
-        # chromadb lists both itself.
-        chromadb = pyPrev.chromadb.overridePythonAttrs (old: {
-          buildInputs = (old.buildInputs or [ ]) ++ [ final.sqlite final.rust-jemalloc-sys ];
-        });
-      })
-    ];
-
     # patchelf 0.19.2 (now stdenv's) writes a broken layout when it rewrites
     # both the interpreter and the rpath: .dynamic lands in a read-only LOAD
     # segment and ld.so segfaults in dl_main before the program runs

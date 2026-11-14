@@ -7,12 +7,9 @@
   # upstream default change would break the pair.
   port = 8888;
 in {
-  # SearXNG exists on this host for two consumers, both on loopback: the
-  # `web_search` tool in ./openclaw.nix, and ./odysseus.nix, which points its
-  # SEARXNG_INSTANCE here rather than running the searxng sidecar from
-  # upstream's docker-compose.yml. Both want the same thing from it -- the JSON
-  # API enabled by search.formats below -- so the second consumer needed no
-  # change to this file beyond this paragraph.
+  # SearXNG exists on this host for one consumer, on loopback: the
+  # `web_search` tool in ./openclaw.nix, which uses the JSON API enabled by
+  # search.formats below.
   #
   # It is a metasearch proxy -- it holds no index of its own,
   # it fans a query out to Google/Bing/DuckDuckGo/etc. and merges the results.
@@ -36,7 +33,7 @@ in {
   # than stored -- same pattern as openclaw's gateway token in ./openclaw.nix,
   # minus the Bitwarden entry, because there is no flow that asks anyone for it.
   #
-  # hex rather than base64 (which ./journiv.nix uses) because this value is
+  # hex rather than base64 because this value is
   # substituted by envsubst into a *double-quoted YAML scalar*; base64's `"` is
   # not in its alphabet but its `/` and `+` make the result needlessly
   # quote-sensitive, and hex has no character that YAML or a shell cares about.
