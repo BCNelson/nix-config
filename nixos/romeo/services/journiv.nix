@@ -168,7 +168,13 @@ in
     "d ${dataDirs.level3}/journiv          0755 root root - -"
     "d ${dataDirs.level3}/journiv/data     0755 1000 1000 - -"
     "d ${dataDirs.level7}/journiv          0755 root root - -"
-    "d ${dataDirs.level7}/journiv/valkey   0755 root root - -"
+    # Valkey runs as uid 999 / gid 1000 in the container. Its entrypoint
+    # chowns /data only when the container starts, while `d` re-applies the
+    # owner on every activation, so root:root here took the dir back on the
+    # next deploy that didn't restart the container (2026-11-11). Every RDB
+    # save then failed, Valkey's MISCONF refused writes, journiv-beat
+    # crash-looped and romeo's auto-update activation failed on it.
+    "d ${dataDirs.level7}/journiv/valkey   0750 999  1000 - -"
   ];
 
   systemd.services.podman-journiv-valkey.serviceConfig.ExecStartPre = [
