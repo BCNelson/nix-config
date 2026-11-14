@@ -120,6 +120,13 @@
         niquests = pyPrev.niquests.overridePythonAttrs (old: {
           disabledTests = (old.disabledTests or [ ]) ++ [ "test_use_proxy_from_environment" ];
         });
+        # Built on top of the two overrides above, caldav is never cached
+        # either, so romeo rebuilds it on every bump and its suite takes ~1h
+        # there. It includes wall-clock bounds (test_vcal's "vcal.fix() must
+        # not be quadratic" asserts < 1s) that fail when romeo is busy with
+        # the rest of the rebuild -- it took 1.1s and sank b777dd2. Skip the
+        # suite; pythonImportsCheck still runs.
+        caldav = pyPrev.caldav.overridePythonAttrs { doCheck = false; };
 
         # The cargoSetupHook change described at herdr-desktop below
         # (nixpkgs#537108) also hits chromadb 1.5.9 (romeo, services.chromadb
