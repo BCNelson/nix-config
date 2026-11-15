@@ -239,6 +239,25 @@
         ours
       else
         prev.code-cursor;
+
+    # 7.3.4-zen1 panics at boot: its sched-alt merge left a second, unguarded
+    # `worker->current_at = worker->task->...` line after the
+    # `if (worker->task)` in process_one_work(). BH workqueue workers have no
+    # task, so the first BH work item (on sierra, xhci_pci registering the USB 3
+    # root hub) dereferences NULL+0x138 in ksoftirqd. Fixed in 7.3.4-zen2
+    # (zen-kernel#425, nixpkgs#586820), which reached nixos-unstable-small and
+    # its binary cache days before nixos-unstable did.
+    #
+    # Swap in -small's package set whole rather than overrideAttrs'ing zen1 to
+    # the zen2 source: any override changes the store path, and then nothing
+    # has it cached and every zen host compiles the kernel. The version string
+    # is "7.3.4" for both, so match on modDirVersion. Once the channel moves
+    # past zen1 this hands back to it by itself; delete it then.
+    linuxPackages_zen =
+      if prev.linuxPackages_zen.kernel.modDirVersion == "7.3.4-zen1" then
+        inputs.nixpkgs-unstable-small.legacyPackages.${final.stdenv.hostPlatform.system}.linuxPackages_zen
+      else
+        prev.linuxPackages_zen;
   };
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
