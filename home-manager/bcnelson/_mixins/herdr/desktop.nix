@@ -33,6 +33,19 @@
 #   docs/security.md a source build like this one should not send it anyway,
 #   but the variable makes that explicit rather than an accident of how it
 #   was built.
+#
+# - SHELL=fish. Plain terminals get fish from herdr-core's config.toml
+#   (./hc.nix), but the app never asks core for an agent: it builds the argv
+#   itself from its own $SHELL (window.rs agent_argv), as
+#   `$SHELL -ic '"$@"; exec "$0" -i' $SHELL claude ...`. On sierra and redo-3
+#   the login shell is bash, so every agent ran under bash and dropped back
+#   to bash when it exited. With fish there, it uses its fish form instead
+#   (`fish -ic 'command $argv[2..]; exec $argv[1] -i' fish claude`). The
+#   app keys that off the basename being exactly `fish`, so this must point
+#   at the real binary, not a wrapper with another name. The app also hands
+#   its environment to any core it starts, so those terminals see SHELL=fish
+#   too, matching the shell they actually run. Whether the agent sees the
+#   project's direnv/devenv is a separate fix; see ../../../_mixins/console/full.nix.
 let
   vulkanDrivers = "${pkgs.mesa}/share/vulkan/icd.d/radeon_icd.${pkgs.stdenv.hostPlatform.parsed.cpu.name}.json";
 
@@ -44,7 +57,8 @@ let
     # launcher's PATH reaching the profile; point it at the wrapper outright.
     postBuild = ''
       wrapProgram $out/bin/herdr-app \
-        --set HERDR_TELEMETRY 0 ${lib.optionalString genericLinux "--set VK_DRIVER_FILES ${vulkanDrivers}"}
+        --set HERDR_TELEMETRY 0 \
+        --set SHELL ${pkgs.fish}/bin/fish ${lib.optionalString genericLinux "--set VK_DRIVER_FILES ${vulkanDrivers}"}
 
       desktop=share/applications/herdr-app.desktop
       rm $out/$desktop

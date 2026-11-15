@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 # Tier 3: full-sized hosts only.
 #
@@ -178,6 +178,15 @@
         # Nix Qt apps don't need this because wrapQtAppsHook sets it per-binary.
         # This must be here (not in sessionVariables) because nix.sh re-sets it after session vars.
         set -e QT_PLUGIN_PATH
+
+        # direnv's fish hook only fires on fish_prompt, so a shell started as
+        # `fish -ic 'some-agent'` (how the Herdr desktop app, and most launchers,
+        # start claude/codex/...) runs the program before any prompt and never
+        # loads the project's .envrc -- no devenv, no `use flake`. Export once
+        # now. In an ordinary shell the first prompt's hook then finds nothing
+        # changed, so this costs one quick direnv call per shell. The binary is
+        # named directly so this does not depend on landing after the hook.
+        ${config.programs.direnv.package}/bin/direnv export fish | source
       '';
       plugins = [
         {
