@@ -108,10 +108,15 @@
 			"dst":    ["autogroup:self"],
 			"users":  ["autogroup:nonroot"]
 		},
-		{ // any other member can use Tailscale SSH to connect to their own devices
-			// in check mode as a non-root user
+		{ // Other family members can use Tailscale SSH to their own devices in
+			// check mode as a non-root user.
+			//
+			// Listed by hand instead of autogroup:member, because a check rule wins
+			// over an accept rule that matches the same connection: with
+			// autogroup:member here, the admin accept above came out as "check"
+			// (the sshTests entry for sierra caught it).
 			"action": "check",
-			"src": ["autogroup:member"],
+			"src": ["cknelson8@gmail.com", "cwnelson1990@gmail.com"],
 			"dst": ["autogroup:self"],
 			"users": ["autogroup:nonroot"]
 		},
