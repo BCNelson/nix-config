@@ -27,6 +27,12 @@
     pkgs.robocode # Robocode Tank Royale
   ];
 
+  # Fedora's podman-docker sets this from /etc/profile.d, which only a login
+  # shell reads. herdr-core's terminals start from a fixed environment that
+  # doesn't include login-shell additions (see ./_mixins/herdr/hc.nix), so
+  # docker clients there would otherwise miss the rootless podman socket.
+  home.sessionVariables.DOCKER_HOST = "unix://\${XDG_RUNTIME_DIR}/podman/podman.sock";
+
   programs.plasma = {
     enable = true;
     kwin.virtualDesktops = {
