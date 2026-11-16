@@ -93,8 +93,23 @@
 			"dst":    ["tag:client"],
 			"users":  ["autogroup:nonroot", "root"]
 		},
-		{ // any user can use Tailscale SSH to connect to their own devices
-			// in check mode as a root or non-root user
+		{ // An admin reaching their own untagged devices (sierra, golf-*, and the
+			// <machine>-hc tsnet nodes from pkgs/hc-tailscale that herdr-core uses as
+			// a --via transport) without the 12h browser re-check. herdr reconnects
+			// to machines unattended, and a check prompt it cannot show just looks
+			// like a dead machine.
+			//
+			// The cost, accepted on purpose: a no-prompt non-root shell is now open
+			// from every device logged in as group:admin, including redo-3-hc on a
+			// work laptop. Non-root only -- root still needs a tag:server/tag:client
+			// destination.
+			"action": "accept",
+			"src":    ["group:admin"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot"]
+		},
+		{ // any other member can use Tailscale SSH to connect to their own devices
+			// in check mode as a non-root user
 			"action": "check",
 			"src": ["autogroup:member"],
 			"dst": ["autogroup:self"],
@@ -156,6 +171,14 @@
 		}
 	],
 	"sshTests": [
+		// An admin reaches their own untagged workstation with no check prompt,
+		// but only as a non-root user (the autogroup:self accept rule).
+		{
+			"src": "bradleynelson102@gmail.com",
+			"dst": ["sierra"],
+			"accept": ["bcnelson"],
+			"deny": ["root"]
+		},
 		{
 			"src": "bradleynelson102@gmail.com",
 			"dst": ["tag:server"],
