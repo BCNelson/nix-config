@@ -1,6 +1,6 @@
 { config, pkgs, ... }:
 
-# Shared Rust/Go build caches plus a weekly sweeper, so per-project build
+# Shared Rust/Go build caches plus a nightly sweeper, so per-project build
 # output stops piling up on the root disk. Everything here works without
 # touching any project's devenv.nix:
 #
@@ -120,9 +120,13 @@ in
   };
 
   systemd.user.timers.build-cache-sweep = {
-    Unit.Description = "Weekly Rust/Go build cache sweep";
+    Unit.Description = "Nightly Rust/Go build cache sweep";
     Timer = {
-      OnCalendar = "weekly";
+      # Nightly rather than weekly: a single week of active Rust work can put
+      # ~100G in ~/.cargo/build, and on a weekly cadence an idle workspace
+      # could linger up to 21 days instead of 14. The sweep itself is cheap
+      # (~1 min, idle IO class) when there is little to remove.
+      OnCalendar = "*-*-* 03:00:00";
       Persistent = true;
       RandomizedDelaySec = "1h";
     };
