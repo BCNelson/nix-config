@@ -15,7 +15,7 @@ let
 
   sweep = pkgs.writeShellApplication {
     name = "build-cache-sweep";
-    runtimeInputs = with pkgs; [ coreutils findutils gnugrep go ];
+    runtimeInputs = with pkgs; [ coreutils findutils gnugrep gnused go ];
     text = ''
       # DRY_RUN=1 build-cache-sweep  -> report what would be removed
       dry=''${DRY_RUN:-0}
@@ -23,6 +23,7 @@ let
       cargoTargetDays=30
       goDays=21
       goModcacheDays=30
+      direnvDays=14
 
       remove() {
         echo "remove $1 ($(du -sh "$1" | cut -f1)): $2"
@@ -75,6 +76,41 @@ let
         [ -d "$mod" ] && remove "$mod" "go module cache of idle project"
       done
 
+      # nix-direnv GC roots. Every project with `use flake` / `use devenv`
+      # pins its dev shell plus each flake input source through
+      # .direnv/flake-profile-* and .direnv/flake-inputs/*, so an abandoned
+      # checkout keeps gigabytes of toolchains alive forever. Dropping the
+      # roots lets the nightly nix-gc reclaim them; the next `cd` into the
+      # project rebuilds (mostly substitutes) the shell. devenv itself
+      # registers no persistent roots, so this covers it too.
+      #
+      # "Last used" is the newest mtime of the profile link and .rc file:
+      # nix-direnv touches both on every load, even "Using cached dev shell"
+      # with nothing changed (checked 2026-11-18 on use-flake devenv and
+      # plain flake projects), so it is the last activation to the second.
+      # The .rc atime is folded in as a fallback (/ is relatime); it can only
+      # make a project look newer, never older. Never use the link's atime:
+      # readlink bumps it, and nix-gc readlinks every root nightly.
+      mapfile -t direnvDirs < <(
+        for l in /nix/var/nix/gcroots/auto/*; do readlink "$l"; done 2>/dev/null |
+          grep "^$HOME/.*/\.direnv/" | sed -E 's#/\.direnv/.*#/.direnv#' | sort -u
+      )
+      cutoff=$(date -d "-$direnvDays days" +%s)
+      for d in "''${direnvDirs[@]}"; do
+        [ -d "$d" ] || continue
+        last=$(
+          {
+            stat -c %Y "$d"/flake-profile-* "$d"/nix-profile-*
+            stat -c '%X %Y' "$d"/*.rc
+          } 2>/dev/null | tr ' ' '\n' | sort -n | tail -1
+        )
+        [ "''${last:-0}" -ge "$cutoff" ] && continue
+        echo "drop direnv GC roots in ''${d%/.direnv} (last used $(date -d "@''${last:-0}" +%F)): direnv idle ''${direnvDays}d"
+        if [ "$dry" = 0 ]; then
+          rm -rf "$d"/flake-profile-* "$d"/nix-profile-* "$d"/flake-inputs
+        fi
+      done
+
       # Global Go module cache: Go never trims it, so reset it periodically.
       stamp="''${XDG_STATE_HOME:-$HOME/.local/state}/build-cache-sweep/go-modcache"
       mkdir -p "$(dirname "$stamp")"
@@ -110,7 +146,7 @@ in
   '';
 
   systemd.user.services.build-cache-sweep = {
-    Unit.Description = "Prune idle Rust/Go build caches";
+    Unit.Description = "Prune idle Rust/Go build caches and direnv GC roots";
     Service = {
       Type = "oneshot";
       ExecStart = "${sweep}/bin/build-cache-sweep";
@@ -125,8 +161,9 @@ in
       # Nightly rather than weekly: a single week of active Rust work can put
       # ~100G in ~/.cargo/build, and on a weekly cadence an idle workspace
       # could linger up to 21 days instead of 14. The sweep itself is cheap
-      # (~1 min, idle IO class) when there is little to remove.
-      OnCalendar = "*-*-* 03:00:00";
+      # (~1 min, idle IO class) when there is little to remove. 23:00 so the
+      # system nix-gc at 00:00 reclaims dropped direnv roots the same night.
+      OnCalendar = "*-*-* 23:00:00";
       Persistent = true;
       RandomizedDelaySec = "1h";
     };
