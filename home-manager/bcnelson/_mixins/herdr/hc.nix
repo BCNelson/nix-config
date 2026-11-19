@@ -184,6 +184,17 @@ let
         if [ -n "''${!k:-}" ]; then keep+=("$k=''${!k}"); fi
       done
 
+      # The ssh agent, when it is systemd's socket-activated one (Fedora's
+      # ssh-agent.socket on redo-3). Core's per-terminal re-read from the
+      # manager only finds SSH_AUTH_SOCK once a desktop login has imported it
+      # (Plasma's env/ssh-agent.sh), so the terminals a boot-time core
+      # restores before that came up without an agent. The socket is
+      # listening from sockets.target on, before this unit starts; once the
+      # session does export it, the re-read hands terminals the same path.
+      if [ -n "''${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/ssh-agent.socket" ]; then
+        keep+=("SSH_AUTH_SOCK=$XDG_RUNTIME_DIR/ssh-agent.socket")
+      fi
+
       # Then through a login shell, so the core also gets what /etc/profile,
       # /etc/profile.d and ~/.profile add for a desktop login (Fedora's
       # DOCKER_HOST and SSH_ASKPASS, NixOS's set-environment with its PATH,
