@@ -9,7 +9,7 @@
 
   home.packages = [
     pkgs.kdePackages.yakuake
-    pkgs.libreoffice-qt6-still
+    pkgs.libreoffice-qt-stable
     pkgs.hunspell
     pkgs.hunspellDicts.en_US-large
   ];

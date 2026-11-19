@@ -121,7 +121,7 @@
     server.enable = true;
     # kanidmd only migrates one minor version at a time: check
     # `kanidmd domain upgrade-check` and start on each release in turn.
-    package = pkgs.kanidmWithSecretProvisioning_1_11;
+    package = pkgs.kanidmWithSecretProvisioning_1_12;
     server.settings = {
       origin = "https://idm.nel.family";
       domain = "nel.family";

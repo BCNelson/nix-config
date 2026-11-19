@@ -34,7 +34,7 @@
             showOnlyCurrentActivity = true;
             launchers = [
               "preferred://browser"
-              "file://${pkgs.libreoffice-qt6-still}/share/applications/writer.desktop"
+              "file://${pkgs.libreoffice-qt-stable}/share/applications/writer.desktop"
             ];
           };
         }

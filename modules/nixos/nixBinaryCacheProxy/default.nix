@@ -137,9 +137,12 @@ in
             </service-group>
           '';
         };
-        publish = {
-          enable = true;
-          userServices = true;
+        # Replaces the obsolete publish.enable / publish.userServices pair
+        # (userServices also turned on address records).
+        settings.publish = {
+          disable-publishing = false;
+          disable-user-service-publishing = false;
+          publish-addresses = true;
         };
       };
     };
