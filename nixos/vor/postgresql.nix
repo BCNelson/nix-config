@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   # immich is the only database, and its photos and nightly dumps are level2,
   # so the cluster goes there: a dedicated dataset, liveData/level2/postgresql
@@ -8,14 +8,19 @@ let
   level2 = config.data.dirs.level2;
 in
 {
-  # Moving the cluster from /var/lib/postgresql/14 to level2 as PG 18; see
-  # modules/nixos/postgresqlLevel. Until the per-host switch commit lands,
-  # dataDir is still the old cluster and the guard is a no-op.
+  # PG 18 in level2, moved from /var/lib/postgresql/14 by pg-upgrade-to-level
+  # (modules/nixos/postgresqlLevel) on 2026-11-20. The package is explicit so
+  # the cluster no longer follows the stateVersion default. Rollback: revert
+  # this switch; the PG 14 cluster was left untouched.
   #
-  # Before --run: DROP EXTENSION vectors in the immich database. It is the
+  # Before the upgrade, `vectors` was dropped from the immich database: the
   # pgvecto.rs leftover from immich's move to VectorChord (both vector
-  # indexes are vchordrq) and has no build for PG 18, so pg_upgrade would
-  # refuse the cluster.
+  # indexes are vchordrq), with no build for PG 18 and nothing using it.
+  services.postgresql = {
+    package = pkgs.postgresql_18;
+    dataDir = "${level2}/postgresql/18";
+  };
+
   services.bcnelson.postgresqlLevel = {
     enable = true;
     zfs = true;
