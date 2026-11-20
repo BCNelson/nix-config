@@ -1,4 +1,4 @@
-_:
+{ pkgs, ... }:
 let
   # authentik is the login for everything, so its database is level1 (with
   # vaultwarden). /data/level1 is a plain directory on the root disk here:
@@ -6,9 +6,15 @@ let
   level1 = "/data/level1";
 in
 {
-  # Moving the cluster from /var/lib/postgresql/14 to level1 as PG 18; see
-  # modules/nixos/postgresqlLevel. Until the per-host switch commit lands,
-  # dataDir is still the old cluster and the guard is a no-op.
+  # PG 18 in level1, moved from /var/lib/postgresql/14 by pg-upgrade-to-level
+  # (modules/nixos/postgresqlLevel) on 2026-11-20. The package is explicit so
+  # the cluster no longer follows the stateVersion default. Rollback: revert
+  # this switch; the PG 14 cluster was left untouched.
+  services.postgresql = {
+    package = pkgs.postgresql_18;
+    dataDir = "${level1}/postgresql/18";
+  };
+
   services.bcnelson.postgresqlLevel = {
     enable = true;
     upgrade = {
