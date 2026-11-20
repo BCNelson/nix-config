@@ -86,6 +86,9 @@ let
       # A fresh new cluster every time: --check leaves one behind, and a
       # failed --run can leave a half-written one. Nothing else lives here
       # until the done marker exists (checked above).
+      # On ZFS the parent is the dataset's mountpoint (checked above); on a
+      # plain level directory (whiskey) it doesn't exist yet.
+      mkdir -p "$PARENT"
       chown postgres:postgres "$PARENT"
       chmod 0750 "$PARENT"
       rm -rf -- "$NEW_DATA"
