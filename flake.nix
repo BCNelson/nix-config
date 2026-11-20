@@ -98,6 +98,14 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # Re-signed GrapheneOS OTAs, built and served on romeo
+    # (nixos/romeo/services/graphene-ota.nix). Must stay a public repo: CI and
+    # the hosts fetch inputs without credentials.
+    graphene-nix = {
+      url = "git+https://git.bcnelson.dev/bcnelson/graphene-nix";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";

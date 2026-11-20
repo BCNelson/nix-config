@@ -40,6 +40,7 @@ in {
     ./factorio.nix
     ./tendant.nix
     ./linkwarden.nix
+    ./graphene-ota.nix
   ];
 
   systemd.timers.podman-auto-update = {

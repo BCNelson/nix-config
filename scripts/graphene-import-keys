@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Bring a graphene-nix key directory into this repo:
+#
+#   private (agenix, master-encrypted, rekeyed for romeo only)
+#     avb.key ota.key spike.pass probe.pk8
+#       -> nixos/romeo/services/secrets/graphene-nix/<name>.age
+#   public (plain files, also needed on the workstation for the first flash)
+#     avb_pkmd.bin ota.crt probe.crt.pem
+#       -> nixos/romeo/services/graphene-nix/
+#
+# Usage: scripts/graphene-import-keys [--force] <keys-dir>
+#
+# --force replaces keys that are already imported. Think twice: phones locked
+# with the old avb.key only accept updates signed with it.
+#
+# Afterwards: just rekey, then git add the new files and secrets/hosts.
+# See nixos/romeo/services/graphene-ota.nix.
+set -euo pipefail
+
+force=0
+if [[ ${1:-} == --force ]]; then
+  force=1
+  shift
+fi
+[[ $# -eq 1 ]] || { echo "usage: $0 [--force] <keys-dir>" >&2; exit 2; }
+src=$(realpath "$1")
+
+repo=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+secret_dir=$repo/nixos/romeo/services/secrets/graphene-nix
+public_dir=$repo/nixos/romeo/services/graphene-nix
+
+private=(avb.key ota.key spike.pass probe.pk8)
+public=(avb_pkmd.bin ota.crt probe.crt.pem)
+
+missing=()
+for f in "${private[@]}" "${public[@]}"; do
+  [[ -f $src/$f ]] || missing+=("$f")
+done
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "missing in $src: ${missing[*]}" >&2
+  exit 1
+fi
+
+# Sanity: the public files must belong to the private keys being imported,
+# or the builder signs with one key while the phones trust another.
+pass=$src/spike.pass
+avb_pkmd_check=$(mktemp)
+trap 'rm -f "$avb_pkmd_check"' EXIT
+avbroot() {
+  if type -P avbroot >/dev/null; then command avbroot "$@"; else nix run nixpkgs#avbroot -- "$@"; fi
+}
+avbroot key extract-avb -k "$src/avb.key" --pass-file "$pass" -o "$avb_pkmd_check"
+cmp -s "$avb_pkmd_check" "$src/avb_pkmd.bin" \
+  || { echo "avb_pkmd.bin does not match avb.key" >&2; exit 1; }
+ota_pub_key=$(openssl pkey -in "$src/ota.key" -passin "file:$pass" -pubout)
+ota_pub_crt=$(openssl x509 -in "$src/ota.crt" -noout -pubkey)
+[[ $ota_pub_key == "$ota_pub_crt" ]] || { echo "ota.crt does not match ota.key" >&2; exit 1; }
+probe_pub_key=$(openssl pkey -inform DER -in "$src/probe.pk8" -pubout)
+probe_pub_crt=$(openssl x509 -in "$src/probe.crt.pem" -noout -pubkey)
+[[ $probe_pub_key == "$probe_pub_crt" ]] || { echo "probe.crt.pem does not match probe.pk8" >&2; exit 1; }
+
+mkdir -p "$secret_dir" "$public_dir"
+
+for f in "${private[@]}"; do
+  out=$secret_dir/${f//./_}.age
+  if [[ -e $out ]]; then
+    if [[ $force -eq 0 ]]; then
+      echo "$out exists (use --force to replace)" >&2
+      exit 1
+    fi
+    rm -- "$out"
+  fi
+  # agenix-rekey encrypts the file as-is to the master identities, so binary
+  # files (probe.pk8) survive unchanged.
+  agenix edit -i "$src/$f" "$out"
+  echo "encrypted $f -> ${out#"$repo"/}"
+done
+
+for f in "${public[@]}"; do
+  cp -- "$src/$f" "$public_dir/$f"
+  echo "copied    $f -> ${public_dir#"$repo"/}/$f"
+done
+
+cat <<EOF
+
+Next: just rekey && git add nixos/romeo/services/secrets/graphene-nix nixos/romeo/services/graphene-nix secrets/hosts
+EOF

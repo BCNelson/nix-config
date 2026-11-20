@@ -1023,6 +1023,26 @@
         "type": "github"
       }
     },
+    "graphene-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs-unstable"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795151972,
+        "narHash": "sha256-hEv8zZcdjhUpMR+7ZkH0LYaHFcPNo1JQGgYPSe+A7CA=",
+        "ref": "refs/heads/main",
+        "rev": "a16376be06037c51fb98d3f89a0c3d660dae69ef",
+        "revCount": 12,
+        "type": "git",
+        "url": "https://git.bcnelson.dev/bcnelson/graphene-nix"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://git.bcnelson.dev/bcnelson/graphene-nix"
+      }
+    },
     "herdr-android": {
       "inputs": {
         "devenv": "devenv_2",
@@ -1998,6 +2018,7 @@
         "cadence": "cadence",
         "disko": "disko",
         "flake-utils-plus": "flake-utils-plus",
+        "graphene-nix": "graphene-nix",
         "herdr-android": "herdr-android",
         "home-manager-unstable": "home-manager-unstable",
         "homefirst": "homefirst",

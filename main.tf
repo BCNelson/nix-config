@@ -685,6 +685,21 @@ resource "cloudflare_record" "notes_bcnelson_dev-CNAME" {
   allow_overwrite = true
 }
 
+# ota.phone  CNAME  h.b.nel.family.   (graphene-nix OTA server on romeo)
+#
+# Same shape as notes above: LAN clients hairpin to romeo through the h.b
+# redirect, WAN clients come in through the h.b ingress. Cert issued on romeo
+# over Cloudflare DNS-01 (nixos/romeo/services/graphene-ota.nix). Phones have
+# this URL baked into their image, so it must outlive any move.
+resource "cloudflare_record" "ota_phone_bcnelson_dev-CNAME" {
+  zone_id         = "2afab945023de6634b53f500f6a537fe"
+  name            = "ota.phone"
+  type            = "CNAME"
+  content         = "h.b.nel.family"
+  proxied         = false
+  allow_overwrite = true
+}
+
 resource "cloudflare_record" "bcnelson_dev-github-verify" {
   zone_id = "2afab945023de6634b53f500f6a537fe"
   name    = "_github-pages-challenge-bcnelson"
