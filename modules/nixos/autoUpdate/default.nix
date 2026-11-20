@@ -182,10 +182,18 @@ in
       restartIfChanged = false;
     };
 
+    # Wants= alone only pulls network-online.target in; without After= the
+    # ping raced it and failed on every reboot with "Could not resolve host:
+    # ntfy.sh" (whiskey, romeo), leaving the host "degraded". Even after
+    # network-online, the resolver (tailscale/resolved) can lag a few seconds,
+    # so curl also retries; --retry-all-errors is needed because curl does not
+    # count a DNS failure as transient. Type=simple, so the retries never hold
+    # up boot.
     systemd.services.startup-notify = lib.mkIf cfg.ntfy.enable {
       enable = true;
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
+      wants = [ "network-online.target" "nss-lookup.target" ];
+      after = [ "network-online.target" "nss-lookup.target" ];
       serviceConfig = {
         Type = "simple";
         RemainAfterExit = true;
@@ -194,7 +202,8 @@ in
       script = ''
         #!/usr/bin/env bash
         NTFY_TOPIC=$(cat ${cfg.ntfy.topicFile})
-        ${pkgs.curl}/bin/curl -H "X-Title: $HOSTNAME has Started" \
+        ${pkgs.curl}/bin/curl --retry 12 --retry-delay 5 --retry-all-errors \
+            -H "X-Title: $HOSTNAME has Started" \
             -H "X-Priority: 2" \
             -d "$HOSTNAME Has Booted!" \
             https://ntfy.sh/$NTFY_TOPIC
