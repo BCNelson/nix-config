@@ -22,6 +22,14 @@ let
   # Tools are called by absolute path rather than through runtimeInputs: this
   # execs into the caller's command, which must see the caller's PATH, not one
   # with these store paths prepended.
+  #
+  # --expand-environment=no is essential: systemd-run otherwise substitutes
+  # $VAR / ${VAR} (and folds $$ to $) in the command line like a unit's
+  # ExecStart=. Agent commands arrive as one `bash -c SCRIPT` argument, so
+  # every ${...} in the script -- quoted heredocs included -- was blanked
+  # before bash ever saw it ("Invalid environment variable name evaluates to
+  # an empty string"), silently corrupting Nix interpolations written via the
+  # shell.
   lowprio = writeShellApplication {
     name = "lowprio";
     text = ''
@@ -42,7 +50,7 @@ let
       if ${systemd}/bin/busctl --user --quiet --timeout=2 call org.freedesktop.systemd1 /org/freedesktop/systemd1 \
         org.freedesktop.DBus.Peer Ping >/dev/null 2>&1; then
         exec ${systemd}/bin/systemd-run --user --scope --quiet --collect --slice=lowprio.slice \
-          --description="lowprio: $1" -- "''${prio[@]}" "$@"
+          --expand-environment=no --description="lowprio: $1" -- "''${prio[@]}" "$@"
       fi
 
       exec "''${prio[@]}" "$@"
