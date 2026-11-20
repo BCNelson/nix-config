@@ -45,8 +45,13 @@ on:
 jobs:
   check-hosts:
     runs-on: docker
+    # --oom-score-adj: see nixos/romeo/services/forgejo-runner.nix. Repeated
+    # here because the workflow file comes from the commit under test, so it
+    # unblocks CI even before romeo has the runner fix (the deploy gate can't
+    # ship its own fix otherwise). Redundant once romeo has it; harmless.
     container:
       image: nixos/nix:latest
+      options: --oom-score-adj=500
     timeout-minutes: 180
     env:
       NIX_CONFIG: |
@@ -66,6 +71,10 @@ jobs:
 
   check-scripts:
     runs-on: docker
+    # The runner's default image for `docker`, spelled out to add the option.
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04
+      options: --oom-score-adj=500
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +87,9 @@ jobs:
 
   auto-update:
     runs-on: docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04
+      options: --oom-score-adj=500
     timeout-minutes: 5
     needs: [check-hosts, check-scripts]
     if: forgejo.ref == 'refs/heads/main'

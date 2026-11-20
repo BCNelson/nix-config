@@ -90,7 +90,16 @@ in
       container = {
         docker_host = "automount";
         # The same socket again at a Podman-looking path, for DOCKER_HOST.
-        options = "-v ${podmanSocket}:${jobPodmanSocket}";
+        #
+        # --oom-score-adj: the rootless Podman service runs at oom_score_adj
+        # 200 (user@.service + user-unit defaults). Podman 6 clamps a new
+        # container's requested 0 up to 200 with a warning, but every Docker-
+        # API exec (how act runs each step) asks for the container's 0 again,
+        # and lowering it is EPERM: "crun: write to /proc/self/oom_score_adj:
+        # Permission denied", every job dead at its first step (2026-11-20).
+        # Raising is always allowed, and throwaway job containers should be
+        # the kernel's first OOM victims on romeo anyway.
+        options = "-v ${podmanSocket}:${jobPodmanSocket} --oom-score-adj=500";
         valid_volumes = [ podmanSocket ];
       };
       server.connections.forgejo = {
