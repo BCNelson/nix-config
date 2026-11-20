@@ -15,12 +15,6 @@
     # Pinned by rev so the daily bump can't move it. Remove with that overlay.
     nixpkgs-patchelf-0_15.url = "github:nixos/nixpkgs/f5c082a40f7571c266e74e80ae2e68aadd8a9fc7";
 
-    # Pinned to the last nixos-unstable rev with postgresql_14 (removed as EOL
-    # on 2026-11-11), for the postgresql_14 overlay in overlays/default.nix.
-    # Pinned by rev so the daily bump can't move it. Remove with that overlay
-    # once romeo, vor and whiskey are pg_upgrade'd to a supported major.
-    nixpkgs-pg14.url = "github:nixos/nixpkgs/d4f25a3e562008648d45bcf2d70bcc7422cad84e";
-
     # Home manager - always use unstable
     home-manager-unstable.url = "github:nix-community/home-manager/master";
     home-manager-unstable.inputs.nixpkgs.follows = "nixpkgs-unstable";

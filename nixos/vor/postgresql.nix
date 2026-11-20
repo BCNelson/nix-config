@@ -10,8 +10,10 @@ in
 {
   # PG 18 in level2, moved from /var/lib/postgresql/14 by pg-upgrade-to-level
   # (modules/nixos/postgresqlLevel) on 2026-11-20. The package is explicit so
-  # the cluster no longer follows the stateVersion default. Rollback: revert
-  # this switch; the PG 14 cluster was left untouched.
+  # the cluster no longer follows the stateVersion default. The old PG 14
+  # cluster is still in /var/lib/postgresql/14; rolling back to it means
+  # reverting this and the commit that dropped the nixpkgs-pg14 pin (and
+  # recreating `vectors`, below).
   #
   # Before the upgrade, `vectors` was dropped from the immich database: the
   # pgvecto.rs leftover from immich's move to VectorChord (both vector
@@ -24,9 +26,5 @@ in
   services.bcnelson.postgresqlLevel = {
     enable = true;
     zfs = true;
-    upgrade = {
-      enable = true;
-      targetDir = "${level2}/postgresql/18";
-    };
   };
 }

@@ -17,7 +17,9 @@
 # with the same extensions and preload libraries the host's config uses, then
 # turns on data checksums on the new cluster. The old cluster is left exactly
 # as it was, so rolling back is reverting the commit that pointed dataDir at
-# the new cluster. Remove `upgrade` (and the nixpkgs-pg14 pin) once done.
+# the new cluster. Used for the PG 14 -> 18 move on 2026-11-20; enable it per
+# host again (with oldDataDir/oldPackage set, the old major's package still
+# available) for the next major upgrade, and drop it from the host once done.
 let
   cfg = config.services.bcnelson.postgresqlLevel;
   pg = config.services.postgresql;
@@ -168,13 +170,12 @@ in
       enable = lib.mkEnableOption "the pg-upgrade-to-level script";
       oldDataDir = lib.mkOption {
         type = lib.types.str;
-        default = "/var/lib/postgresql/14";
+        example = "/var/lib/postgresql/18";
         description = "Data directory of the cluster to upgrade from.";
       };
       oldPackage = lib.mkOption {
         type = lib.types.package;
-        default = pkgs.postgresql_14;
-        defaultText = lib.literalExpression "pkgs.postgresql_14";
+        example = lib.literalExpression "pkgs.postgresql_18";
         description = "PostgreSQL package (without extensions) of the old cluster.";
       };
       newPackage = lib.mkOption {

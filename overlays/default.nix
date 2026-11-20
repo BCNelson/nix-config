@@ -119,18 +119,6 @@
         nativeBuildInputs = [ patchelf ] ++ (old.nativeBuildInputs or [ ]);
       });
 
-    # nixpkgs removed postgresql_14 as EOL on 2026-11-11, but romeo, vor and
-    # whiskey still have PG 14 clusters in /var/lib/postgresql/14: stateVersion
-    # 23.05 makes services.postgresql.package default to pkgs.postgresql_14, and
-    # moving them to a newer major needs a pg_upgrade per host, not just a
-    # package change. Until those are done, the alias throws and every flake
-    # bump fails to evaluate those three hosts. Borrow PG 14 (and, through
-    # its .pkgs, the extensions built against it) from `nixpkgs-pg14`, pinned
-    # by rev to the nixos-unstable the hosts were already running: same store
-    # path, so nothing rebuilds or restarts. PG 14 gets no more security
-    # fixes; delete this and the input once the clusters are upgraded.
-    postgresql_14 = inputs.nixpkgs-pg14.legacyPackages.${final.stdenv.hostPlatform.system}.postgresql_14;
-
     # herdr-core and herdr-desktop: pkgs/herdr-{core,desktop}/package.nix are
     # copied verbatim from nixpkgs PR #584646 (core 0.1.18, desktop 0.1.13,
     # head a2008e93). Whichever is newer wins, so once the channel ships that

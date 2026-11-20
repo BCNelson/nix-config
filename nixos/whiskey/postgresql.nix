@@ -8,20 +8,15 @@ in
 {
   # PG 18 in level1, moved from /var/lib/postgresql/14 by pg-upgrade-to-level
   # (modules/nixos/postgresqlLevel) on 2026-11-20. The package is explicit so
-  # the cluster no longer follows the stateVersion default. Rollback: revert
-  # this switch; the PG 14 cluster was left untouched.
+  # the cluster no longer follows the stateVersion default. The old PG 14
+  # cluster is still in /var/lib/postgresql/14; rolling back to it means
+  # reverting this and the commit that dropped the nixpkgs-pg14 pin.
   services.postgresql = {
     package = pkgs.postgresql_18;
     dataDir = "${level1}/postgresql/18";
   };
 
-  services.bcnelson.postgresqlLevel = {
-    enable = true;
-    upgrade = {
-      enable = true;
-      targetDir = "${level1}/postgresql/18";
-    };
-  };
+  services.bcnelson.postgresqlLevel.enable = true;
 
   # authentik's database had no backup at all: borg only reads /data/level*,
   # and the cluster lived in /var/lib/postgresql. Dump it into level1 at :45
