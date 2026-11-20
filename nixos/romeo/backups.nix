@@ -208,6 +208,9 @@ in
       "vor/vault/Backups/level2" = {
         source = "vault/data/level2";
         target = "syncoid@vor.ck.nel.family:vault/Backups/bcnelson/level2";
+        # Recursive for vault/data/level2/postgresql (romeo's cluster;
+        # postgresql.nix). sanoid already snapshots children (common template).
+        recursive = true;
         extraArgs = [
           "--compress=zstd-slow"
           "--source-bwlimit=15m"
@@ -223,6 +226,10 @@ in
       "vor/liveData/level2" = {
         source = "syncoid@vor.ck.nel.family:liveData/level2";
         target = "vault/remotebackups/VorLevel2";
+        # Recursive for liveData/level2/postgresql (vor's immich cluster;
+        # vor/postgresql.nix). vor's sanoid snapshots children, and its
+        # `zfs allow ... liveData/level2` covers descendants.
+        recursive = true;
         # -u: the syncoid user can't mount, and the first full receive would
         # otherwise fail trying to.
         recvOptions = "u";

@@ -11,6 +11,7 @@
       ./samba.nix
       ./backups.nix
       ./dataDirs.nix
+      ./postgresql.nix
     ];
 
   age.secrets.ntfy_topic.rekeyFile = ../../secrets/store/ntfy_topic.age;

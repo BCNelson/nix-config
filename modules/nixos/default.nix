@@ -14,4 +14,5 @@
   thinClientBuilder = import ./thinClientBuilder;
   opengym = import ./opengym.nix;
   checks = import ./checks;
+  postgresqlLevel = import ./postgresqlLevel;
 }

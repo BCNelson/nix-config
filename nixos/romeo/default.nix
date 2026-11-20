@@ -40,6 +40,7 @@ in
       ./services
       ./containers
       ./dataDirs.nix
+      ./postgresql.nix
     ];
 
   environment.systemPackages = [
