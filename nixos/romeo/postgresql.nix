@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 let
   # tendant, gotosocial and linkwarden already dump to level2, so the cluster
   # itself goes there too: a dedicated dataset, vault/data/level2/postgresql
@@ -9,9 +9,15 @@ let
   level2 = config.data.dirs.level2;
 in
 {
-  # Moving the cluster from /var/lib/postgresql/14 to level2 as PG 18; see
-  # modules/nixos/postgresqlLevel. Until the per-host switch commit lands,
-  # dataDir is still the old cluster and the guard is a no-op.
+  # PG 18 in level2, moved from /var/lib/postgresql/14 by pg-upgrade-to-level
+  # (modules/nixos/postgresqlLevel) on 2026-11-20. The package is explicit so
+  # the cluster no longer follows the stateVersion default. Rollback: revert
+  # this switch; the PG 14 cluster was left untouched.
+  services.postgresql = {
+    package = pkgs.postgresql_18;
+    dataDir = "${level2}/postgresql/18";
+  };
+
   services.bcnelson.postgresqlLevel = {
     enable = true;
     zfs = true;
