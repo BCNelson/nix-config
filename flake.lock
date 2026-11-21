@@ -75,11 +75,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1795175473,
-        "narHash": "sha256-rQSKvTOyroyXBIGgvG1PK+7m06K9HoyyZLYjXCob9cQ=",
+        "lastModified": 1795213050,
+        "narHash": "sha256-mEYZj00m0IYSLFUPp/eHoP/Bl6p5kOl/abKb4QK/IFw=",
         "owner": "nix-community",
         "repo": "authentik-nix",
-        "rev": "a3f2cdb8d6d6d7592b2010d0d000d5a5c102fa11",
+        "rev": "236d1a0a9e775e78b77f5bbe7e883b43554115df",
         "type": "github"
       },
       "original": {
@@ -91,16 +91,16 @@
     "authentik-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1792581414,
-        "narHash": "sha256-gdhGKCfsMUrWyFnf5TaaHM2ZQ1WYgTLOgGg4DlCaUHU=",
+        "lastModified": 1795137590,
+        "narHash": "sha256-SMY+LXVpLTl7gT86Ul0sAreR2o6p+hRQ+iwPw56RVpc=",
         "owner": "goauthentik",
         "repo": "authentik",
-        "rev": "4ec0d19b98da3c329781894cd550da95d3033954",
+        "rev": "98ec4a7684fcb0cccfe78888a12df1df1ad938be",
         "type": "github"
       },
       "original": {
         "owner": "goauthentik",
-        "ref": "version/2026.8.5",
+        "ref": "version/2026.8.6",
         "repo": "authentik",
         "type": "github"
       }
@@ -1030,11 +1030,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795151972,
-        "narHash": "sha256-hEv8zZcdjhUpMR+7ZkH0LYaHFcPNo1JQGgYPSe+A7CA=",
+        "lastModified": 1795248121,
+        "narHash": "sha256-PMoi9lUaRyPwdd7dBJ9v58DbRYabXMDADskBpERY4uA=",
         "ref": "refs/heads/main",
-        "rev": "a16376be06037c51fb98d3f89a0c3d660dae69ef",
-        "revCount": 12,
+        "rev": "66dbafebbbaa2d41f1604ca76c027bf63f369f8b",
+        "revCount": 37,
         "type": "git",
         "url": "https://git.bcnelson.dev/bcnelson/graphene-nix"
       },
@@ -1208,11 +1208,11 @@
         "nmt": "nmt"
       },
       "locked": {
-        "lastModified": 1783080654,
-        "narHash": "sha256-D1fYuLjg+JY+XCv2+F5zrceYjdGYViAqpxPmw2M6Sag=",
+        "lastModified": 1795197386,
+        "narHash": "sha256-400Inpr6/IuoQKXJuIfa/lS0oxTTyvBYbv48nF1PiJQ=",
         "owner": "Gerschtli",
         "repo": "nix-formatter-pack",
-        "rev": "9ed243d4590bfeea0e734f58056bc4d2c8e35023",
+        "rev": "76ddd42b3f87431e5de59c27353227d93f971fb8",
         "type": "github"
       },
       "original": {
@@ -1641,11 +1641,11 @@
     },
     "nixpkgs-unstable-small": {
       "locked": {
-        "lastModified": 1795188322,
-        "narHash": "sha256-W6Z8qDb/HwL7/LQ0yr2ucQQlJgCJ7yCkoSobwQjEPic=",
+        "lastModified": 1795219810,
+        "narHash": "sha256-I17SxpD2WPKvrJOHtPAyUT00aKCEUmF3WJ4dh6b+Rns=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "bd5b7d01ccc48cbc8241bda0c3554a4cbbcbc375",
+        "rev": "56f282a6f4f274d1588f90f2c75288589689f922",
         "type": "github"
       },
       "original": {
@@ -1811,11 +1811,11 @@
         "nixpkgs": "nixpkgs_8"
       },
       "locked": {
-        "lastModified": 1795193521,
-        "narHash": "sha256-GWVMxz5G8AlJOvmbBHAug3m2gKA/t0i80Q2bTQgi+z8=",
+        "lastModified": 1795250799,
+        "narHash": "sha256-dJwAlDfkdW3FPoSLMSedwkFq8JzDIvYCBcWiu5uGjnM=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "01248b06319fa7be01d32080ad8a04e711ed238d",
+        "rev": "985dbce28a313bc98a8cbeb1c9b20595400c437e",
         "type": "github"
       },
       "original": {
