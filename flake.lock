@@ -1051,11 +1051,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795160478,
-        "narHash": "sha256-JrAQGTbK+ducKiWyXdM0m55BY2XBoG3XEpPvS0NJpko=",
+        "lastModified": 1795388821,
+        "narHash": "sha256-3Av17Ifcj2Gj3HMeIzAKlbAOq2cApKiHbDtr7dMzwDw=",
         "ref": "refs/heads/main",
-        "rev": "7250b3af26b4910b82c95c72924d85c6f94a17dc",
-        "revCount": 66,
+        "rev": "6a92d2be0cff80f51a04b895de779a37fbf0a647",
+        "revCount": 72,
         "type": "git",
         "url": "https://git.bcnelson.dev/bcnelson/herdr-android"
       },
