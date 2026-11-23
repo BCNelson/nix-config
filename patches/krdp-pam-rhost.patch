@@ -1,0 +1,44 @@
+diff -ru a/src/RdpConnection.cpp b/src/RdpConnection.cpp
+--- a/src/RdpConnection.cpp
++++ b/src/RdpConnection.cpp
+@@ -154,7 +154,7 @@
+     return pam_status;
+ }
+ 
+-static int pamAuthenticate(const QString &user, const QString &password)
++static int pamAuthenticate(const QString &user, const QString &password, const char *remoteHost)
+ {
+     int pam_status = 0;
+     RdpConnectionPamHandle info = {0};
+@@ -164,13 +164,21 @@
+     info.pamc.conv = &pam_conv;
+     info.pamc.appdata_ptr = &info.appdata;
+ 
+-    pam_status = pam_start("login", 0, &info.pamc, &info.handle);
++    pam_status = pam_start("krdp", info.appdata.user.constData(), &info.pamc, &info.handle);
+ 
+     if (pam_status != PAM_SUCCESS) {
+         qWarning() << "pam_start failure:" << pam_strerror(info.handle, pam_status);
+         return -1;
+     }
+ 
++    if (remoteHost && remoteHost[0] != '\0') {
++        pam_status = pam_set_item(info.handle, PAM_RHOST, remoteHost);
++        if (pam_status != PAM_SUCCESS) {
++            qWarning() << "pam_set_item(PAM_RHOST) failure:" << pam_strerror(info.handle, pam_status);
++            return -1;
++        }
++    }
++
+     pam_status = pam_authenticate(info.handle, 0);
+ 
+     if (pam_status != PAM_SUCCESS) {
+@@ -691,7 +699,7 @@
+         const QString password = QString::fromLatin1(freerdp_settings_get_string(settings, FreeRDP_Password));
+         qCDebug(KRDP) << "Attempting authenticating user with PAM";
+         if (username == KUser().loginName() || KUser().loginName() == QStringLiteral("plasmalogin")) {
+-            if (pamAuthenticate(username, password) >= 0) {
++            if (pamAuthenticate(username, password, d->peer->hostname) >= 0) {
+                 qCDebug(KRDP) << "PAM authentication succeeded for user" << username;
+                 return true;
+             }
