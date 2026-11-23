@@ -1,7 +1,15 @@
 diff -ru a/src/RdpConnection.cpp b/src/RdpConnection.cpp
 --- a/src/RdpConnection.cpp
 +++ b/src/RdpConnection.cpp
-@@ -154,7 +154,7 @@
+@@ -13,6 +13,7 @@
+ #include <optional>
+ 
+ #include <fcntl.h>
++#include <sys/socket.h>
+ 
+ #include <QHostAddress>
+ #include <QStandardPaths>
+@@ -154,7 +155,7 @@
      return pam_status;
  }
  
@@ -10,7 +18,7 @@ diff -ru a/src/RdpConnection.cpp b/src/RdpConnection.cpp
  {
      int pam_status = 0;
      RdpConnectionPamHandle info = {0};
-@@ -164,13 +164,21 @@
+@@ -164,13 +165,21 @@
      info.pamc.conv = &pam_conv;
      info.pamc.appdata_ptr = &info.appdata;
  
@@ -33,7 +41,23 @@ diff -ru a/src/RdpConnection.cpp b/src/RdpConnection.cpp
      pam_status = pam_authenticate(info.handle, 0);
  
      if (pam_status != PAM_SUCCESS) {
-@@ -691,7 +699,7 @@
+@@ -402,6 +411,15 @@
+         return;
+     }
+ 
++    // KRDP accepts the socket itself, so FreeRDP's listener never records the
++    // client address; do it here so it can be handed to PAM as PAM_RHOST.
++    struct sockaddr_storage peerAddress = {};
++    socklen_t peerAddressLength = sizeof(peerAddress);
++    if (getpeername(d->socketHandle, reinterpret_cast<struct sockaddr *>(&peerAddress), &peerAddressLength) != 0
++        || !freerdp_peer_set_local_and_hostname(d->peer, &peerAddress)) {
++        qCWarning(KRDP) << "Failed to record the client address";
++    }
++
+     // Create an instance of our custom PeerContext extended context as context
+     // rather than the plain rdpContext.
+     d->peer->ContextSize = sizeof(PeerContext);
+@@ -691,7 +709,7 @@
          const QString password = QString::fromLatin1(freerdp_settings_get_string(settings, FreeRDP_Password));
          qCDebug(KRDP) << "Attempting authenticating user with PAM";
          if (username == KUser().loginName() || KUser().loginName() == QStringLiteral("plasmalogin")) {
