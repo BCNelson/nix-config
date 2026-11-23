@@ -21,6 +21,7 @@
       ./ollama.nix
       ./goose-desktop.nix
       ./herdr-web-ui.nix
+      ./remote-desktop.nix
     ];
   networking.firewall = {
     enable = true;
