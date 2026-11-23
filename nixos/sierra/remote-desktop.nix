@@ -22,11 +22,21 @@
 #   - name the user in pam_start, so `account` modules know who it is.
 #
 # The `krdp` PAM service then runs krdp-tailscale-auth, which asks tailscaled
-# who owns that address (`tailscale whois`). The login is allowed only if the
-# device is untagged and belongs to the same Tailscale user as sierra itself,
-# i.e. one of my own devices. Tagged servers and other people's shared nodes
-# are refused. The RDP password is ignored: the client must send *something*
-# (any string), but the device identity is what's checked.
+# about that address (`tailscale whois`) and reads the app capabilities the
+# tailnet policy grants it on sierra. The login is allowed only if a grant
+# gives the `nel.family/cap/krdp` capability with the RDP user (or "*") in
+# its `users` list. Who may log in is therefore decided in the Tailscale
+# policy (admin console), not here, e.g.:
+#
+#   "grants": [{
+#     "src": ["autogroup:member"], "dst": ["autogroup:self"],
+#     "ip":  ["tcp:3389"],
+#     "app": { "nel.family/cap/krdp": [{ "users": ["bcnelson"] }] }
+#   }]
+#
+# The same grant opens the port. With no such grant every login is refused.
+# The RDP password is ignored: the client must send *something* (any string),
+# but the device's grant is what's checked.
 #
 # KRDP only tries PAM for the username of the logged-in session (it compares
 # against KUser().loginName() before calling PAM), so this can only ever open
@@ -48,6 +58,10 @@
 #   journalctl --user -u krdp-setup -u app-org.kde.krdpserver -t krdp-tailscale-auth
 let
   tailscale = config.services.tailscale.package;
+
+  # The app capability a tailnet grant must give a device on sierra for it to
+  # log in. The name is arbitrary, but must sit under a domain I control.
+  krdpCapability = "nel.family/cap/krdp";
 
   krdpTailscaleAuth = pkgs.writeShellApplication {
     name = "krdp-tailscale-auth";
@@ -73,29 +87,27 @@ let
         exit 1
       fi
 
-      self_ip="$(tailscale ip -4 | head -n1)"
-      if ! self="$(tailscale whois --json "$self_ip" 2>/dev/null)"; then
-        log "refusing ''${PAM_USER:-?} from $rhost: can't resolve this host's own owner"
+      user="''${PAM_USER:-}"
+      node="$(jq -r '.Node.Name // "?"' <<<"$client")"
+      if [ -z "$user" ]; then
+        log "refusing login from $rhost ($node): no PAM_USER"
         exit 1
       fi
 
-      # Login names, not numeric user IDs: the IDs are above 2^53, so jq
-      # would compare them as doubles.
-      owner="$(jq -r '.UserProfile.LoginName // empty' <<<"$self")"
-      node="$(jq -r '.Node.Name // empty' <<<"$client")"
-      login="$(jq -r '.UserProfile.LoginName // empty' <<<"$client")"
-      tagged="$(jq -r '(.Node.Tags // []) | length > 0' <<<"$client")"
-
-      if [ "$tagged" != "false" ]; then
-        log "refusing ''${PAM_USER:-?} from $rhost ($node): tagged node"
-        exit 1
-      fi
-      if [ -z "$owner" ] || [ "$login" != "$owner" ]; then
-        log "refusing ''${PAM_USER:-?} from $rhost ($node): owned by someone else"
-        exit 1
+      # CapMap holds the app capabilities the tailnet policy grants the
+      # client on this node: { "<cap>": [ <grant's app value>, ... ] }, one
+      # element per matching grant. Any of them naming the user (or "*") is
+      # enough.
+      if jq -e --arg cap ${lib.escapeShellArg krdpCapability} --arg user "$user" '
+          (.CapMap[$cap] // [])
+          | any(.[]; (.users // []) | any(. == $user or . == "*"))
+        ' <<<"$client" >/dev/null; then
+        log "allowing $user from $rhost ($node)"
+        exit 0
       fi
 
-      log "allowing ''${PAM_USER:-?} from $rhost ($node)"
+      log "refusing $user from $rhost ($node): no ${krdpCapability} grant for this user"
+      exit 1
     '';
   };
 

@@ -27,6 +27,7 @@
 		"xray": "100.114.232.151",
 		"porter-pc": "100.111.54.18",
 		"sierra": "100.92.32.99",
+		"sierra6": "fd7a:115c:a1e0::fc9c:2063",
 		"whiskey": "100.89.15.100",
 		"whiskey6": "fd7a:115c:a1e0::ad01:f64"
 	},
@@ -73,6 +74,20 @@
 	// so `via` can name it. Removing it changes nothing operationally -- it has
 	// never been live.
 	"grants": [
+		// Remote desktop (KRDP) into sierra. The app capability *is* the login:
+		// sierra's PAM check (nixos/sierra/remote-desktop.nix) runs
+		// `tailscale whois` on the connecting address and lets it in only if a
+		// grant gives it nel.family/cap/krdp with the RDP user in `users`. The
+		// password the client sends is ignored. Both sierra addresses, so the
+		// capability is there whichever one the client dials.
+		{
+			"src": ["group:admin"],
+			"dst": ["sierra", "sierra6"],
+			"ip":  ["tcp:3389"],
+			"app": {
+				"nel.family/cap/krdp": [{"users": ["bcnelson"]}]
+			}
+		},
 		// {
 		// 	"src": ["group:familyVPN"],
 		// 	"dst": ["autogroup:internet"],
@@ -173,6 +188,16 @@
 		{
 			"src": "tag:server",
 			"accept": ["whiskey:3100", "whiskey6:3100"]
+		},
+		// Remote desktop to sierra: me, not the gaming guests (who reach sierra
+		// only for gamestream).
+		{
+			"src": "bradleynelson102@gmail.com",
+			"accept": ["sierra:3389", "sierra6:3389"]
+		},
+		{
+			"src": "group:gaming",
+			"deny": ["sierra:3389"]
 		}
 	],
 	"sshTests": [
