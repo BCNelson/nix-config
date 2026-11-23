@@ -1,0 +1,89 @@
+diff -ru a/src/PlasmaScreencastV1Session.cpp b/src/PlasmaScreencastV1Session.cpp
+--- a/src/PlasmaScreencastV1Session.cpp
++++ b/src/PlasmaScreencastV1Session.cpp
+@@ -13,6 +13,8 @@
+ #include <QDBusPendingReply>
+ #include <QDBusUnixFileDescriptor>
+ #include <QGuiApplication>
++#include <QMouseEvent>
++#include <QScreen>
+ 
+ using namespace Qt::StringLiterals;
+ 
+@@ -28,8 +30,51 @@
+     std::unique_ptr<ScreencastingStream> request;
+     std::unique_ptr<EiConnection> eiConnection;
+     int eisCookie = 0;
++    // Stream pixels per logical pixel when the whole desktop is captured
++    // scaled down (see start()); pointer positions are divided by it.
++    qreal workspaceScale = 1.0;
+ };
+ 
++// The whole desktop as one region stream. Unlike KWin's workspace stream this
++// is called with an explicit rectangle, which is used to fix two problems:
++//
++//  - With fractional scaling the logical screen sizes are rounded (two 2560px
++//    outputs at 1.3 come out 1969 wide, the second at x=1970), so the union
++//    can have an odd width. RDP clients round their desktop down to an even
++//    size, and a surface wider than that makes them drop the graphics
++//    channel. The rectangle is trimmed to even (at most one pixel is lost).
++//
++//  - Two monitors side by side are too wide for some clients' decoders
++//    (aRDP decodes H.264 in software and silently never acknowledges a
++//    3938px-wide frame). KRDP_WORKSPACE_MAX_WIDTH caps the stream width by
++//    capturing at a scale below 1. Unset, the stream is at scale 1 as before.
++static ScreencastingStream *createScaledWorkspaceStream(Screencasting &screencasting, qreal *scaleOut)
++{
++    const auto screens = qGuiApp->screens();
++    if (screens.size() == 1) {
++        return screencasting.createOutputStream(screens.first(), Screencasting::Metadata);
++    }
++
++    QRect workspace;
++    for (QScreen *screen : screens) {
++        workspace |= screen->geometry();
++    }
++    workspace.setWidth(workspace.width() & ~1);
++    workspace.setHeight(workspace.height() & ~1);
++
++    qreal scale = 1.0;
++    bool ok = false;
++    const int maxWidth = qEnvironmentVariableIntValue("KRDP_WORKSPACE_MAX_WIDTH", &ok);
++    if (ok && maxWidth > 0 && workspace.width() > maxWidth) {
++        // An even target width, so the stream comes out even too.
++        scale = qreal(maxWidth & ~1) / workspace.width();
++    }
++    qCDebug(KRDP) << "Whole-desktop stream" << workspace << "at scale" << scale;
++
++    *scaleOut = scale;
++    return screencasting.createRegionStream(workspace, scale, Screencasting::Metadata);
++}
++
+ PlasmaScreencastV1Session::PlasmaScreencastV1Session()
+     : AbstractSession()
+     , d(std::make_unique<Private>())
+@@ -81,7 +126,7 @@
+         auto screen = qApp->screens().at(*streamIndex);
+         d->request.reset(d->m_screencasting.createOutputStream(screen, Screencasting::Metadata));
+     } else {
+-        d->request.reset(d->m_screencasting.createWorkspaceStream(Screencasting::Metadata));
++        d->request.reset(createScaledWorkspaceStream(d->m_screencasting, &d->workspaceScale));
+     }
+     connect(d->request.get(), &ScreencastingStream::failed, this, &PlasmaScreencastV1Session::error);
+     connect(d->request.get(), &ScreencastingStream::created, this, [this](uint nodeId) {
+@@ -100,6 +145,15 @@
+ void PlasmaScreencastV1Session::sendEvent(const std::shared_ptr<QEvent> &event)
+ {
+     if (isStarted() && d->eiConnection) {
++        // The client points in stream pixels; when the desktop is captured
++        // scaled down, map back to logical desktop coordinates.
++        if (d->workspaceScale != 1.0 && event->type() == QEvent::MouseMove) {
++            const auto me = std::static_pointer_cast<QMouseEvent>(event);
++            const QPointF logical = me->position() / d->workspaceScale;
++            auto scaled = std::make_shared<QMouseEvent>(me->type(), logical, logical, me->button(), me->buttons(), me->modifiers());
++            d->eiConnection->sendEvent(scaled, size(), {});
++            return;
++        }
+         d->eiConnection->sendEvent(event, size(), {});
+     }
+ }

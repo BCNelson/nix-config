@@ -153,7 +153,13 @@ in
     (_final: prev: {
       kdePackages = prev.kdePackages.overrideScope (_kfinal: kprev: {
         krdp = kprev.krdp.overrideAttrs (old: {
-          patches = (old.patches or [ ]) ++ [ ../../patches/krdp-pam-rhost.patch ];
+          patches = (old.patches or [ ]) ++ [
+            ../../patches/krdp-pam-rhost.patch
+            # Both monitors in one stream. Without it the whole-desktop
+            # capture is 3939 wide here (1.3 scale), the client rounds its
+            # desktop to 3938, and drops the video channel: a black screen.
+            ../../patches/krdp-workspace-stream.patch
+          ];
         });
       });
     })
@@ -162,11 +168,43 @@ in
   # Written out in full rather than built from the module's options, which
   # would add pam_unix to `auth` and with it the password check this replaces.
   # pam_exec without expose_authtok never prompts, so the password KRDP holds
-  # is never read.
+  # is never read. `account` is pam_permit, not pam_unix: the stack runs as
+  # bcnelson, and pam_unix's account check needs root (it logged "setuid
+  # failed" on every login). KRDP only ever authenticates the session's own
+  # user, so there is no other account to check.
   security.pam.services.krdp.text = ''
     auth    required pam_exec.so quiet ${lib.getExe krdpTailscaleAuth}
-    account required pam_unix.so
+    account required pam_permit.so
   '';
+
+  # How the server runs. A drop-in on the unit KRDP ships, so the settings
+  # page and `systemctl --user` still drive the same unit.
+  #
+  #   --plasma     capture through KWin's own screencast protocol. The default
+  #                (the desktop portal) asks "allow remote control?" on
+  #                sierra's own screen and waits for a click, so from the
+  #                phone it is just a black screen until the client gives up.
+  #                KWin grants this binary the privileged interfaces through
+  #                X-KDE-Wayland-Interfaces in its .desktop file, keyed on the
+  #                executable's path, hence the same (patched) package here.
+  #
+  # No --monitor: the stream is the whole desktop, both screens side by side
+  # (see krdp-workspace-stream.patch for why that needed a patch).
+  # KRDP_WORKSPACE_MAX_WIDTH (from that patch) scales it down to 2560 wide:
+  # at full size (3938x1108 at 1.3) aRDP's software H.264 decoder never
+  # decodes a frame. 2560 is what worked; pointer input is scaled back up.
+  #
+  # Started with the graphical session, so it's there after a reboot without
+  # visiting the settings page. It needs a logged-in session regardless.
+  systemd.user.services."app-org.kde.krdpserver" = {
+    overrideStrategy = "asDropin";
+    wantedBy = [ "graphical-session.target" ];
+    serviceConfig.ExecStart = [
+      ""
+      "${pkgs.kdePackages.krdp}/bin/krdpserver --plasma"
+    ];
+    environment.KRDP_WORKSPACE_MAX_WIDTH = "2560";
+  };
 
   # The server unit (app-org.kde.krdpserver) ships with KRDP; this hangs off
   # it, so it runs whenever that is started, however that happens (autostart,
