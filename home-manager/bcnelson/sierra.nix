@@ -36,6 +36,7 @@ in
     pkgs.inkscape
     pkgs.photocraft # Rust image editor with layered PSD support
     pkgs.lightcraft # Rust photo library + raw developer (its companion)
+    pkgs.pdfcraft # Rust PDF reader/editor from the same suite
     kicad
     pkgs.spec-kit
     pkgs.pince
