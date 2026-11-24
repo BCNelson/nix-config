@@ -34,6 +34,8 @@ in
     pkgs.libation
     pkgs.kobodl # Kobo ebook library downloader + DRM removal (libation, but for Kobo)
     pkgs.inkscape
+    pkgs.photocraft # Rust image editor with layered PSD support
+    pkgs.lightcraft # Rust photo library + raw developer (its companion)
     kicad
     pkgs.spec-kit
     pkgs.pince
