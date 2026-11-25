@@ -42,7 +42,6 @@ in {
     ./tendant.nix
     ./linkwarden.nix
     ./graphene-ota.nix
-    ./absync.nix
   ];
 
   systemd.timers.podman-auto-update = {

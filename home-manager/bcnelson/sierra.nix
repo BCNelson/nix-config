@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, inputs, ... }:
 let
   routingTools = pkgs.kicad-routing-tools;
   # The routing plugin's Python deps have to be on the wrapper's PYTHONPATH,
@@ -33,6 +33,10 @@ in
     # ventoy-full now lives in nixos/sierra/default.nix (needs root)
     pkgs.libation
     pkgs.kobodl # Kobo ebook library downloader + DRM removal (libation, but for Kobo)
+    # ABSync: AudioBookshelf -> USB MP3 players / Yoto cards (flake input
+    # `absync`). Built against our pkgs rather than the flake's packages output,
+    # so it shares FFmpeg etc. with everything else here.
+    (pkgs.callPackage "${inputs.absync}/nix/package.nix" { })
     pkgs.inkscape
     pkgs.photocraft # Rust image editor with layered PSD support
     pkgs.lightcraft # Rust photo library + raw developer (its companion)
