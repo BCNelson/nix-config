@@ -1,7 +1,10 @@
 { pkgs, libx, config, ... }:
 let
   dataDirs = config.data.dirs;
-  services = import ./docker-services { inherit libx dataDirs pkgs; };
+  services = import ./docker-services {
+    inherit libx dataDirs pkgs;
+    paperlessEnvFile = config.age-template.files.paperless-env.path;
+  };
   cadencePingStartExec = slug: pkgs.writeShellScript "cadence-ping-${slug}-start" ''
     ${pkgs.curl}/bin/curl -fsS -m 10 --retry 2 --retry-delay 2 \
       "https://health.b.nel.family/ping/$(cat /run/agenix/cadence_check_${builtins.replaceStrings [ "-" ] [ "_" ] slug})/start" \

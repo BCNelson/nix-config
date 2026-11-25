@@ -17,6 +17,7 @@ in {
     ./kobodl.nix
     ./libation.nix
     ./mealie.nix
+    ./paperless-oidc.nix
     ./nixBinaryCacheProxy.nix
     ./thinClientBuilder.nix
     ./romm.nix

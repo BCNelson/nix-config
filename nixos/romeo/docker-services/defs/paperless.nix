@@ -1,22 +1,8 @@
-{ dataDirs, libx }:
+# envFile: rendered by services/paperless-oidc.nix (the OIDC provider list,
+# client secret included).
+{ dataDirs, libx, envFile }:
 let
   SECRET_KEY = libx.getSecret ../../../sensitive.nix "paperless_secret_key";
-  paperAuthConfig = builtins.toJSON {
-    openid_connect = {
-      OAUTH_PKCE_ENABLED = true;
-      APPS = [
-        {
-          provider_id = "kanidm";
-          name = "Kanidm";
-          client_id = "paperless";
-          secret = "${libx.getSecret ../../../sensitive.nix "kanidm_paperless_client_secret"}";
-          settings = {
-            server_url = "https://idm.nel.family/oauth2/openid/paperless/.well-known/openid-configuration";
-          };
-        }
-      ];
-    };
-  };
 in
 {
   broker = {
@@ -41,6 +27,7 @@ in
       "${dataDirs.level3}/paperless/consume:/usr/src/paperless/consume"
     ];
     ports = [ "127.0.0.1:8000:8000" ];
+    env_file = [ envFile ];
     environment = {
       PAPERLESS_REDIS = "redis://broker:6379";
       PAPERLESS_TIKA_ENABLED = "1";
@@ -56,7 +43,6 @@ in
       PAPERLESS_DATA_DIR = "/usr/src/paperless/data";
       PAPERLESS_MEDIA_ROOT = "/usr/src/paperless/media";
       PAPERLESS_APPS = "allauth.socialaccount.providers.openid_connect";
-      PAPERLESS_SOCIALACCOUNT_PROVIDERS = "${paperAuthConfig}";
     };
   };
 
