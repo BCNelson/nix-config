@@ -14,7 +14,6 @@
       ./services/grafana-mcp.nix
       ./services/healthchecks.nix
       ./services/vaultwarden.nix
-      ./services/kanidm.nix
       ./services/authentik.nix
       ./services/monitoring.nix
       ./services/alerting.nix

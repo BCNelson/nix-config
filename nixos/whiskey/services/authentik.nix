@@ -83,6 +83,35 @@ in {
     mode = "0440";
   };
 
+  # OAuth2 client secrets for apps that came over from kanidm. Each reuses the
+  # shared store file its app reads on romeo, so the two sides can never
+  # drift; the names are kept from kanidm.nix so the rekeyed outputs still
+  # match. Only authentik's env template (rendered as root) reads them here.
+  age.secrets.audiobookshelf-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/audiobookshelf_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+  age.secrets.immich-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/immich_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+  age.secrets.romm-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/romm_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+  age.secrets.actual-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/actual_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+  age.secrets.mealie-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/mealie_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+  age.secrets.paperless-oauth-client-secret = {
+    rekeyFile = ../../../secrets/store/shared/paperless_auth_client_secret.age;
+    generator.script = "alnum";
+  };
+
   # Single env file assembled from the individual secrets. The names on the
   # right of `vars` are shell variables substituted into `content`.
   age-template.files.authentik-env = {
@@ -96,8 +125,6 @@ in {
       TRILIUM_SECRET = config.age.secrets.trilium-oauth-client-secret.path;
       TENDANT_SECRET = config.age.secrets.tendant-oauth-client-secret.path;
       LINKWARDEN_SECRET = config.age.secrets.linkwarden-oauth-client-secret.path;
-      # Declared in kanidm.nix until kanidm is decommissioned; the template is
-      # rendered as root, so their kanidm ownership is no obstacle.
       AUDIOBOOKSHELF_SECRET = config.age.secrets.audiobookshelf-oauth-client-secret.path;
       ROMM_SECRET = config.age.secrets.romm-oauth-client-secret.path;
       ACTUAL_SECRET = config.age.secrets.actual-oauth-client-secret.path;

@@ -644,13 +644,6 @@ resource "cloudflare_record" "git_bcnelson_dev-CNAME" {
   allow_overwrite = true
 }
 
-resource "porkbun_dns_record" "idm_nel_family-CNAME" {
-  domain  = "nel.family"
-  type    = "CNAME"
-  name    = "idm"
-  content = "public.whiskey.b.nel.family"
-}
-
 resource "porkbun_dns_record" "auth_nel_family-CNAME" {
   domain  = "nel.family"
   type    = "CNAME"

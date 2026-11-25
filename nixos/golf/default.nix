@@ -6,7 +6,6 @@
     ../_mixins/roles/tailscale.nix
     ../_mixins/roles/desktop
     ../_mixins/hardware/fingerprint.nix
-    ../_mixins/roles/kanidmClient.nix
     ../_mixins/roles/forgejo-agent-token.nix
   ];
   networking.firewall = {

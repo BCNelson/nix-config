@@ -15,7 +15,6 @@
       ../_mixins/hardware/platfromio.nix
       ../_mixins/hardware/logitech.nix
       ../_mixins/roles/nfs.nix
-      ../_mixins/roles/kanidmClient.nix
       ../_mixins/roles/workstation.nix
       ../_mixins/roles/forgejo-agent-token.nix
       ./ollama.nix
