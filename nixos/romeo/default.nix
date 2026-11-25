@@ -88,6 +88,14 @@ in
       ExecStop = "${services.networkBacked}/bin/dockerStack-general down -t 20";
       TimeoutStopSec = 30;
     };
+    # ExecStop names the stack's store path, so every change to the stack
+    # changes this unit, and a switch would restart it: the stop runs `down`
+    # (removing every container in the stack) and the start is a no-op, leaving
+    # paperless, nextcloud etc. down until the next hourly
+    # auto-update-services run brings them back (happened 2026-11-25). Never
+    # restart it on a switch; daemon-reload still picks up the new ExecStop
+    # for the next real shutdown.
+    restartIfChanged = false;
   };
 
   services.nginx = {
