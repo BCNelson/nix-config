@@ -49,7 +49,7 @@ looking for another way round.
 | `hosts/data/<host>.nix` | each host's SSH `hostKey` (used for rekeying). Not a host registry |
 | `.forgejo/` | CI: `workflows/check.yml` (deploy gate), `update.yml` (daily flake bump), `scripts/` |
 | `.agents/` | agent tooling data: `hosts.json` (ssh destinations), `skills/` |
-| `main.tf` | OpenTofu (DNS); `just tofu`, never `terraform` |
+| `main.tf` | OpenTofu (DNS). CI applies it on push to `main` (`.forgejo/workflows/tofu.yml`); never `terraform` |
 
 List hosts: `nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSep "\n" (builtins.attrNames c)' --raw`
 (and `.#systemConfigs` for redo-3). Flake names carry a numeric suffix
@@ -69,7 +69,7 @@ List hosts: `nix eval .#nixosConfigurations --apply 'c: builtins.concatStringsSe
 | `just unlock` / `lock` | git-crypt via GPG. **Key touch** | human |
 | `git push origin main` | push; CI checks it and, if green, deploys it | agent |
 | `just push` / `pull` / `sync` | git with a token read from `sensitive.nix` (use plain `git push`) | human |
-| `just tofu ...` | OpenTofu with B2 credentials read from `sensitive.nix` | human |
+| `just tofu ...` | OpenTofu with B2 credentials read from `sensitive.nix`. Not needed to ship a `main.tf` change: pushing it runs `tofu.yml`, which applies it | human |
 | `just update-os` (`apply`, `os`, `o`, `all`) | `nixos-rebuild switch` on *this* machine (`all` is OS only, not home) | human |
 | `just update-home` | `home-manager switch` | human |
 | `just status`, `just wait <sha> ...` | deploy status and waiting, via `nixcfg` (below) | agent |
