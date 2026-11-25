@@ -103,6 +103,7 @@ in {
       ACTUAL_SECRET = config.age.secrets.actual-oauth-client-secret.path;
       MEALIE_SECRET = config.age.secrets.mealie-oauth-client-secret.path;
       PAPERLESS_SECRET = config.age.secrets.paperless-oauth-client-secret.path;
+      IMMICH_SECRET = config.age.secrets.immich-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
@@ -120,6 +121,7 @@ in {
       ACTUAL_OAUTH_CLIENT_SECRET=$ACTUAL_SECRET
       MEALIE_OAUTH_CLIENT_SECRET=$MEALIE_SECRET
       PAPERLESS_OAUTH_CLIENT_SECRET=$PAPERLESS_SECRET
+      IMMICH_OAUTH_CLIENT_SECRET=$IMMICH_SECRET
     '';
   };
 
