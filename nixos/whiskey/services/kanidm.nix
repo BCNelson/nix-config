@@ -68,13 +68,6 @@
     owner = "kanidm";
   };
 
-  age.secrets.vikunja-oauth-client-secret = {
-    rekeyFile = ../../../secrets/store/shared/vikunja_auth_client_secret.age;
-    generator.script = "alnum";
-    mode = "0400";
-    owner = "kanidm";
-  };
-
   age.secrets.mealie-oauth-client-secret = {
     rekeyFile = ../../../secrets/store/shared/mealie_auth_client_secret.age;
     generator.script = "alnum";
@@ -185,16 +178,6 @@
           basicSecretFile = config.age.secrets.immich-oauth-client-secret.path;
           preferShortUsername = true;
         };
-        "vikunja" = {
-          displayName = "Vikunja";
-          originUrl = "https://todo.nel.family/auth/openid/";
-          originLanding = "https://todo.nel.family/";
-          scopeMaps = {
-            "household" = ["email" "openid" "profile"];
-          };
-          basicSecretFile = config.age.secrets.vikunja-oauth-client-secret.path;
-          allowInsecureClientDisablePkce = true;
-        };
         "mealie" = {
           displayName = "Mealie";
           originUrl = "https://recipes.nel.family/login";
@@ -259,7 +242,7 @@
           preferShortUsername = true;
           # GoToSocial does not send a PKCE code challenge. It is a confidential
           # client (authenticates with the secret above), so disabling PKCE
-          # enforcement here is an acceptable tradeoff, matching vikunja/romm.
+          # enforcement here is an acceptable tradeoff, matching romm.
           allowInsecureClientDisablePkce = true;
         };
         "cadence" = {

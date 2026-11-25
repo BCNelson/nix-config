@@ -1,0 +1,83 @@
+version: 1
+metadata:
+  name: romm
+entries:
+  # RomM refuses any login whose ID token says "email_verified": false, and
+  # authentik's managed email mapping always says false (it never verifies
+  # addresses itself). Every account here is created by an admin or through an
+  # admin-issued invitation, so the addresses are vouched for; this mapping
+  # replaces the managed one for RomM only.
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-email-verified
+    identifiers:
+      name: "nel.family: OpenID 'email' (verified)"
+    attrs:
+      name: "nel.family: OpenID 'email' (verified)"
+      scope_name: email
+      description: "Email address"
+      expression: |
+        return {
+            "email": request.user.email,
+            "email_verified": True,
+        }
+
+  - model: authentik_providers_oauth2.oauth2provider
+    id: provider-romm
+    identifiers:
+      name: romm
+    attrs:
+      name: romm
+      client_type: confidential
+      client_id: romm
+      # Authentik 2026.x requires grant_types to be set explicitly; the model
+      # default is an empty list, which rejects the auth-code flow as malformed.
+      grant_types:
+        - authorization_code
+        - refresh_token
+      # Injected from the systemd EnvironmentFile (see authentik.nix).
+      client_secret: !Env ROMM_OAUTH_CLIENT_SECRET
+      authorization_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow:
+        !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      # RomM links an account to (iss, sub). Accounts first linked under
+      # kanidm carry kanidm's issuer, so on the first authentik login RomM
+      # falls back to matching by email and re-links them to this subject.
+      sub_mode: user_uuid
+      signing_key:
+        !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      redirect_uris:
+        - matching_mode: strict
+          url: https://rom.nel.family/api/oauth/openid
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email-verified
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+  - model: authentik_core.application
+    id: app-romm
+    identifiers:
+      slug: romm
+    attrs:
+      name: RomM
+      slug: romm
+      provider: !KeyOf provider-romm
+      meta_launch_url: https://rom.nel.family/
+      policy_engine_mode: any
+
+  # RomM registers anyone authentik lets through, so these bindings are the
+  # access gate. Same groups kanidm's scope maps allowed.
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf app-romm
+      group: !Find [authentik_core.group, [name, household]]
+      order: 0
+    attrs:
+      enabled: true
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf app-romm
+      group: !Find [authentik_core.group, [name, extended_family]]
+      order: 1
+    attrs:
+      enabled: true

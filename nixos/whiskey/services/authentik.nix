@@ -96,9 +96,13 @@ in {
       TRILIUM_SECRET = config.age.secrets.trilium-oauth-client-secret.path;
       TENDANT_SECRET = config.age.secrets.tendant-oauth-client-secret.path;
       LINKWARDEN_SECRET = config.age.secrets.linkwarden-oauth-client-secret.path;
-      # Declared in kanidm.nix while Audiobookshelf migrates off kanidm; the
-      # template is rendered as root, so its kanidm ownership is no obstacle.
+      # Declared in kanidm.nix until kanidm is decommissioned; the template is
+      # rendered as root, so their kanidm ownership is no obstacle.
       AUDIOBOOKSHELF_SECRET = config.age.secrets.audiobookshelf-oauth-client-secret.path;
+      ROMM_SECRET = config.age.secrets.romm-oauth-client-secret.path;
+      ACTUAL_SECRET = config.age.secrets.actual-oauth-client-secret.path;
+      MEALIE_SECRET = config.age.secrets.mealie-oauth-client-secret.path;
+      PAPERLESS_SECRET = config.age.secrets.paperless-oauth-client-secret.path;
     };
     content = ''
       AUTHENTIK_SECRET_KEY=$SECRET_KEY
@@ -112,6 +116,10 @@ in {
       TENDANT_OAUTH_CLIENT_SECRET=$TENDANT_SECRET
       LINKWARDEN_OAUTH_CLIENT_SECRET=$LINKWARDEN_SECRET
       AUDIOBOOKSHELF_OAUTH_CLIENT_SECRET=$AUDIOBOOKSHELF_SECRET
+      ROMM_OAUTH_CLIENT_SECRET=$ROMM_SECRET
+      ACTUAL_OAUTH_CLIENT_SECRET=$ACTUAL_SECRET
+      MEALIE_OAUTH_CLIENT_SECRET=$MEALIE_SECRET
+      PAPERLESS_OAUTH_CLIENT_SECRET=$PAPERLESS_SECRET
     '';
   };
 

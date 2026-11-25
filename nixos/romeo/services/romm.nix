@@ -64,10 +64,14 @@ in
       "DB_USER" = "romm-user";
       "IGDB_CLIENT_ID" = "3xmoinnxfnx8caexrrx4mzq8sn3eli";
       "OIDC_ENABLED" = "true";
-      "OIDC_PROVIDER" = "kanidm";
+      "OIDC_PROVIDER" = "authentik";
       "OIDC_CLIENT_ID" = "romm";
       "OIDC_REDIRECT_URI" = "https://rom.nel.family/api/oauth/openid";
-      "OIDC_SERVER_APPLICATION_URL" = "https://idm.nel.family/oauth2/openid/romm";
+      # authentik's per-application issuer. The metadata URL is given outright
+      # rather than derived from the issuer, so the trailing slash authentik
+      # puts on its issuer can't produce a double-slash discovery path.
+      "OIDC_SERVER_APPLICATION_URL" = "https://auth.nel.family/application/o/romm/";
+      "OIDC_SERVER_METADATA_URL" = "https://auth.nel.family/application/o/romm/.well-known/openid-configuration";
     };
     environmentFiles = [
       "${config.age-template.files.romm-env.path}"

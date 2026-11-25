@@ -17,8 +17,10 @@ in
       enforceOpenId = true;
       # OpenID configuration (maps to config.json openId object)
       openId = {
-        # Kanidm discovery URL
-        discoveryURL = "https://idm.nel.family/oauth2/openid/actual/.well-known/openid-configuration";
+        # authentik discovery URL. Actual matches users on preferred_username,
+        # i.e. the authentik username, which must equal the existing
+        # users.user_name (bcnelson) or the login lands on a new, empty user.
+        discoveryURL = "https://auth.nel.family/application/o/actual/.well-known/openid-configuration";
         client_id = "actual";
         client_secret._secret = config.age.secrets.actual-oauth-client-secret.path;
         server_hostname = "https://budget.h.b.nel.family";

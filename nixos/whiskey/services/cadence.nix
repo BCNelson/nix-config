@@ -119,7 +119,7 @@ in
         uuid_salt = "\${env:CADENCE_UUID_SALT}";
         api_keys.read_write = [ "\${env:CADENCE_API_RW_KEY}" ];
         oidc = {
-          issuer = "https://idm.nel.family/oauth2/openid/cadence";
+          issuer = "https://auth.nel.family/application/o/cadence/";
           client_id = "cadence";
           tier = "read_write";
         };

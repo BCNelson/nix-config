@@ -3,7 +3,6 @@ let
   zonefile = pkgs.writeTextFile {
     name = "dns-zonefile";
     text = ''
-      todo.nel.family A 192.168.3.7
       recipes.nel.family A 192.168.3.7
       h.b.nel.family A 192.168.3.7
       media.nel.family A 192.168.3.7
