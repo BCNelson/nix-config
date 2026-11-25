@@ -106,6 +106,15 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # ABSync (AudioBookshelf -> USB players / Yoto) web server, run on romeo
+    # (nixos/romeo/services/absync.nix). Only its NixOS module is used, which
+    # builds the package against romeo's pkgs; its devenv/rust-overlay inputs
+    # (dev shell only) are locked but never fetched. Must stay public.
+    absync = {
+      url = "git+https://git.bcnelson.dev/bcnelson/ABSync";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     system-manager = {
       url = "github:numtide/system-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
