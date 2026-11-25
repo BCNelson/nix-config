@@ -7,9 +7,15 @@
 # cards. The web server runs here at absync.h.b.nel.family; the service and its
 # hardening come from the ABSync flake's own module.
 #
-# The server has no authentication of its own, and *.h.b.nel.family is
-# reachable from outside (public wildcard CNAME to h.b), same as the other
-# unauthenticated h.b vhosts.
+# The server has no authentication of its own, so the vhost carries two gates:
+#  - Tailnet/LAN only. absync.h.b has an explicit CNAME to romeo.b (romeo's
+#    Tailscale address, main.tf) so it beats the public *.h.b wildcard, and
+#    tailnet clients arrive with their 100.64/10 or ULA source. LAN clients
+#    never see that record -- romeo's unbound answers *.h.b with 192.168.3.7 --
+#    so the LAN is allowed too. The public h.b ingress preserves client
+#    addresses, so internet traffic is refused here.
+#  - authentik SSO via forward auth (../authentik-forward-auth.nix), which
+#    admits service_admins.
 let
   dataDirs = config.data.dirs;
   host = "absync.h.b.nel.family";
@@ -45,10 +51,17 @@ in {
     acmeRoot = null;
     extraConfig = ''
       client_max_body_size 0;
+
+      allow 100.64.0.0/10;
+      allow fd7a:115c:a1e0::/48;
+      allow 192.168.0.0/16;
+      deny all;
     '';
-    locations."/" = {
-      proxyPass = "http://127.0.0.1:${toString port}";
-      proxyWebsockets = true;
+    locations = import ../authentik-forward-auth.nix {
+      "/" = {
+        proxyPass = "http://127.0.0.1:${toString port}";
+        proxyWebsockets = true;
+      };
     };
   };
 }

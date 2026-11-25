@@ -367,6 +367,16 @@ resource "porkbun_dns_record" "openclaw_h_b_nel_family-CNAME" {
   type    = "CNAME"
   content = "romeo.b.nel.family"
 }
+# absync.h.b      CNAME  romeo.b.nel.family.
+# Same reasoning as goose.h.b: ABSync's vhost only admits tailnet/LAN sources
+# (and then authentik SSO), so off-LAN tailnet clients must reach romeo over
+# Tailscale rather than the public ingress the *.h.b wildcard points at.
+resource "porkbun_dns_record" "absync_h_b_nel_family-CNAME" {
+  domain  = "nel.family"
+  name    = "absync.h.b"
+  type    = "CNAME"
+  content = "romeo.b.nel.family"
+}
 
 # *.romeo.b      CNAME  romeo.b.nel.family.
 resource "porkbun_dns_record" "wildcard_romeo_b_nel_family-CNAME" {

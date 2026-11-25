@@ -34,22 +34,16 @@ let
       echo "${name} is available at '${url}'"
     '';
 
-  # Forward auth against authentik on whiskey (provider + embedded outpost in
-  # nixos/whiskey/services/authentik/blueprints/arr.yaml, which also limits
-  # access to service_admins). Every request to "/" is checked with an
-  # auth_request to the outpost; a 401 bounces the browser to the outpost's
-  # /start, which runs the authentik login and returns here.
-  #
-  # The outpost is reached by name at request time (resolver + variable) rather
-  # than resolved at config load, so nginx still starts if unbound is not up yet
-  # or whiskey is unreachable; only the arr vhosts fail until it is.
+  # Forward auth against authentik on whiskey (see ./authentik-forward-auth.nix;
+  # the provider in nixos/whiskey/services/authentik/blueprints/arr.yaml limits
+  # access to service_admins).
   arrPorts = {
     prowlarr = 9696;
     radarr = 7878;
     sonarr = 8989;
     lidarr = 8686;
   };
-  authentikHost = "auth.nel.family";
+  withAuthentik = import ./authentik-forward-auth.nix;
   mkArrVhost = { port, apiBypass ? true }: {
     forceSSL = true;
     enableACME = true;
@@ -65,7 +59,7 @@ let
       allow fd7a:115c:a1e0::/48;
       deny all;
     '';
-    locations = lib.optionalAttrs apiBypass {
+    locations = withAuthentik (lib.optionalAttrs apiBypass {
       # API calls skip SSO: the apps still require their API key here, and this
       # keeps mobile clients and API-key integrations working. The apps' own
       # traffic to each other goes over localhost and never touches nginx.
@@ -80,42 +74,9 @@ let
         proxyPass = "http://localhost:${toString port}";
         extraConfig = ''
           proxy_max_temp_file_size 2048m;
-
-          auth_request /outpost.goauthentik.io/auth/nginx;
-          error_page 401 = @goauthentik_proxy_signin;
-          auth_request_set $auth_cookie $upstream_http_set_cookie;
-          add_header Set-Cookie $auth_cookie;
         '';
       };
-      "/outpost.goauthentik.io" = {
-        # recommendedProxySettings is included after extraConfig and would
-        # re-set Host to the arr vhost, which whiskey's nginx would route to
-        # the wrong server block.
-        recommendedProxySettings = false;
-        extraConfig = ''
-          resolver 127.0.0.1 valid=300s;
-          # Every asset on the page triggers an auth subrequest, so an
-          # unreachable address family (whiskey once published an AAAA it had
-          # not configured) cost the default 60s per request before fallback.
-          # Fail over fast instead.
-          proxy_connect_timeout 5s;
-          set $authentik https://${authentikHost};
-          proxy_pass $authentik;
-          proxy_ssl_server_name on;
-          proxy_set_header Host ${authentikHost};
-          proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
-          proxy_pass_request_body off;
-          proxy_set_header Content-Length "";
-          auth_request_set $auth_cookie $upstream_http_set_cookie;
-          add_header Set-Cookie $auth_cookie;
-        '';
-      };
-      "@goauthentik_proxy_signin".extraConfig = ''
-        internal;
-        add_header Set-Cookie $auth_cookie;
-        return 302 /outpost.goauthentik.io/start?rd=$scheme://$http_host$request_uri;
-      '';
-    };
+    });
   };
 in
 {

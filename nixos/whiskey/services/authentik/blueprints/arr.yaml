@@ -8,6 +8,10 @@ entries:
   # and the apps run with AuthenticationMethod=External (see
   # nixos/romeo/nixarr.nix).
   #
+  # Because it is domain-level, it also gates any other romeo vhost using
+  # nixos/romeo/authentik-forward-auth.nix (ABSync at absync.h.b.nel.family),
+  # with this application's policy (service_admins) deciding who gets in.
+  #
   # One provider covers every vhost: the session cookie is set on nel.family,
   # which spans both auth.nel.family (where the callback lands) and the app
   # hosts. A narrower cookie_domain like arr.b.nel.family would not cover the
