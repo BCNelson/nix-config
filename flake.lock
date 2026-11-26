@@ -9,11 +9,11 @@
         "rust-overlay": "rust-overlay_2"
       },
       "locked": {
-        "lastModified": 1795640368,
-        "narHash": "sha256-Bx5lNfSqVPu2VOgyn/gxiOkQqmHfyNKwEJ/EnVgGqaw=",
+        "lastModified": 1795680690,
+        "narHash": "sha256-Wr8aAScA6ealfWvAcpynUznekx79WafXLW/lcIg2vbM=",
         "ref": "refs/heads/main",
-        "rev": "b0b37f68210d7c42dce8d512cdb3d4bf62057470",
-        "revCount": 10,
+        "rev": "18a800dc8aa676f5ffa353d661eef5f17277085e",
+        "revCount": 19,
         "type": "git",
         "url": "https://git.bcnelson.dev/bcnelson/ABSync"
       },
