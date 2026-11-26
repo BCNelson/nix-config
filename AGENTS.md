@@ -271,6 +271,16 @@ Each block says why and gives the one-liner to hand the human.
 - Conventional commits with a scope: `feat(romeo): ...`, `fix(tailscale): ...`,
   `ci(forgejo): ...`.
 
+## Newer versions than nixpkgs
+
+To carry a package ahead of nixpkgs, add `overlays/bumps/<attr>.nix`
+returning our build (`prev.<attr>.overrideAttrs { version; src; }`, or
+`final.callPackage ../../pkgs/<attr>/package.nix { }` for a vendored PR). It
+is used only while strictly newer than nixpkgs' and supported on the platform,
+and warns `overlays/bumps/<attr>.nix is obsolete` once nixpkgs catches up --
+delete it then. Rules are in `overlays/bumps/default.nix`; don't hand-roll
+version comparisons in `modifications`. See the `bump-package` skill.
+
 ## Patching nixpkgs
 
 When a nixpkgs PR is slow to merge, add `./patches/<pr>.patch` to
@@ -287,3 +297,4 @@ days or temporarily add the PR branch as an input and use it as a host's
 - `secrets`: adding, editing, rotating agenix secrets
 - `add-host`: bringing a new machine into the flake
 - `diagnose-auto-update`: a host didn't apply a change
+- `bump-package`: carrying a package newer than nixpkgs (`overlays/bumps/`)

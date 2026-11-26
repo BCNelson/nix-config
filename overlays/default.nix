@@ -5,86 +5,13 @@
   # plus herdr-agent-parser, packaged in the herdr-android repo.
   additions = final: prev: import ../pkgs final.pkgs // inputs.herdr-android.overlays.default final prev;
 
-  # This one contains whatever you want to overlay
-  # You can change versions, add patches, set compilation flags, anything really.
-  # https://nixos.wiki/wiki/Overlays
-  modifications = final: prev: {
+  # Fixes, patches and wrappers on nixpkgs packages.
+  #
+  # Newer versions than nixpkgs has do NOT go here: add ./bumps/<attr>.nix
+  # instead (see ./bumps/default.nix). Those are composed in front, so `prev`
+  # below already holds whichever version won.
+  modifications = inputs.nixpkgs-unstable.lib.composeExtensions (import ./bumps { inherit inputs; }) (final: prev: {
     # libsForQt5.sddm = nixpkgs-unstable.libsForQt5.sddm;
-
-    # Codex releases faster than nixpkgs can currently package them. Use the
-    # official release binary while the channel is behind, then fall back to
-    # nixpkgs automatically once it overtakes the pin.
-    #
-    # The pin also wins a tie: nixpkgs' 0.167.0 source build fails in
-    # aws-lc-sys ("AWS_LC_SYS_USE_SYSTEM=1 requires a system-installed
-    # AWS-LC, but none was found" -- it only finds openssl), so nothing
-    # caches it and every host that pulls codex fails to build. Hand-off to
-    # nixpkgs therefore happens only once the channel ships a *newer* codex;
-    # check that one builds before letting it through.
-    codex =
-      let
-        pinnedVersion = "0.167.0";
-        targets = {
-          x86_64-linux = {
-            target = "x86_64-unknown-linux-musl";
-            sha256 = "9d64836106d5b374e90ee4454c7ebcde7ca7106558bd7e41a34b9f26ebda251a";
-            codeModeHostSha256 = "b5074d5dd64643b2c073927e494a588eff31c1f5a27f12c1e2c45f9a6cf07dd4";
-          };
-          aarch64-linux = {
-            target = "aarch64-unknown-linux-musl";
-            sha256 = "843489acb4d4b1079745c36b03c5963b887b83155af208fd53584e33ee8eb281";
-            codeModeHostSha256 = "6e99948fa20ca816a01f222a56afa261b321e00cbed611d76bb92c765fd11ec6";
-          };
-          x86_64-darwin = {
-            target = "x86_64-apple-darwin";
-            sha256 = "d8eb4a865a0b17319cde10347523e5bab0978d01725b39f4a639f40905e01221";
-            codeModeHostSha256 = "612d0dc2c7316fbf05ee922796f4d740a285b76a55d4c78e1b946ba621bdcc91";
-          };
-          aarch64-darwin = {
-            target = "aarch64-apple-darwin";
-            sha256 = "4b22a2a971be2791c3e31f912f3e77a88ebd64a65812a7289ccba65dd6425fe9";
-            codeModeHostSha256 = "876a3e263348ef0edaeae5cf5bc52a5c121141cefd15157ab0eeca305f3eb563";
-          };
-        };
-        platform = targets.${final.stdenv.hostPlatform.system};
-        usePin = builtins.compareVersions prev.codex.version pinnedVersion <= 0;
-      in
-      if usePin then
-        final.stdenvNoCC.mkDerivation {
-          pname = "codex";
-          version = pinnedVersion;
-
-          src = final.fetchurl {
-            url = "https://github.com/openai/codex/releases/download/rust-v${pinnedVersion}/codex-${platform.target}.tar.gz";
-            inherit (platform) sha256;
-          };
-          codeModeHostSrc = final.fetchurl {
-            url = "https://github.com/openai/codex/releases/download/rust-v${pinnedVersion}/codex-code-mode-host-${platform.target}.tar.gz";
-            sha256 = platform.codeModeHostSha256;
-          };
-
-          dontUnpack = true;
-          nativeBuildInputs = [ final.makeWrapper ];
-
-          installPhase = ''
-            runHook preInstall
-            mkdir -p "$out/bin"
-            tar -xzf "$src"
-            tar -xzf "$codeModeHostSrc"
-            install -m755 "codex-${platform.target}" "$out/bin/codex"
-            install -m755 "codex-code-mode-host-${platform.target}" "$out/bin/codex-code-mode-host"
-            wrapProgram "$out/bin/codex" \
-              --prefix PATH : ${final.lib.makeBinPath (
-                [ final.ripgrep ]
-                ++ final.lib.optionals final.stdenv.hostPlatform.isLinux [ final.bubblewrap ]
-              )}
-            runHook postInstall
-          '';
-
-          inherit (prev.codex) meta;
-        }
-      else
-        prev.codex;
 
     # gdal 3.13.1's zarr sharding test expects a `zarr.json.gmac` sidecar that
     # isn't produced in the `useMinimalFeatures = true` build (pulled in by
@@ -119,33 +46,6 @@
         nativeBuildInputs = [ patchelf ] ++ (old.nativeBuildInputs or [ ]);
       });
 
-    # herdr-core and herdr-desktop: pkgs/herdr-{core,desktop}/package.nix are
-    # copied verbatim from nixpkgs PR #584646 (core 0.1.18, desktop 0.1.13,
-    # head a2008e93). Whichever is newer wins, so once the channel ships that
-    # PR (or something later) these hand back to nixpkgs and its binary cache
-    # on their own; delete the vendored files then. The copy is whole files
-    # rather than an overrideAttrs bump because the PR also changes the
-    # postPatch substitutions and test skips that the new sources need.
-    #
-    # The vendored desktop also lists zstd in buildInputs, which nixpkgs'
-    # 0.1.10 lacks: cargoSetupHook forces ZSTD_SYS_USE_PKG_CONFIG=1 (26.11),
-    # so the channel's own build panics in zstd-sys. That was an overlay
-    # override here until now.
-    #
-    # callPackage resolves against final, so the desktop build is handed
-    # whichever herdr-core this picked, and the app launches that core.
-    herdr-core =
-      let
-        ours = final.callPackage ../pkgs/herdr-core/package.nix { };
-      in
-      if final.lib.versionOlder prev.herdr-core.version ours.version then ours else prev.herdr-core;
-
-    herdr-desktop =
-      let
-        ours = final.callPackage ../pkgs/herdr-desktop/package.nix { };
-      in
-      if final.lib.versionOlder prev.herdr-desktop.version ours.version then ours else prev.herdr-desktop;
-
     # Same hook, LIBSQLITE3_SYS_USE_PKG_CONFIG=1: voxtype 1.1.1 has no sqlite
     # in its buildInputs, so its binaries fail to link (`cannot find
     # -lsqlite3`). voxtype-vulkan (used on redo-3) inherits this override.
@@ -179,35 +79,9 @@
         old.buildCommand;
     });
 
-    # Wrap claude-code with extra tools it needs on PATH.
-    #
-    # We also carry a pinned bump (nixpkgs PR #545319, a plain version bump).
-    # The package fetches a prebuilt binary keyed by version + per-platform
-    # checksum, so overriding version and src with the PR's manifest values is
-    # enough. The pin is only applied when it's *newer* than what the channel
-    # already ships, so whichever version is later wins and the override
-    # becomes a no-op automatically once the channel catches up.
-    claude-code =
-      let
-        pinnedVersion = "2.1.219";
-        # sha256 checksums from the PR's manifest.json, per node platform-arch key.
-        checksums = {
-          "linux-x64" = "22cfd6f5b3061c0391ba84e9cf8c9deaa37783aac18b004d42ec061e98f00691";
-          "linux-arm64" = "1f834b322ba9d1291cc7ffeff16a6795a59145bda279dbd59cd7ecebc7b7f15a";
-          "darwin-arm64" = "a8e806faaefac53c7a0f26523d8a45c60dbef3407b14ef990c75765d08febc82";
-        };
-        platformKey = "${final.stdenv.hostPlatform.node.platform}-${final.stdenv.hostPlatform.node.arch}";
-        # Only override version/src when the channel's claude-code is older.
-        usePin = builtins.compareVersions prev.claude-code.version pinnedVersion < 0;
-        versionOverride = final.lib.optionalAttrs usePin {
-          version = pinnedVersion;
-          src = final.fetchurl {
-            url = "https://downloads.claude.ai/claude-code-releases/${pinnedVersion}/${platformKey}/claude";
-            sha256 = checksums.${platformKey};
-          };
-        };
-      in
-      prev.claude-code.overrideAttrs (oldAttrs: versionOverride // {
+    # Wrap claude-code with extra tools it needs on PATH (any version, bumped
+    # or not).
+    claude-code = prev.claude-code.overrideAttrs (oldAttrs: {
       postFixup = (oldAttrs.postFixup or "") + ''
         wrapProgram $out/bin/claude \
           --prefix PATH : ${final.lib.makeBinPath [
@@ -221,24 +95,6 @@
           ]}
       '';
     });
-
-    # Cursor's stable channel runs several releases ahead of nixpkgs, so we
-    # carry our own build of it in ../pkgs/code-cursor (see that file for what
-    # "our own build" means for a closed-source AppImage).
-    #
-    # Whichever tree is newer wins. When nixpkgs catches up or overtakes us --
-    # or on a system our package does not claim (darwin) -- `pkgs.code-cursor`
-    # is the channel's build again and ../pkgs/code-cursor stops being built at
-    # all. To get back ahead, run ../pkgs/code-cursor/update.sh.
-    code-cursor =
-      let
-        ours = final.callPackage ../pkgs/code-cursor { };
-        supported = builtins.elem final.stdenv.hostPlatform.system ours.meta.platforms;
-      in
-      if supported && builtins.compareVersions ours.version prev.code-cursor.version > 0 then
-        ours
-      else
-        prev.code-cursor;
 
     # 7.3.4-zen1 panics at boot: its sched-alt merge left a second, unguarded
     # `worker->current_at = worker->task->...` line after the
@@ -258,7 +114,7 @@
         inputs.nixpkgs-unstable-small.legacyPackages.${final.stdenv.hostPlatform.system}.linuxPackages_zen
       else
         prev.linuxPackages_zen;
-  };
+  });
 
   # When applied, the unstable nixpkgs set (declared in the flake inputs) will
   # be accessible through 'pkgs.unstable'
