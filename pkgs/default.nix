@@ -44,6 +44,7 @@ pkgs: rec {
   goose = pkgs.callPackage ./goose.nix { };
   goose-desktop = pkgs.callPackage ./goose-desktop.nix { };
   grok-bot = pkgs.callPackage ./grok-bot.nix { };
+  tasks-org = pkgs.callPackage ./tasks-org.nix { };
   # Deliberately not named `code-cursor`: that attribute must stay the nixpkgs
   # one so ../overlays/default.nix can compare the two versions and pick the
   # newer. See ./code-cursor/default.nix.

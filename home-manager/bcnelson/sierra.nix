@@ -37,6 +37,7 @@ in
     # `absync`). Built against our pkgs rather than the flake's packages output,
     # so it shares FFmpeg etc. with everything else here.
     (pkgs.callPackage "${inputs.absync}/nix/package.nix" { })
+    pkgs.tasks-org # Tasks.org desktop (upstream binary, pkgs/tasks-org.nix)
     pkgs.inkscape
     pkgs.photocraft # Rust image editor with layered PSD support
     pkgs.lightcraft # Rust photo library + raw developer (its companion)
