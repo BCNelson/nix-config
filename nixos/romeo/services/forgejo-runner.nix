@@ -118,6 +118,26 @@ in
       DynamicUser = lib.mkForce false;
       User = runnerUser;
       Group = runnerUser;
+      # Run the daemon inside the runner user's slice so it shares the CI
+      # memory budget below with the job containers it starts.
+      Slice = "user-${toString runnerUid}.slice";
+    };
+  };
+
+  # One memory budget for all of CI. Job containers live in the runner user's
+  # rootless Podman, i.e. under user-1010.slice, not under the runner service,
+  # and with capacity = 8 concurrent jobs that slice peaked at 42G (2026-11).
+  # romeo has no disk swap, so an unbounded build could push the kernel OOM
+  # killer onto immich, jellyfin or postgres. MemoryHigh throttles and reclaims
+  # first; at MemoryMax the OOM kill stays inside this slice, where job
+  # containers (--oom-score-adj=500 below) are the first victims.
+  # asDropin: user-1010.slice is instantiated from systemd's user-.slice
+  # template; a full unit file would replace it rather than extend it.
+  systemd.slices."user-${toString runnerUid}" = {
+    overrideStrategy = "asDropin";
+    sliceConfig = {
+      MemoryHigh = "20G";
+      MemoryMax = "24G";
     };
   };
 

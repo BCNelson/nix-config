@@ -46,6 +46,16 @@
 
   swapDevices = [ ];
 
+  # No disk swap (ZFS root), but a small compressed swap in RAM gives the
+  # kernel somewhere to push cold anon pages of idle services and lets
+  # systemd-oomd use swap-aware pressure ("No swap; memory pressure usage
+  # will be degraded" otherwise). 8G is the uncompressed ceiling, not a
+  # reservation; zstd typically stores it in ~2-3G.
+  zramSwap = {
+    enable = true;
+    memoryMax = 8 * 1024 * 1024 * 1024;
+  };
+
   hardware.enableAllFirmware = true;
   hardware.enableRedistributableFirmware = true;
   hardware.graphics = {
