@@ -6,6 +6,27 @@ let
   kicad = pkgs.kicad.overrideAttrs (old: {
     pythonPath = old.pythonPath ++ routingTools.pythonDeps;
   });
+
+  # `bao` aimed at the OpenBao server on romeo (nixos/romeo/services/openbao.nix),
+  # over the tailnet. A wrapper rather than a global BAO_ADDR, so a plain `bao`
+  # never talks to romeo by accident. `romeo-bao bootstrap` runs the setup
+  # script that romeo installs as openbao-bootstrap; it wants BAO_TOKEN set.
+  romeoBaoBootstrap = pkgs.writeShellApplication {
+    name = "romeo-bao-bootstrap";
+    runtimeInputs = [ pkgs.openbao pkgs.jq ];
+    text = builtins.readFile ../../nixos/romeo/services/openbao/bootstrap.sh;
+  };
+  romeoBao = pkgs.writeShellApplication {
+    name = "romeo-bao";
+    runtimeInputs = [ pkgs.openbao ];
+    text = ''
+      export BAO_ADDR=https://bao.romeo.b.nel.family
+      if [ "''${1:-}" = bootstrap ]; then
+        exec ${romeoBaoBootstrap}/bin/romeo-bao-bootstrap
+      fi
+      exec bao "$@"
+    '';
+  };
 in
 {
   imports = [
@@ -45,11 +66,7 @@ in
     kicad
     pkgs.spec-kit
     pkgs.pince
-    # CLI for the OpenBao server on romeo (nixos/romeo/services/openbao.nix),
-    # reachable over the tailnet. jq for its bootstrap script, which can be
-    # run from the checkout: bash nixos/romeo/services/openbao/bootstrap.sh
-    pkgs.openbao
-    pkgs.jq
+    romeoBao
     # Temporarily dropped: freecad-qt6's dep chain (vtk -> pdal -> gdal) is
     # broken and uncached on nixpkgs-unstable. pdal 2.9.3 fails to compile
     # against gdal 3.13.1 (CSLConstList -> char** in gdal/Raster.cpp:704).
@@ -61,8 +78,6 @@ in
   # KiCad's per-user SWIG plugin dir (PCB Editor > Tools > External Plugins).
   xdg.dataFile."kicad/${lib.versions.majorMinor kicad.version}/scripting/plugins/KiCadRoutingTools".source =
     "${routingTools}/share/kicad/scripting/plugins/KiCadRoutingTools";
-
-  home.sessionVariables.BAO_ADDR = "https://bao.romeo.b.nel.family";
 
   programs.mcp.kubernetes.enable = false;
 }
