@@ -1,8 +1,9 @@
 # Configure OpenBao for Forgejo Actions. Idempotent: rerun it after editing.
 #
-# Runs as a privileged client: export BAO_TOKEN (the root token from
-# `bao operator init`, or an admin token) before running it. BAO_ADDR is set
-# system-wide on romeo.
+# Runs as a privileged client: log in first (`bao login`, which stores the
+# token in ~/.vault-token) or export BAO_TOKEN, with the root token from
+# `bao operator init` or an admin token. BAO_ADDR is set system-wide on romeo;
+# on sierra run it as `romeo-bao bootstrap`.
 #
 # What it sets up:
 #   ci/                 KV v2 mount. Secrets for a repo live at
@@ -19,7 +20,14 @@
 # The audit device is not here: OpenBao only accepts audit devices declared
 # in its config (../openbao.nix).
 
-: "${BAO_TOKEN:?export BAO_TOKEN (root or admin token) first}"
+if [ "$(bao status -format=json 2>/dev/null | jq -r .initialized)" != true ]; then
+  echo "OpenBao at ${BAO_ADDR:-?} is not initialised yet: run 'bao operator init' first." >&2
+  exit 1
+fi
+if ! bao token lookup >/dev/null 2>&1; then
+  echo "Not logged in: run 'bao login' with the root token (or export BAO_TOKEN)." >&2
+  exit 1
+fi
 
 ISSUER="https://git.bcnelson.dev/api/actions"
 AUDIENCE="https://bao.romeo.b.nel.family"
