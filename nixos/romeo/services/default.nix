@@ -35,6 +35,7 @@ in {
     ./immich.nix
     ./immichframe.nix
     ./forgejo-runner.nix
+    ./openbao.nix
     ./opengym.nix
     ./trilium.nix
     ./peertube.nix

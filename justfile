@@ -284,7 +284,13 @@ test machine='vm_test' type='vm':
     NIX_DISK_IMAGE={{ justfile_directory() }}/test/working/test_vm/{{ machine }}.qcow2 ./result/bin/run-{{ machine }}-{{ type }}
     rm -rf {{ justfile_directory() }}/test/working/test_vm
 
+# Nix 2.35 evaluates flake sources lazily: a path like
+# ../secrets/masterKeys/yubikey5cblack.pub evaluates to a /nix/store/...-source
+# path that is never written unless something copies the tree. agenix hands
+# that path to rage as a string, and rage fails with "Identity file not found".
+# Archiving first puts the source, at the same hash, in the store.
 rekey:
+    nix flake archive . >/dev/null
     agenix rekey -a
 
 generate-secrets:
@@ -302,6 +308,7 @@ new-secrets:
     @echo "🔐 Generating age secrets..."
     agenix generate -a
     @echo "🔑 Rekeying for all hosts..."
+    nix flake archive . >/dev/null
     agenix rekey -a
 
 # Sync age secrets to Bitwarden
