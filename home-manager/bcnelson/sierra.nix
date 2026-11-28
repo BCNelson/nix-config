@@ -45,6 +45,11 @@ in
     kicad
     pkgs.spec-kit
     pkgs.pince
+    # CLI for the OpenBao server on romeo (nixos/romeo/services/openbao.nix),
+    # reachable over the tailnet. jq for its bootstrap script, which can be
+    # run from the checkout: bash nixos/romeo/services/openbao/bootstrap.sh
+    pkgs.openbao
+    pkgs.jq
     # Temporarily dropped: freecad-qt6's dep chain (vtk -> pdal -> gdal) is
     # broken and uncached on nixpkgs-unstable. pdal 2.9.3 fails to compile
     # against gdal 3.13.1 (CSLConstList -> char** in gdal/Raster.cpp:704).
@@ -56,6 +61,8 @@ in
   # KiCad's per-user SWIG plugin dir (PCB Editor > Tools > External Plugins).
   xdg.dataFile."kicad/${lib.versions.majorMinor kicad.version}/scripting/plugins/KiCadRoutingTools".source =
     "${routingTools}/share/kicad/scripting/plugins/KiCadRoutingTools";
+
+  home.sessionVariables.BAO_ADDR = "https://bao.romeo.b.nel.family";
 
   programs.mcp.kubernetes.enable = false;
 }
